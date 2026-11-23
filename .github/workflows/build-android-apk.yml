@@ -1,0 +1,55 @@
+name: Build Android APK (GSM Simulator)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java 21 (for Android Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install web dependencies & build dist
+        run: |
+          npm install
+          npm run build
+
+      - name: Initialize Capacitor Android project
+        run: |
+          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+          npx capacitor-assets generate --android || true
+
+      - name: Compile Debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Rename APK for easy download
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk GSM-Simulator-Android.apk
+
+      - name: Upload GSM-Simulator-Android.apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: GSM-Simulator-Android-APK
+          path: GSM-Simulator-Android.apk
+          retention-days: 30

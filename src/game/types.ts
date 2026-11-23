@@ -1,0 +1,659 @@
+export type GameScreen =
+  | 'TITLE_MENU'
+  | 'STORY_INTRO'
+  | 'MORNING_NEWS'
+  | 'PLAYING'
+  | 'PAUSED'
+  | 'DAY_SUMMARY'
+  | 'VICTORY'
+  | 'GAME_OVER';
+
+export type ShopTab =
+  | 'COUNTER'
+  | 'WORKSHOP'
+  | 'WHOLESALE'
+  | 'EMPIRE'
+  | 'MISSIONS'
+  | 'UPGRADES';
+
+export type ShopTier = 1 | 2 | 3;
+
+export type PhoneTier = 'entry' | 'mid' | 'flagship' | 'luxury';
+
+export type InspectionCategory = 'screen' | 'battery' | 'imei' | 'hardware';
+
+export type DefectId =
+  | 'screen_crack'
+  | 'screen_aftermarket'
+  | 'battery_degraded'
+  | 'battery_fake_chip'
+  | 'imei_unregistered'
+  | 'liquid_damage'
+  | 'camera_fog'
+  | 'cosmetic_worn';
+
+export interface DefectDefinition {
+  id: DefectId;
+  category: InspectionCategory;
+  name: string;
+  shortLabel: string;
+  description: string;
+  valuePenaltyRatio: number;
+  repairCost: number;
+  repairable: boolean;
+  leverageLine: string;
+  leverageDropRatio: number;
+}
+
+export type CustomModId = 'transparent_back' | 'gold_titanium' | 'rgb_logo';
+
+export interface CustomModSpec {
+  id: CustomModId;
+  name: string;
+  cost: number;
+  valueBoostRatio: number;
+  description: string;
+  badgeText: string;
+}
+
+export interface PhoneModelSpec {
+  id: string;
+  brand: string;
+  model: string;
+  storage: string;
+  tier: PhoneTier;
+  baseValue: number;
+  bodyColor: string;
+  accentColor: string;
+  cameraLayout: 'dual' | 'triple' | 'ultra' | 'fold';
+  releaseDay: number;
+}
+
+export interface PhoneDevice {
+  uid: string;
+  specId: string;
+  brand: string;
+  model: string;
+  storage: string;
+  tier: PhoneTier;
+  bodyColor: string;
+  accentColor: string;
+  cameraLayout: 'dual' | 'triple' | 'ultra' | 'fold';
+  baseValue: number;
+  batteryHealth: number;
+  reportedBatteryHealth: number;
+  batteryCycles: number;
+  imeiNumber: string;
+  imeiStatus: 'TR_REGISTERED' | 'UNREGISTERED_OVERSEAS';
+  warrantyMonths: number;
+  defects: DefectId[];
+  repairedDefects: DefectId[];
+  inspected: Record<InspectionCategory, boolean>;
+  purchasePrice: number;
+  repairSpend: number;
+  listedForSale: boolean;
+  askingPrice: number;
+  hasBoxAndCharger: boolean;
+  masterCrafted?: boolean;
+  isBrandNew?: boolean;
+  customMod?: CustomModId;
+}
+
+export type AccessoryId =
+  | 'tempered_glass'
+  | 'magsafe_case'
+  | 'gan_charger'
+  | 'car_mount'
+  | 'powerbank'
+  | 'tws_earbuds';
+
+export interface AccessorySpec {
+  id: AccessoryId;
+  name: string;
+  category: string;
+  wholesaleCost: number;
+  recommendedPrice: number;
+  minPrice: number;
+  maxPrice: number;
+  description: string;
+  demandWeight: number;
+}
+
+export interface AccessoryStockItem {
+  id: AccessoryId;
+  quantity: number;
+  retailPrice: number;
+  totalSold: number;
+}
+
+export interface BrandDistributor {
+  id: string;
+  name: string;
+  brands: string[];
+  minLevel: number;
+  minReputation: number;
+  wholesaleRatio: number;
+  tagline: string;
+  description: string;
+}
+
+export interface StoryChapter {
+  id: string;
+  chapterNumber: number;
+  title: string;
+  subtitle: string;
+  narrative: string;
+  mentorNote: string;
+  objectiveText: string;
+  rewardCash: number;
+  rewardXp: number;
+  metric:
+    | 'totalPhonesSold'
+    | 'totalAccessoriesSold'
+    | 'totalPhonesRepaired'
+    | 'totalBrandNewSold'
+    | 'shopTier'
+    | 'level';
+  target: number;
+}
+
+export type CustomerArchetypeId = 'student' | 'uncle' | 'influencer' | 'hustler' | 'vip';
+
+export interface CustomerArchetype {
+  id: CustomerArchetypeId;
+  title: string;
+  names: string[];
+  portraitPath: string;
+  fallbackColor: string;
+  startingPatience: number;
+  teaBonusPatience: number;
+  teaPriceSoften: number;
+  bluffTolerance: number;
+  markupTendency: number;
+  preferredTiers: PhoneTier[];
+  traitSummary: string;
+}
+
+export type EncounterType =
+  | 'SELLER'
+  | 'BUYER'
+  | 'TRADE_IN'
+  | 'WARRANTY_CLAIM'
+  | 'DATA_RECOVERY'
+  | 'EXPRESS_REPAIR'
+  | 'BULK_AUCTION'
+  | 'ACCESSORY_BUYER';
+
+export type EncounterOutcome =
+  | 'ACTIVE'
+  | 'DEAL_CLOSED'
+  | 'WALKED_OUT'
+  | 'DISMISSED';
+
+export interface DialogueMessage {
+  id: string;
+  speaker: 'customer' | 'player' | 'system';
+  text: string;
+  tone?: 'neutral' | 'positive' | 'warning' | 'danger';
+}
+
+export interface AccessoryOrderLine {
+  id: AccessoryId;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CrossSellAttachment {
+  id: AccessoryId;
+  name: string;
+  retailPrice: number;
+  profit: number;
+}
+
+export type LegacyPathId = 'EX_APPRENTICE' | 'BORN_MERCHANT' | 'SOCIAL_HUSTLER';
+
+export interface LegacyPathInfo {
+  id: LegacyPathId;
+  name: string;
+  title: string;
+  yearsSummary: string;
+  tagline: string;
+  passiveTitle: string;
+  passiveDetail: string;
+  dialogueName: string;
+  dialoguePreview: string;
+  accentColor: 'amber' | 'emerald' | 'sky';
+}
+
+export type NegotiationTone = 'friendly' | 'analytical' | 'firm';
+
+export type NegotiationPace = 'rushed' | 'steady' | 'slow';
+
+export type CustomerMood =
+  | 'excited'
+  | 'happy'
+  | 'calm'
+  | 'thinking'
+  | 'annoyed'
+  | 'angry';
+
+export interface CustomerReview {
+  id: string;
+  day: number;
+  customerName: string;
+  rating: number;
+  comment: string;
+  dealType: EncounterType;
+}
+
+export interface SoldPhoneRecord {
+  id: string;
+  daySold: number;
+  customerName: string;
+  archetypeId: CustomerArchetypeId;
+  deviceName: string;
+  salePrice: number;
+  hadDefects: boolean;
+  wasHappy: boolean;
+  warrantyResolved?: boolean;
+}
+
+export interface DataRecoveryJob {
+  title: string;
+  story: string;
+  softwareCost: number;
+  softwarePayout: number;
+  softwareSuccessRate: number;
+  cleanRoomCost: number;
+  cleanRoomPayout: number;
+}
+
+export interface CustomerEncounter {
+  id: string;
+  type: EncounterType;
+  archetypeId: CustomerArchetypeId;
+  customerName: string;
+  customerTitle: string;
+  portraitPath: string;
+  device: PhoneDevice;
+  /** For TRADE_IN: the old phone the customer brings to swap in */
+  tradeInDevice?: PhoneDevice;
+  /** Returning regular customer flag */
+  isRegular?: boolean;
+  regularNote?: string;
+  /** Whether a buyer/trade-in wants Credit Card Installment (POS) */
+  wantsInstallment?: boolean;
+  posAccepted?: boolean;
+  /** For WARRANTY_CLAIM: reference to prior sold phone */
+  warrantyRecord?: SoldPhoneRecord;
+  warrantyRepairCost?: number;
+  warrantyRefundCost?: number;
+  /** For DATA_RECOVERY */
+  dataRecoveryJob?: DataRecoveryJob;
+  customerPrice: number;
+  initialCustomerPrice: number;
+  secretLimit: number;
+  patience: number;
+  maxPatience: number;
+  moodScore: number;
+  mood: CustomerMood;
+  negotiationPace?: NegotiationPace;
+  lastToneUsed?: NegotiationTone;
+  lastMoodReason?: string;
+  usedLeverageDefects: DefectId[];
+  teaServed: boolean;
+  bluffUsed: boolean;
+  honestPitchUsed: boolean;
+  legacyDialogueUsed: boolean;
+  finalWarningGiven?: boolean;
+  rounds: number;
+  outcome: EncounterOutcome;
+  finalPrice?: number;
+  profitDelta?: number;
+  streakBonus?: number;
+  messages: DialogueMessage[];
+  bundleDevices?: PhoneDevice[];
+  expressDefectId?: DefectId;
+  expressPartCost?: number;
+  accessoryOrder?: AccessoryOrderLine[];
+  crossSellAttempted?: boolean;
+  crossSellAttached?: CrossSellAttachment;
+}
+
+export type UpgradeId =
+  | 'repair_bench'
+  | 'tea_samovar'
+  | 'pro_diagnostic'
+  | 'display_cabinet'
+  | 'parts_wholesale'
+  | 'neon_sign';
+
+export interface ShopUpgrade {
+  id: UpgradeId;
+  name: string;
+  cost: number;
+  summary: string;
+  benefitText: string;
+  highlightTag?: string;
+}
+
+export type DecorationId =
+  | 'vintage_sign'
+  | 'edison_lights'
+  | 'retro_shelf'
+  | 'led_showcase'
+  | 'tea_corner';
+
+export interface ShopDecoration {
+  id: DecorationId;
+  name: string;
+  cost: number;
+  prestige: number;
+  summary: string;
+  visualEffectText: string;
+}
+
+export type StaffId = 'apprentice' | 'master_tech' | 'sales_rep';
+
+export interface StaffMember {
+  id: StaffId;
+  name: string;
+  role: string;
+  hireCost: number;
+  dailyWage: number;
+  summary: string;
+  benefitText: string;
+  level2Bonus: string;
+  level3Bonus: string;
+}
+
+export interface ShopTierInfo {
+  tier: ShopTier;
+  name: string;
+  cost: number;
+  minReputation: number;
+  backdropPath: string;
+  showcaseSlots: number;
+  dailyCustomers: number;
+  baseRent: number;
+  prestigeBonus: number;
+  description: string;
+  unlocksText: string;
+}
+
+export interface DailyMarketEvent {
+  id: string;
+  kicker: string;
+  headline: string;
+  subheadline: string;
+  description: string;
+  gossipNote: string;
+  effectSummary: string;
+  kind: 'launch' | 'boom' | 'drop' | 'discount' | 'calm';
+  brandBoost?: string;
+  tierBoost?: PhoneTier;
+  valueMultiplier?: number;
+  buyerBudgetMultiplier?: number;
+  trImeiMultiplier?: number;
+  overseasImeiMultiplier?: number;
+  repairDiscount?: number;
+  launchedModels?: string[];
+}
+
+export type DailyQuestKind =
+  | 'USE_LEVERAGE'
+  | 'SELL_PHONE'
+  | 'REPAIR_PHONE'
+  | 'SERVE_TEA'
+  | 'BUY_BARGAIN'
+  | 'INSPECT_FULL'
+  | 'SELL_ACCESSORY'
+  | 'SELL_BRAND_NEW';
+
+export interface DailyQuest {
+  id: string;
+  kind: DailyQuestKind;
+  title: string;
+  description: string;
+  target: number;
+  progress: number;
+  reward: number;
+  xpReward: number;
+  claimed: boolean;
+}
+
+export interface CareerMilestone {
+  id: string;
+  title: string;
+  description: string;
+  rewardCash: number;
+  rewardXp: number;
+  target: number;
+  metric:
+    | 'totalPhonesSold'
+    | 'totalDefectsExposed'
+    | 'totalPhonesRepaired'
+    | 'bestDealStreak'
+    | 'discoveredModels'
+    | 'shopTier'
+    | 'totalProfitEarned'
+    | 'totalAccessoriesSold'
+    | 'totalBrandNewSold';
+}
+
+export interface LevelPerk {
+  level: number;
+  title: string;
+  description: string;
+}
+
+export interface InspectionOverlayData {
+  id: string;
+  category: InspectionCategory;
+  categoryLabel: string;
+  deviceName: string;
+  foundDefects: DefectId[];
+}
+
+// === EMPIRE, ONLINE CLASSIFIEDS, AUCTION, BRANCHES, BANK, MUSEUM ===
+
+export interface OnlineClassifiedListing {
+  id: string;
+  sellerName: string;
+  district: string;
+  title: string;
+  sellerNote: string;
+  askingPrice: number;
+  device: PhoneDevice;
+  riskTag: 'Temiz İlan' | 'Kelepir Fırsat' | 'Şüpheli İlan';
+  bought: boolean;
+}
+
+export interface ShippingOrder {
+  id: string;
+  buyerName: string;
+  city: string;
+  requestedTier: PhoneTier;
+  requireClean: boolean;
+  bonusMultiplier: number;
+  shippingFee: number;
+  note: string;
+  fulfilled: boolean;
+}
+
+export interface CustomsAuctionLot {
+  id: string;
+  lotTitle: string;
+  description: string;
+  startingBid: number;
+  devices: PhoneDevice[];
+  bonusAccessories: { id: AccessoryId; quantity: number }[];
+  resolved: boolean;
+  wonByPlayer: boolean;
+  winningBid: number;
+}
+
+export type BranchId = 'street_kiosk' | 'mall_corner' | 'service_hub';
+
+export interface BranchSpec {
+  id: BranchId;
+  name: string;
+  district: string;
+  unlockCost: number;
+  minLevel: number;
+  minReputation: number;
+  dailyNetIncome: number;
+  offlineHourlyRate: number;
+  prestigeBonus: number;
+  description: string;
+}
+
+export interface BankLoanOffer {
+  id: string;
+  name: string;
+  principal: number;
+  interestRate: number;
+  termDays: number;
+  description: string;
+}
+
+export interface ActiveLoan {
+  id: string;
+  name: string;
+  remainingBalance: number;
+  dailyPayment: number;
+  daysLeft: number;
+}
+
+export type MuseumItemId =
+  | 'nokya_3310'
+  | 'motorazr_v3'
+  | 'eriksun_t28'
+  | 'aphone_2g'
+  | 'blakberi_bold';
+
+export interface MuseumItemSpec {
+  id: MuseumItemId;
+  name: string;
+  year: string;
+  cost: number;
+  prestigeBonus: number;
+  dailyPassiveCash: number;
+  story: string;
+  accentColor: string;
+}
+
+export interface RivalMerchantState {
+  name: string;
+  shopName: string;
+  marketShare: number; // 0 to 100 (Player share = 100 - marketShare)
+  buyoutCost: number;
+  boughtOut: boolean;
+  lastTaunt: string;
+  promoUsedToday: boolean;
+}
+
+export interface OfflineEarningsSummary {
+  minutesAway: number;
+  baseCash: number;
+  sources: string[];
+}
+
+export interface DayFinancials {
+  day: number;
+  phonesBought: number;
+  phonesSold: number;
+  accessoriesSold: number;
+  buySpend: number;
+  wholesaleSpend: number;
+  repairSpend: number;
+  salesRevenue: number;
+  accessoryRevenue: number;
+  serviceRevenue: number;
+  branchIncome: number;
+  questRewards: number;
+  rentCost: number;
+  staffWages: number;
+  posCommission: number;
+  loanPayments: number;
+  taxPaid: number;
+  reputationDelta: number;
+  dealsLost: number;
+  autoRepairedNote?: string;
+  passiveAccessoryNote?: string;
+}
+
+export interface DayHistoryEntry {
+  day: number;
+  headline: string;
+  revenue: number;
+  expenses: number;
+  netCashFlow: number;
+  phonesSold: number;
+  phonesBought: number;
+  reputationEnd: number;
+  reputationDelta: number;
+  cashEnd: number;
+}
+
+export interface ShopState {
+  day: number;
+  cash: number;
+  reputation: number;
+  xp: number;
+  level: number;
+  legacyPath: LegacyPathId;
+  dealStreak: number;
+  bestDealStreak: number;
+  shopTier: ShopTier;
+  inventory: PhoneDevice[];
+  accessories: Record<AccessoryId, AccessoryStockItem>;
+  upgrades: UpgradeId[];
+  decorations: DecorationId[];
+  activeDecorations: DecorationId[];
+  staff: StaffId[];
+  staffLevels: Record<StaffId, number>;
+  branches: BranchId[];
+  museumItems: MuseumItemId[];
+  activeLoans: ActiveLoan[];
+  distributorLoyalty: Record<string, number>;
+  rival: RivalMerchantState;
+  soldHistory: SoldPhoneRecord[];
+  onlineListings: OnlineClassifiedListing[];
+  shippingOrders: ShippingOrder[];
+  dailyAuctionLot: CustomsAuctionLot | null;
+  weeklyTaxDue: number;
+  loginStreak: number;
+  lastLoginDateStr: string;
+  dailyStreakClaimed: boolean;
+  lastSavedAt: number;
+  dailyNews: DailyMarketEvent;
+  dailyWholesaleDiscountBrand?: string;
+  dailyQuests: DailyQuest[];
+  claimedMilestoneIds: string[];
+  claimedChapterIds: string[];
+  discoveredSpecIds: string[];
+  dailyQueue: CustomerEncounter[];
+  currentQueueIndex: number;
+  todayStats: DayFinancials;
+  history: DayHistoryEntry[];
+  reviews: CustomerReview[];
+  totalProfitEarned: number;
+  totalPhonesSold: number;
+  totalBrandNewSold: number;
+  totalAccessoriesSold: number;
+  totalPhonesRepaired: number;
+  totalDefectsExposed: number;
+  totalTeasServed: number;
+  totalTradeInsDone: number;
+  totalAuctionsWon: number;
+  bestSingleDealProfit: number;
+  storyIntroSeen: boolean;
+  endlessMode: boolean;
+}
+
+export interface FloatingFeedback {
+  id: string;
+  text: string;
+  tone: 'positive' | 'negative' | 'amber';
+}

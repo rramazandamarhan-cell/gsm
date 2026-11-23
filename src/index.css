@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    background-color: #0f141b;
+    color: #f4f6f8;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tactile Esnaf Negotiation Range Slider */
+input[type="range"].pasaj-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"].pasaj-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+input[type="range"].pasaj-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 6px;
+  background: #f59e0b;
+  border: 2px solid #11161d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  margin-top: -7px;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), background-color 140ms ease;
+}
+
+input[type="range"].pasaj-slider:hover::-webkit-slider-thumb,
+input[type="range"].pasaj-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.1);
+  background: #fbbf24;
+}
+
+input[type="range"].pasaj-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+input[type="range"].pasaj-slider::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 6px;
+  background: #f59e0b;
+  border: 2px solid #11161d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* Compositor-only Game Feedback Animations */
+@keyframes floatUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-18px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.97);
+  }
+}
+
+@keyframes subtleShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes stampPop {
+  0% {
+    opacity: 0;
+    transform: scale(1.35) rotate(-8deg);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(0.96) rotate(-4deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-4deg);
+  }
+}
+
+@keyframes repairFlash {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-float-delta {
+  animation: floatUpFade 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-subtle-shake {
+  animation: subtleShake 240ms ease-in-out;
+}
+
+.animate-stamp-pop {
+  animation: stampPop 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-repair-flash {
+  animation: repairFlash 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-delta,
+  .animate-subtle-shake,
+  .animate-stamp-pop,
+  .animate-repair-flash {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Custom subtle scrollbars inside panels */
+.pasaj-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.pasaj-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pasaj-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+.pasaj-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}

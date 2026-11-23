@@ -1,0 +1,6 @@
+{
+  "name": "PASAJ GSM — Telefon Al-Sat ve Pazarlık Simülatörü",
+  "description": "2D illüstrasyonlu telefon ekspertiz, tamir ve esprili Türk esnaf pazarlığı simülasyon oyunu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
