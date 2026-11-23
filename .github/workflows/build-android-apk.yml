@@ -25,12 +25,12 @@ jobs:
 
       - name: Install web dependencies & build dist
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
 
       - name: Initialize Capacitor Android project
         run: |
-          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets
+          npm install --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets
           if [ ! -d "android" ]; then
             npx cap add android
           fi
