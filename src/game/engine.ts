@@ -348,8 +348,8 @@ export function getMoodDisplay(mood: CustomerMood): {
         simpleLabel: bi('Kararsız', 'Undecided'),
         emoji: '🙂',
         shortNote: bi(
-          'Pazarlığı tartıyor, üslubun belirleyici olacak',
-          'Weighing the deal — your tone will decide'
+          'Pazarlığı tartıyor, teklifin belirleyici olacak',
+          'Weighing the deal — your offer will decide'
         ),
         tone: 'neutral',
       };
@@ -359,8 +359,8 @@ export function getMoodDisplay(mood: CustomerMood): {
         simpleLabel: bi('Kararsız', 'Undecided'),
         emoji: '🤔',
         shortNote: bi(
-          'Kararsız — doğru argüman veya samimi üslup lazım',
-          'Undecided — needs a solid argument or friendly tone'
+          'Kararsız — sağlam bir koz veya çay ikramı işe yarar',
+          'Undecided — leverage or a cup of tea will help'
         ),
         tone: 'warning',
       };
@@ -370,8 +370,8 @@ export function getMoodDisplay(mood: CustomerMood): {
         simpleLabel: bi('Sinirli', 'Angry'),
         emoji: '😠',
         shortNote: bi(
-          'Sert veya yavaş pazarlık canını sıktı, dikkat!',
-          'Harsh or slow haggling annoyed them — be careful!'
+          'İnatçı veya yavaş pazarlık canını sıktı, dikkat!',
+          'Stubborn or slow haggling annoyed them — be careful!'
         ),
         tone: 'danger',
       };
@@ -3550,7 +3550,7 @@ export function evaluatePlayerOffer(
   if (tone === 'friendly') {
     moodDelta += legacyPath === 'SOCIAL_HUSTLER' ? 8 : 6;
     reasonParts.push(
-      legacyPath === 'SOCIAL_HUSTLER' ? 'Samimi Üslup (+8)' : 'Samimi Üslup (+6)'
+      legacyPath === 'SOCIAL_HUSTLER' ? 'Esnaf İletişimi (+8)' : 'Esnaf İletişimi (+6)'
     );
   } else if (tone === 'analytical') {
     const allInspected = inspectedCount >= 4;

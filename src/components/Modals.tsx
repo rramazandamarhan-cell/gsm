@@ -30,6 +30,7 @@ interface PauseModalProps {
   onRestart: () => void;
   onTitle: () => void;
   onOpenCompliance?: () => void;
+  onOpenAnalytics?: () => void;
 }
 
 export const PauseModal: React.FC<PauseModalProps> = ({
@@ -37,65 +38,94 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   onRestart,
   onTitle,
   onOpenCompliance,
+  onOpenAnalytics,
 }) => {
-  const { bi } = useLanguage();
+  const { lang, setLang, bi } = useLanguage();
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/75 p-3 sm:p-4 overflow-y-auto pasaj-scroll">
-      <div className="w-full max-w-sm my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-5 shadow-2xl">
-        <div className="mb-3">
-          <BrandLogo size="modal" />
-        </div>
-        <h2 className="font-display text-xl font-bold text-slate-50 text-center mb-1">
-          {bi('Oyun Duraklatıldı', 'Game Paused')}
-        </h2>
-        <p className="text-sm text-slate-400 mb-6">
-          {bi(
-            'İlerlemen otomatik kaydedildi. İstediğin zaman devam edebilirsin.',
-            'Your progress is auto-saved. Resume whenever you are ready.'
-          )}
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-2.5">
+      <div className="w-full max-w-md max-h-[94dvh] overflow-hidden rounded-2xl border border-white/10 bg-[#171F2A] p-4 shadow-2xl flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <BrandLogo size="compact" />
+            <div className="min-w-0">
+              <h2 className="font-display text-base sm:text-lg font-extrabold text-slate-50 leading-tight truncate">
+                {bi('Oyun Duraklatıldı', 'Game Paused')}
+              </h2>
+              <p className="text-[11px] text-slate-400 truncate">
+                {bi('İlerlemen otomatik kaydedildi.', 'Your progress is auto-saved.')}
+              </p>
+            </div>
+          </div>
 
-        <div className="flex flex-col gap-2.5">
-          <button
-            type="button"
-            onClick={onResume}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Play className="w-4 h-4 fill-slate-950" />
-            <span>{bi('Devam Et', 'Resume')}</span>
-          </button>
+          <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/12 bg-[#0F151E] p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setLang('tr')}
+              className={`rounded-md px-2 py-1 text-[10.5px] font-extrabold cursor-pointer ${
+                lang === 'tr' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
+              }`}
+            >
+              TR
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang('en')}
+              className={`rounded-md px-2 py-1 text-[10.5px] font-extrabold cursor-pointer ${
+                lang === 'en' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
+              }`}
+            >
+              EN
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onResume}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
+        >
+          <Play className="w-4 h-4 fill-slate-950" />
+          <span>{bi('Devam Et', 'Resume')}</span>
+        </button>
+
+        <div className="grid grid-cols-2 gap-2">
+          {onOpenAnalytics && (
+            <button
+              type="button"
+              onClick={onOpenAnalytics}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/12 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/20 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>{bi('İstatistikler', 'Analytics')}</span>
+            </button>
+          )}
 
           {onOpenCompliance && (
             <button
               type="button"
               onClick={onOpenCompliance}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/12 px-5 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/35 bg-sky-500/12 px-3 py-2 text-xs font-bold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer"
             >
-              <ShieldCheck className="w-4 h-4 text-sky-400" />
-              <span>
-                {bi(
-                  'Ayarlar, Dil & Mağaza Merkezi',
-                  'Settings, Language & Privacy'
-                )}
-              </span>
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span>{bi('Ayarlar & Gizlilik', 'Settings & Privacy')}</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={onRestart}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#202B3A] px-5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-[#2A374A] transition-colors whitespace-nowrap cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#202B3A] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-[#2A374A] transition-colors whitespace-nowrap cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4 text-slate-400" />
+            <RotateCcw className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>{bi('Sıfırdan Başla', 'Restart Career')}</span>
           </button>
 
           <button
             type="button"
             onClick={onTitle}
-            className="rounded-xl px-5 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-100 transition-colors whitespace-nowrap cursor-pointer"
+            className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-[#131B26] px-3 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 transition-colors whitespace-nowrap cursor-pointer"
           >
-            {bi('Ana Menüye Dön', 'Back to Title Screen')}
+            {bi('Ana Menü', 'Title Screen')}
           </button>
         </div>
       </div>
@@ -459,17 +489,17 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
   const rank = getShopRank(shop);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 p-2.5 sm:p-4 overflow-y-auto pasaj-scroll">
-      <div className="w-full max-w-4xl my-auto max-h-[90dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-4 sm:p-6 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-0.5">
-              <BarChart3 className="w-4 h-4" />
-              <span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2">
+      <div className="w-full max-w-4xl max-h-[95dvh] flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#171F2A] p-3 sm:p-4 shadow-2xl">
+        <div className="shrink-0 flex items-center justify-between gap-2 mb-2.5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[10.5px] font-semibold text-amber-400">
+              <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">
                 {bi('CANLI DÜKKAN İSTATİSTİKLERİ', 'LIVE SHOP ANALYTICS')} · {rank}
               </span>
             </div>
-            <h2 className="font-display text-2xl font-extrabold text-slate-50">
+            <h2 className="font-display text-base sm:text-xl font-extrabold text-slate-50 leading-tight truncate">
               {bi(
                 `Gün ${shop.day} Performans & Kasa Analizi`,
                 `Day ${shop.day} Performance & Cashflow`
@@ -480,48 +510,48 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label={bi('İstatistik panelini kapat', 'Close analytics modal')}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#202B3A] text-slate-300 hover:text-slate-50 cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#202B3A] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="mb-4">
+        <div className="flex-1 min-h-0 overflow-hidden mb-2.5">
           <DayAnalyticsChart history={combinedHistory} todayStats={shop.todayStats} />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs tabular-nums">
-          <div className="rounded-xl border border-white/8 bg-[#121822] p-3">
-            <div className="text-slate-400 mb-0.5">
+        <div className="shrink-0 grid grid-cols-4 gap-2 text-[11px] tabular-nums">
+          <div className="rounded-xl border border-white/8 bg-[#121822] p-2">
+            <div className="text-[10px] text-slate-400 truncate">
               {bi('Toplam Satış', 'Total Sold')}
             </div>
-            <div className="font-mono text-lg font-bold text-emerald-400">
+            <div className="font-mono text-sm sm:text-base font-bold text-emerald-400">
               {shop.totalPhonesSold} {bi('cihaz', 'phones')}
             </div>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#121822] p-3">
-            <div className="text-slate-400 mb-0.5">
-              {bi('Rekor Tek Satış', 'Best Single Deal')}
+          <div className="rounded-xl border border-white/8 bg-[#121822] p-2">
+            <div className="text-[10px] text-slate-400 truncate">
+              {bi('Rekor Satış', 'Best Deal')}
             </div>
-            <div className="font-mono text-lg font-bold text-amber-400">
+            <div className="font-mono text-sm sm:text-base font-bold text-amber-400">
               {shop.bestSingleDealProfit > 0
                 ? `+${formatTRY(shop.bestSingleDealProfit)}`
                 : '—'}
             </div>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#121822] p-3">
-            <div className="text-slate-400 mb-0.5">
-              {bi('Yakalanan Kusur', 'Defects Exposed')}
+          <div className="rounded-xl border border-white/8 bg-[#121822] p-2">
+            <div className="text-[10px] text-slate-400 truncate">
+              {bi('Yakalanan Kusur', 'Defects')}
             </div>
-            <div className="font-mono text-lg font-bold text-slate-100">
+            <div className="font-mono text-sm sm:text-base font-bold text-slate-100">
               {shop.totalDefectsExposed}
             </div>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#121822] p-3">
-            <div className="text-slate-400 mb-0.5">
-              {bi('İkram Edilen Çay', 'Teas Served')}
+          <div className="rounded-xl border border-white/8 bg-[#121822] p-2">
+            <div className="text-[10px] text-slate-400 truncate">
+              {bi('Çay İkramı', 'Teas Served')}
             </div>
-            <div className="font-mono text-lg font-bold text-slate-100">
+            <div className="font-mono text-sm sm:text-base font-bold text-slate-100">
               {shop.totalTeasServed}
             </div>
           </div>
@@ -549,25 +579,25 @@ export const EndModal: React.FC<EndModalProps> = ({
   const rank = getShopRank(state);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/82 p-3 sm:p-4 overflow-y-auto pasaj-scroll">
-      <div className="w-full max-w-md my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-5 sm:p-7 text-center shadow-2xl">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#222E3E] border border-white/10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2.5">
+      <div className="w-full max-w-md max-h-[95dvh] overflow-hidden rounded-2xl border border-white/10 bg-[#171F2A] p-4 sm:p-5 text-center shadow-2xl">
+        <div className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#222E3E] border border-white/10">
           {isVictory ? (
-            <Award className="w-7 h-7 text-amber-400" />
+            <Award className="w-6 h-6 text-amber-400" />
           ) : (
-            <AlertTriangle className="w-7 h-7 text-rose-400" />
+            <AlertTriangle className="w-6 h-6 text-rose-400" />
           )}
         </div>
 
-        <div className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400 mb-1">
+        <div className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-amber-400 mb-0.5">
           {rank}
         </div>
-        <h2 className="font-display text-3xl font-extrabold text-slate-50 mb-2">
+        <h2 className="font-display text-2xl font-extrabold text-slate-50 mb-1.5">
           {isVictory
             ? bi('GSM İmparatoru Oldun!', 'You Built a GSM Empire!')
             : bi('Kepenk İndirildi', 'Shutters Closed')}
         </h2>
-        <p className="text-sm text-slate-300 leading-relaxed mb-6">
+        <p className="text-xs text-slate-300 leading-snug mb-3.5">
           {isVictory
             ? bi(
                 `GSM Showroom’unu açıp ${formatTRY(VICTORY_CASH_GOAL)} kasa ve ${VICTORY_REPUTATION_GOAL}+ itibar hedefine ulaşarak sektörün zirvesine çıktın!`,
@@ -579,45 +609,45 @@ export const EndModal: React.FC<EndModalProps> = ({
               )}
         </p>
 
-        <div className="grid grid-cols-3 gap-3 border-y border-white/10 py-4 mb-6 tabular-nums">
+        <div className="grid grid-cols-3 gap-2 border-y border-white/10 py-2.5 mb-3.5 tabular-nums">
           <div>
-            <div className="text-xs text-slate-400 mb-0.5">
+            <div className="text-[10.5px] text-slate-400">
               {bi('Toplam Gün', 'Total Days')}
             </div>
-            <div className="font-mono text-lg font-bold text-slate-100">{state.day}</div>
+            <div className="font-mono text-base font-bold text-slate-100">{state.day}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-400 mb-0.5">
+            <div className="text-[10.5px] text-slate-400">
               {bi('Satılan Cihaz', 'Phones Sold')}
             </div>
-            <div className="font-mono text-lg font-bold text-emerald-400">
+            <div className="font-mono text-base font-bold text-emerald-400">
               {state.totalPhonesSold}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400 mb-0.5">
+            <div className="text-[10.5px] text-slate-400">
               {bi('Son Kasa', 'Final Cash')}
             </div>
-            <div className="font-mono text-lg font-bold text-amber-400">
+            <div className="font-mono text-base font-bold text-amber-400">
               {formatTRY(state.cash)}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2.5">
+        <div className="flex items-center gap-2">
           {isVictory && onContinueEndless && (
             <button
               type="button"
               onClick={onContinueEndless}
-              className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
+              className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
             >
-              {bi('Sonsuz Modda Devam Et', 'Continue in Endless Mode')}
+              {bi('Sonsuz Mod', 'Endless Mode')}
             </button>
           )}
           <button
             type="button"
             onClick={onRestart}
-            className={`w-full rounded-xl px-6 py-3 text-sm font-bold transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex-1 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors whitespace-nowrap cursor-pointer ${
               isVictory
                 ? 'border border-white/15 bg-[#202B3A] text-slate-200 hover:bg-[#2A374A]'
                 : 'bg-amber-500 text-slate-950 hover:bg-amber-400'

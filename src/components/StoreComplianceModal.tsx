@@ -4,7 +4,6 @@ import {
   Check,
   Copy,
   Download,
-  ExternalLink,
   FileText,
   Globe,
   MessageSquare,
@@ -69,6 +68,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   const [selectedStars, setSelectedStars] = useState(shop.ratedApp ? 5 : 0);
   const [feedbackDraft, setFeedbackDraft] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
+  const [legalView, setLegalView] = useState<'privacy' | 'terms'>('privacy');
 
   const unlockedCount = STORE_ACHIEVEMENTS.filter((a) => a.check(shop)).length;
   const totalPoints = STORE_ACHIEVEMENTS.reduce(
@@ -462,11 +462,40 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                       </button>
                     )}
                   </div>
-                  <p className="text-[10.5px] text-slate-300 leading-snug">
-                    {bi(
-                      'GSM Simulator verilerinizi yalnızca cihaz içi localStorage alanında saklar. Kişisel veri, konum veya reklam kimliği toplamaz.',
-                      'GSM Simulator stores progress strictly on-device via localStorage. Zero personal data, location, or ad tracking is collected.'
-                    )}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setLegalView('privacy')}
+                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                        legalView === 'privacy'
+                          ? 'bg-sky-500 text-slate-950'
+                          : 'border border-white/10 bg-[#101722] text-slate-300'
+                      }`}
+                    >
+                      {bi('Gizlilik Özeti', 'Privacy Summary')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLegalView('terms')}
+                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                        legalView === 'terms'
+                          ? 'bg-sky-500 text-slate-950'
+                          : 'border border-white/10 bg-[#101722] text-slate-300'
+                      }`}
+                    >
+                      {bi('Kullanım Koşulları', 'Terms of Use')}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-300 leading-snug">
+                    {legalView === 'privacy'
+                      ? bi(
+                          'GSM Simulator verilerinizi yalnızca cihaz içi localStorage alanında saklar. Kişisel veri, konum, mikrofon veya reklam kimliği toplamaz ve üçüncü taraflarla paylaşmaz.',
+                          'GSM Simulator stores progress strictly on-device via localStorage. Zero personal data, location, microphone, or ad tracking is collected or shared.'
+                        )
+                      : bi(
+                          'Bu oyun tamamen kurgusal bir ticaret simülasyonudur. Gerçek para ile kumar/bahis içermez. Marka ve cihaz isimleri parodi niteliğindedir.',
+                          'This game is a purely fictional trading simulation with no real-money gambling. All brand and device names are parody creations.'
+                        )}
                   </p>
                   <div className="grid grid-cols-2 gap-1.5 text-[10px]">
                     <div className="rounded border border-emerald-500/25 bg-[#101722] px-2 py-1">
@@ -477,26 +506,6 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                       <span className="text-slate-400">{bi('Yaş:', 'Rating:')}</span>{' '}
                       <strong className="text-amber-300">PEGI 3 / 4+</strong>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px]">
-                    <a
-                      href="/privacy.html"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 underline"
-                    >
-                      <span>{bi('Gizlilik Politikası', 'Privacy Policy')}</span>
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                    <a
-                      href="/terms.html"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 underline"
-                    >
-                      <span>{bi('Koşullar', 'Terms')}</span>
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
                   </div>
                 </div>
 
@@ -570,7 +579,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
 
                 <div className="space-y-1.5">
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                     placeholder='{"day": 5, "cash": 24500, ...}'

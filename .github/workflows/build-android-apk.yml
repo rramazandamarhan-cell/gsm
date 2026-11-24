@@ -44,10 +44,149 @@ jobs:
 
       - name: Configure Landscape Fullscreen, Store Icons & Version Stamping
         run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ] && ! grep -q 'android:screenOrientation' "$MANIFEST"; then
-            python3 -c 'import xml.etree.ElementTree as ET; p="android/app/src/main/AndroidManifest.xml"; txt=open(p,encoding="utf-8").read().replace("<activity","<activity android:screenOrientation=\"sensorLandscape\"",1); open(p,"w",encoding="utf-8").write(txt); ET.parse(p); print("Configured sensorLandscape OK")'
-          fi
+          python3 - << 'PYEOF'
+          import glob, os, re
+          import xml.etree.ElementTree as ET
+
+          # 1. Patch AndroidManifest.xml for sensorLandscape & fullscreen configChanges
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          if os.path.exists(manifest_path):
+              txt = open(manifest_path, encoding="utf-8").read()
+              if 'android:screenOrientation' not in txt:
+                  txt = txt.replace('<activity', '<activity android:screenOrientation="sensorLandscape"', 1)
+              open(manifest_path, "w", encoding="utf-8").write(txt)
+              ET.parse(manifest_path)
+              print("Configured AndroidManifest.xml sensorLandscape OK")
+
+          # 2. Patch res/values/styles.xml for dark edge-to-edge fullscreen & notch cutout coverage
+          styles_path = "android/app/src/main/res/values/styles.xml"
+          if os.path.exists(styles_path):
+              ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+              tree = ET.parse(styles_path)
+              root = tree.getroot()
+              fullscreen_items = {
+                  "android:windowFullscreen": "true",
+                  "android:windowBackground": "#0F141B",
+                  "android:colorBackground": "#0F141B",
+                  "android:statusBarColor": "@android:color/transparent",
+                  "android:navigationBarColor": "@android:color/transparent",
+                  "android:windowDrawsSystemBarBackgrounds": "true",
+                  "android:windowLayoutInDisplayCutoutMode": "shortEdges",
+                  "android:enforceNavigationBarContrast": "false",
+                  "android:enforceStatusBarContrast": "false",
+              }
+              for style_el in root.findall("style"):
+                  sname = style_el.get("name", "")
+                  if sname in ("AppTheme", "AppTheme.NoActionBar", "AppTheme.NoActionBarLaunch"):
+                      existing = {item.get("name"): item for item in style_el.findall("item")}
+                      if sname == "AppTheme.NoActionBarLaunch" and "android:background" in existing:
+                          existing["android:background"].text = "#0F141B"
+                      for k, v in fullscreen_items.items():
+                          if k in existing:
+                              existing[k].text = v
+                          else:
+                              el = ET.SubElement(style_el, "item", {"name": k})
+                              el.text = v
+              tree.write(styles_path, encoding="utf-8", xml_declaration=True)
+              ET.parse(styles_path)
+              print("Patched styles.xml for dark edge-to-edge fullscreen OK")
+
+          # 3. Patch MainActivity.java for Android Sticky Immersive Fullscreen (hides status & nav bars)
+          main_activities = glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True)
+          if main_activities:
+              ma_path = main_activities[0]
+              orig = open(ma_path, encoding="utf-8").read()
+              pkg_match = re.search(r'^\s*package\s+([^;]+);', orig, re.MULTILINE)
+              pkg_name = pkg_match.group(1).strip() if pkg_match else "com.esnafgsm.simulator"
+              java_code = f'''package {pkg_name};
+
+          import android.graphics.Color;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
+          import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsCompat;
+          import androidx.core.view.WindowInsetsControllerCompat;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {{
+              @Override
+              public void onCreate(Bundle savedInstanceState) {{
+                  super.onCreate(savedInstanceState);
+                  applyImmersiveFullscreen();
+              }}
+
+              @Override
+              public void onResume() {{
+                  super.onResume();
+                  applyImmersiveFullscreen();
+              }}
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {{
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) {{
+                      applyImmersiveFullscreen();
+                  }}
+              }}
+
+              @SuppressWarnings("deprecation")
+              private void applyImmersiveFullscreen() {{
+                  Window window = getWindow();
+                  if (window == null) return;
+
+                  int darkBg = Color.parseColor("#0F141B");
+                  View decorView = window.getDecorView();
+                  decorView.setBackgroundColor(darkBg);
+                  window.setStatusBarColor(Color.TRANSPARENT);
+                  window.setNavigationBarColor(Color.TRANSPARENT);
+                  window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+                  if (getBridge() != null && getBridge().getWebView() != null) {{
+                      getBridge().getWebView().setBackgroundColor(darkBg);
+                  }}
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {{
+                      WindowManager.LayoutParams lp = window.getAttributes();
+                      lp.layoutInDisplayCutoutMode =
+                          Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                              ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                              : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                      window.setAttributes(lp);
+                  }}
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {{
+                      window.setNavigationBarContrastEnforced(false);
+                      window.setStatusBarContrastEnforced(false);
+                  }}
+
+                  WindowCompat.setDecorFitsSystemWindows(window, false);
+                  WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decorView);
+                  if (controller != null) {{
+                      controller.setSystemBarsBehavior(
+                          WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                      );
+                      controller.hide(WindowInsetsCompat.Type.systemBars());
+                  }}
+
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {{
+                      decorView.setSystemUiVisibility(
+                          View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                              | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                              | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                              | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                              | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                              | View.SYSTEM_UI_FLAG_FULLSCREEN
+                      );
+                  }}
+              }}
+          }}
+          '''
+              open(ma_path, "w", encoding="utf-8").write(java_code.strip() + "\n")
+              print(f"Patched {ma_path} for Sticky Immersive Fullscreen OK")
+          PYEOF
 
           # Stamp semantic versionName and auto-incrementing versionCode for Google Play Console
           GRADLE_FILE="android/app/build.gradle"

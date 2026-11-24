@@ -208,32 +208,30 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </motion.div>
       </main>
 
-      {/* Clean Non-Overlapping Legal Footer */}
-      <footer className="relative z-10 pb-1.5 lg:pb-3 safe-px text-center shrink-0">
+      {/* Clean Non-Overlapping Legal Footer (In-app modal triggers for Android/iOS WebView safety) */}
+      <footer className="relative z-10 pb-1.5 lg:pb-3 safe-px safe-pb text-center shrink-0">
         <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-slate-300/85">
           <span>PEGI 3 / 4+</span>
           <span aria-hidden="true" className="text-slate-600">
             ·
           </span>
-          <a
-            href="/privacy.html"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-amber-300 transition-colors"
+          <button
+            type="button"
+            onClick={onOpenCompliance}
+            className="underline hover:text-amber-300 transition-colors cursor-pointer"
           >
             {bi('Gizlilik Politikası', 'Privacy Policy')}
-          </a>
+          </button>
           <span aria-hidden="true" className="text-slate-600">
             ·
           </span>
-          <a
-            href="/terms.html"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-amber-300 transition-colors"
+          <button
+            type="button"
+            onClick={onOpenCompliance}
+            className="underline hover:text-amber-300 transition-colors cursor-pointer"
           >
             {bi('Kullanım Koşulları', 'Terms of Use')}
-          </a>
+          </button>
           <span aria-hidden="true" className="text-slate-600">
             ·
           </span>

@@ -3939,7 +3939,7 @@ export default function App() {
                   }}
                   aria-label={bi('Dili İngilizce yap', 'Switch language to Turkish')}
                   title={bi('Dil: Türkçe (EN için tıkla)', 'Language: English (tap for TR)')}
-                  className="flex h-7 px-1.5 lg:h-8 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="hidden lg:flex h-8 px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer"
                 >
                   {lang.toUpperCase()}
                 </button>
@@ -3963,9 +3963,9 @@ export default function App() {
                   }}
                   aria-label={bi('Dükkan istatistik panelini aç', 'Open shop analytics')}
                   title={bi('Dükkan İstatistikleri', 'Shop Analytics')}
-                  className="flex h-7 w-7 lg:h-8 lg:w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer"
                 >
-                  <BarChart3 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  <BarChart3 className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
@@ -4373,6 +4373,11 @@ export default function App() {
           onResume={() => {
             soundFX.playClick();
             setScreen('PLAYING');
+          }}
+          onOpenAnalytics={() => {
+            soundFX.playClick();
+            setScreen('PLAYING');
+            setShowAnalyticsModal(true);
           }}
           onOpenCompliance={() => {
             soundFX.playClick();

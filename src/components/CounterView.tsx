@@ -56,7 +56,6 @@ import {
   getLocalizedNews,
   getLocalizedQuest,
   getLocalizedRoleText,
-  getLocalizedTone,
   localizeDynamicLine,
   useLanguage,
 } from '../game/i18n';
@@ -226,7 +225,6 @@ export const CounterView: React.FC<CounterViewProps> = ({
     isEncounterOnDesk(encounter) ? 'ON_DESK' : 'ARRIVED'
   );
   const [offerPrice, setOfferPrice] = useState(0);
-  const [tone, setTone] = useState<NegotiationTone>('friendly');
   const [portraitFailed, setPortraitFailed] = useState(false);
   const [showLoupeModal, setShowLoupeModal] = useState(false);
   const turnStartRef = useRef<number>(Date.now());
@@ -241,7 +239,6 @@ export const CounterView: React.FC<CounterViewProps> = ({
     setStage(alreadyOnDesk ? 'ON_DESK' : 'ARRIVED');
     setPortraitFailed(false);
     setShowLoupeModal(false);
-    setTone('friendly');
     turnStartRef.current = Date.now();
     if (!alreadyOnDesk) {
       soundFX.playDoorBell();
@@ -390,7 +387,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
     day
   );
   const resistance = isNegotiable
-    ? getNegotiationResistance(encounter, offerPrice, tone)
+    ? getNegotiationResistance(encounter, offerPrice, 'friendly')
     : null;
 
   const roleText = getLocalizedRoleText(encounter.type, lang, {
@@ -427,7 +424,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
     if (encounter.type === 'SELLER' && offerPrice > cash) return;
     const elapsedSec = (Date.now() - turnStartRef.current) / 1000;
     turnStartRef.current = Date.now();
-    onSubmitOffer(offerPrice, tone, elapsedSec);
+    onSubmitOffer(offerPrice, 'friendly', elapsedSec);
   };
 
   const adjustOffer = (delta: number) => {
@@ -1321,40 +1318,18 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     )}
                   </div>
 
-                  {/* Middle Balanced Stack (Tone/Tactics + Slider + Valuation) */}
+                  {/* Middle Balanced Stack (Tactics + Slider + Valuation) */}
                   <div className="flex-1 min-h-0 flex flex-col justify-center gap-2 overflow-hidden">
-                    {/* Block 2: Tone Selector + Tactics */}
-                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2 space-y-1.5">
-                      <div className="grid grid-cols-3 gap-1">
-                        {(['friendly', 'analytical', 'firm'] as NegotiationTone[]).map(
-                          (t) => {
-                            const locT = getLocalizedTone(t, lang);
-                            return (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => setTone(t)}
-                                className={`rounded-md py-1 text-[10.5px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                                  tone === t
-                                    ? 'bg-amber-500 text-slate-950'
-                                    : 'bg-[#17202D] border border-white/8 text-slate-300 hover:text-white'
-                                }`}
-                              >
-                                {locT.label}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1">
+                    {/* Block 2: Esnaf Tactics */}
+                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 sm:p-2">
+                      <div className="grid grid-cols-3 gap-1.5">
                         <button
                           type="button"
                           disabled={encounter.teaServed || cash < teaCost}
                           onClick={onServeTea}
-                          className="inline-flex items-center justify-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/12 py-1 text-[9.5px] font-bold text-amber-200 hover:bg-amber-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/30 bg-amber-500/12 py-1.5 text-[10px] font-bold text-amber-200 hover:bg-amber-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                         >
-                          <Coffee className="w-3 h-3" />
+                          <Coffee className="w-3 h-3 shrink-0" />
                           {encounter.teaServed
                             ? bi('Çay ✓', 'Tea ✓')
                             : teaCost === 0
@@ -1368,9 +1343,9 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             encounter.bluffUsed || encounter.honestPitchUsed
                           }
                           onClick={onBluffOrPitch}
-                          className="inline-flex items-center justify-center gap-1 rounded-md border border-sky-400/30 bg-sky-500/12 py-1 text-[9.5px] font-bold text-sky-200 hover:bg-sky-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/30 bg-sky-500/12 py-1.5 text-[10px] font-bold text-sky-200 hover:bg-sky-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                         >
-                          <Scale className="w-3 h-3" />
+                          <Scale className="w-3 h-3 shrink-0" />
                           {encounter.type === 'SELLER'
                             ? bi('Blöf Yap', 'Bluff')
                             : bi('Övgü Yap', 'Pitch')}
@@ -1380,9 +1355,9 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           <button
                             type="button"
                             onClick={onAcceptPosInstallment}
-                            className="inline-flex items-center justify-center gap-1 rounded-md border border-emerald-400/35 bg-emerald-500/15 py-1 text-[9.5px] font-bold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-400/35 bg-emerald-500/15 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap"
                           >
-                            <CreditCard className="w-3 h-3" />
+                            <CreditCard className="w-3 h-3 shrink-0" />
                             {bi('0% POS', '0% POS')}
                           </button>
                         ) : (
@@ -1390,10 +1365,10 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             type="button"
                             disabled={encounter.legacyDialogueUsed}
                             onClick={onUseLegacyDialogue}
-                            className="inline-flex items-center justify-center gap-1 rounded-md border border-purple-400/30 bg-purple-500/12 py-1 text-[9.5px] font-bold text-purple-200 hover:bg-purple-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-purple-400/30 bg-purple-500/12 py-1.5 text-[10px] font-bold text-purple-200 hover:bg-purple-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                             title={legacyInfo.title}
                           >
-                            <Award className="w-3 h-3" />
+                            <Award className="w-3 h-3 shrink-0" />
                             {bi('Esnaf Sözü', 'Perk Line')}
                           </button>
                         )}
