@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertOctagon, CheckCircle2, Search, Gavel } from 'lucide-react';
-import { DEFECT_CATALOG } from '../game/catalog';
+import { getLocalizedCategoryLabel, getLocalizedDefect, useLanguage } from '../game/i18n';
 import { InspectionOverlayData } from '../game/types';
 
 interface InspectionOverlayProps {
@@ -13,6 +13,7 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
   data,
   onComplete,
 }) => {
+  const { lang, bi } = useLanguage();
   const [phase, setPhase] = useState<'scanning' | 'result'>('scanning');
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
   const hasDefect = (data?.foundDefects.length ?? 0) > 0;
   const primaryDefect =
     data && data.foundDefects.length > 0
-      ? DEFECT_CATALOG[data.foundDefects[0]]
+      ? getLocalizedDefect(data.foundDefects[0], lang)
       : null;
 
   return (
@@ -139,13 +140,16 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
 
             {/* Category & Device Subtitle */}
             <div className="text-xs font-medium text-slate-400 mb-1">
-              {data.deviceName} · {data.categoryLabel}
+              {data.deviceName} ·{' '}
+              {lang === 'en'
+                ? getLocalizedCategoryLabel(data.category, lang)
+                : data.categoryLabel}
             </div>
 
             {phase === 'scanning' ? (
               <div>
                 <h3 className="font-display text-xl font-bold text-amber-300">
-                  Büyüteçle İnceleniyor...
+                  {bi('Büyüteçle İnceleniyor...', 'Inspecting with Loupe...')}
                 </h3>
                 <div className="mt-3 h-1.5 w-44 mx-auto rounded-full bg-white/10 overflow-hidden">
                   <motion.div
@@ -164,12 +168,15 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                   transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                   className="inline-block font-display text-2xl font-extrabold tracking-wide text-rose-400 drop-shadow-[0_0_16px_rgba(244,63,94,0.75)] mb-1.5"
                 >
-                  HATA TESPİT EDİLDİ!
+                  {bi('HATA TESPİT EDİLDİ!', 'DEFECT DETECTED!')}
                 </motion.div>
                 <div className="text-base font-bold text-slate-50 mb-1">
                   {primaryDefect.name}
                   {data.foundDefects.length > 1
-                    ? ` (+${data.foundDefects.length - 1} ek kusur)`
+                    ? bi(
+                        ` (+${data.foundDefects.length - 1} ek kusur)`,
+                        ` (+${data.foundDefects.length - 1} more)`
+                      )
                     : ''}
                 </div>
                 <p className="text-xs text-rose-100/80 leading-relaxed mb-3">
@@ -177,7 +184,12 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                 </p>
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
                   <Gavel className="w-3.5 h-3.5" />
-                  <span>Pazarlık Kozu Açıldı — Fiyatı Kırabilirsin</span>
+                  <span>
+                    {bi(
+                      'Pazarlık Kozu Açıldı — Fiyatı Kırabilirsin',
+                      'Leverage Unlocked — Slash Their Asking Price'
+                    )}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -187,16 +199,19 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                   animate={{ scale: 1, opacity: 1 }}
                   className="font-display text-2xl font-extrabold tracking-wide text-emerald-400 mb-1"
                 >
-                  TEST TEMİZ
+                  {bi('TEST TEMİZ', 'TEST CLEAN')}
                 </motion.div>
                 <p className="text-xs text-emerald-100/80">
-                  Bu bölümde herhangi bir gizli kusur veya yan sanayi parça bulunmadı.
+                  {bi(
+                    'Bu bölümde herhangi bir gizli kusur veya yan sanayi parça bulunmadı.',
+                    'No hidden faults or non-OEM replacement parts were found in this zone.'
+                  )}
                 </p>
               </div>
             )}
 
             <div className="mt-4 text-[11px] text-slate-400/80">
-              Devam etmek için tıkla
+              {bi('Devam etmek için tıkla', 'Tap anywhere to continue')}
             </div>
           </motion.div>
         </motion.div>

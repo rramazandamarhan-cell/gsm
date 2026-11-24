@@ -1,11 +1,23 @@
 {
-  "appId": "com.gsmsimulator.app",
+  "appId": "com.esnafgsm.simulator",
   "appName": "GSM Simulator",
   "webDir": "dist",
+  "backgroundColor": "#0F141B",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "iosScheme": "https"
   },
   "android": {
-    "backgroundColor": "#0F141B"
+    "backgroundColor": "#0F141B",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "backgroundColor": "#0F141B",
+    "contentInset": "automatic",
+    "allowsLinkPreview": false,
+    "preferredContentMode": "mobile",
+    "scrollEnabled": true
   }
 }

@@ -6,7 +6,9 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Globe,
   MessageSquare,
+  Radio,
   ShieldCheck,
   SlidersHorizontal,
   Star,
@@ -18,6 +20,11 @@ import {
   X,
 } from 'lucide-react';
 import { STORE_ACHIEVEMENTS } from '../game/catalog';
+import { getLocalizedAchievement, useLanguage } from '../game/i18n';
+import {
+  getPlatformDisplayLabel,
+  STORE_RELEASE_META,
+} from '../game/storeBridge';
 import { ShopState } from '../game/types';
 
 type ComplianceTab = 'SETTINGS' | 'ACHIEVEMENTS' | 'PRIVACY' | 'SUPPORT';
@@ -26,6 +33,7 @@ interface StoreComplianceModalProps {
   shop: ShopState;
   muted: boolean;
   onToggleMute: () => void;
+  onToggleAmbientSound: () => void;
   onToggleHaptics: () => void;
   onSetTextSpeed: (speed: 'normal' | 'fast' | 'instant') => void;
   onAcceptPrivacy: () => void;
@@ -40,6 +48,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   shop,
   muted,
   onToggleMute,
+  onToggleAmbientSound,
   onToggleHaptics,
   onSetTextSpeed,
   onAcceptPrivacy,
@@ -49,6 +58,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   onSubmitFeedback,
   onClose,
 }) => {
+  const { lang, setLang, bi } = useLanguage();
   const [tab, setTab] = useState<ComplianceTab>('SETTINGS');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [importText, setImportText] = useState('');
@@ -73,7 +83,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gsm-simulator-gun-${shop.day}.json`;
+    a.download = `gsm-simulator-day-${shop.day}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setExportCopied(true);
@@ -99,7 +109,12 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
       window.setTimeout(() => setClipboardCopied(false), 2400);
     } catch {
       setImportText(payload);
-      setImportStatus('Pano erişimi engellendi; yedek metni aşağıdaki alana yerleştirildi.');
+      setImportStatus(
+        bi(
+          'Pano engellendi; yedek metni aşağıdaki alana yerleştirildi.',
+          'Clipboard blocked; backup JSON placed in the text field below.'
+        )
+      );
     }
   };
 
@@ -108,8 +123,11 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
     const ok = onImportSaveJson(importText.trim());
     setImportStatus(
       ok
-        ? 'Kayıt yedeği başarıyla yüklendi!'
-        : 'Geçersiz JSON yedeği. Lütfen dışa aktardığınız kayıt dosyasını yapıştırın.'
+        ? bi('Kayıt yedeği başarıyla yüklendi!', 'Save backup restored successfully!')
+        : bi(
+            'Geçersiz JSON yedeği. Lütfen dışa aktardığın kaydı yapıştır.',
+            'Invalid JSON backup. Please paste an exported save file.'
+          )
     );
     if (ok) {
       setImportText('');
@@ -125,133 +143,225 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   };
 
   const tabs: { id: ComplianceTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'SETTINGS', label: 'Ayarlar', icon: <SlidersHorizontal className="w-3.5 h-3.5" /> },
+    {
+      id: 'SETTINGS',
+      label: bi('Ayarlar', 'Settings'),
+      icon: <SlidersHorizontal className="w-3.5 h-3.5" />,
+    },
     {
       id: 'ACHIEVEMENTS',
-      label: `Başarımlar (${unlockedCount}/${STORE_ACHIEVEMENTS.length})`,
+      label: `${bi('Başarımlar', 'Achievements')} (${unlockedCount}/${STORE_ACHIEVEMENTS.length})`,
       icon: <Trophy className="w-3.5 h-3.5" />,
     },
-    { id: 'PRIVACY', label: 'Gizlilik & Veri', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-    { id: 'SUPPORT', label: 'Mağaza & Destek', icon: <Star className="w-3.5 h-3.5" /> },
+    {
+      id: 'PRIVACY',
+      label: bi('Gizlilik & Veri', 'Privacy & Data'),
+      icon: <ShieldCheck className="w-3.5 h-3.5" />,
+    },
+    {
+      id: 'SUPPORT',
+      label: bi('Mağaza & Destek', 'Store & Support'),
+      icon: <Star className="w-3.5 h-3.5" />,
+    },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 p-2 sm:p-4 overflow-y-auto pasaj-scroll">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2">
       <motion.div
-        initial={{ scale: 0.94, opacity: 0, y: 10 }}
+        initial={{ scale: 0.95, opacity: 0, y: 8 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-2xl my-auto rounded-2xl border border-white/12 bg-[#141C27] shadow-2xl overflow-hidden flex flex-col max-h-[94dvh]"
+        className="w-full max-w-3xl max-h-[96dvh] rounded-2xl border border-white/12 bg-[#141C27] shadow-2xl overflow-hidden flex flex-col"
       >
-        {/* Header */}
-        <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
-          <div>
-            <div className="text-[10.5px] font-semibold text-amber-400">
-              GOOGLE PLAY & APP STORE UYUMLULUK MERKEZİ
-            </div>
-            <h2 className="font-display text-base sm:text-xl font-extrabold text-slate-50">
-              Ayarlar, Başarımlar & Gizlilik
+        {/* Compact Header + Tabs in 2 tight rows */}
+        <div className="px-3.5 py-2 border-b border-white/10 flex items-center justify-between gap-2 shrink-0 bg-[#10161F]">
+          <div className="flex items-center gap-2 min-w-0">
+            <img
+              src="/pwa-192x192.png"
+              alt="GSM Simulator"
+              className="w-6 h-6 rounded-md object-cover border border-amber-400/30 shrink-0"
+            />
+            <h2 className="font-display text-sm sm:text-base font-extrabold text-slate-50 truncate">
+              {bi('Ayarlar, Dil & Mağaza Merkezi', 'Settings, Language & Store Hub')}
             </h2>
+            <span className="hidden sm:inline text-[10px] font-mono text-amber-400">
+              v{STORE_RELEASE_META.versionName}
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Kapat"
-            className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1E2836] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Sub-nav */}
-        <div className="px-3.5 sm:px-5 py-2 border-b border-white/8 flex flex-wrap gap-1.5 bg-[#10161F] shrink-0">
-          {tabs.map((t) => (
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  tab === t.id
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-slate-50'
+                }`}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </button>
+            ))}
             <button
-              key={t.id}
               type="button"
-              onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                tab === t.id
-                  ? 'bg-amber-500 text-slate-950'
-                  : 'text-slate-300 hover:bg-white/[0.06] hover:text-slate-50'
-              }`}
+              onClick={onClose}
+              aria-label={bi('Kapat', 'Close')}
+              className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-[#1E2836] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
             >
-              {t.icon}
-              <span>{t.label}</span>
+              <X className="w-3.5 h-3.5" />
             </button>
-          ))}
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto pasaj-scroll p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
+        {/* Zero-Scroll Landscape Body */}
+        <div className="flex-1 min-h-0 overflow-hidden p-3">
           {tab === 'SETTINGS' && (
-            <div className="space-y-3.5">
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+            <div className="grid grid-cols-2 gap-2 h-full content-start">
+              {/* Language Switcher */}
+              <div className="rounded-xl border border-amber-400/35 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Globe className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-100 truncate">
+                      {bi('Oyun Dili / Language', 'Game Language')}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {bi('TR / EN anında geçiş', 'Instant TR / EN switch')}
+                    </div>
+                  </div>
+                </div>
+                <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/12 bg-[#10161F] p-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setLang('tr')}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold cursor-pointer ${
+                      lang === 'tr' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
+                    }`}
+                  >
+                    TR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLang('en')}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold cursor-pointer ${
+                      lang === 'en' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
+                    }`}
+                  >
+                    EN
+                  </button>
+                </div>
+              </div>
+
+              {/* Sound FX */}
+              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   {muted ? (
-                    <VolumeX className="w-5 h-5 text-slate-400" />
+                    <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
                   ) : (
-                    <Volume2 className="w-5 h-5 text-amber-400" />
+                    <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />
                   )}
-                  <div>
-                    <div className="text-sm font-bold text-slate-100">Ses Efektleri & Kapı Zili</div>
-                    <div className="text-xs text-slate-400">
-                      Tezgah, tamir masası ve kasa seslerini aç/kapat.
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-100 truncate">
+                      {bi('Ses Efektleri & Kapı Zili', 'Sound FX & Chime')}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {bi('Kasa, tamir ve tezgah sesleri', 'Register, bench & counter FX')}
                     </div>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={onToggleMute}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold cursor-pointer ${
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 ${
                     muted
                       ? 'border border-white/15 bg-[#10161F] text-slate-300'
                       : 'bg-emerald-500 text-slate-950'
                   }`}
                 >
-                  {muted ? 'Kapalı' : 'Açık'}
+                  {muted ? bi('Kapalı', 'Off') : bi('Açık', 'On')}
                 </button>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-4 flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-bold text-slate-100">Dokunsal Titreşim (Haptic Feedback)</div>
-                  <div className="text-xs text-slate-400">
-                    Mobil cihazlarda vida sökme, anlaşma ve bildirim titreşimi.
+              {/* Ambience */}
+              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Radio
+                    className={`w-4 h-4 shrink-0 ${
+                      shop.ambientSoundEnabled && !muted ? 'text-amber-400' : 'text-slate-500'
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-100 truncate">
+                      {bi('Dükkan Ambiyansı', 'Shop Ambience')}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {bi('Hafif arka plan pasaj sesi', 'Soft arcade background hum')}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={muted}
+                  onClick={onToggleAmbientSound}
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer disabled:opacity-40 shrink-0 ${
+                    shop.ambientSoundEnabled && !muted
+                      ? 'bg-emerald-500 text-slate-950'
+                      : 'border border-white/15 bg-[#10161F] text-slate-300'
+                  }`}
+                >
+                  {shop.ambientSoundEnabled && !muted
+                    ? bi('Açık', 'On')
+                    : bi('Kapalı', 'Off')}
+                </button>
+              </div>
+
+              {/* Haptics */}
+              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-100 truncate">
+                    {bi('Dokunsal Titreşim', 'Haptic Feedback')}
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate">
+                    {bi('Vida, tarama & anlaşma titreşimi', 'Screw, loupe & deal vibration')}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={onToggleHaptics}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold cursor-pointer ${
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 ${
                     shop.hapticsEnabled
                       ? 'bg-emerald-500 text-slate-950'
                       : 'border border-white/15 bg-[#10161F] text-slate-300'
                   }`}
                 >
-                  {shop.hapticsEnabled ? 'Açık' : 'Kapalı'}
+                  {shop.hapticsEnabled ? bi('Açık', 'On') : bi('Kapalı', 'Off')}
                 </button>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-4 space-y-2.5">
+              {/* Text Speed (full width) */}
+              <div className="col-span-2 rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-bold text-slate-100">Müşteri Diyalog Yazı Hızı</div>
-                  <div className="text-xs text-slate-400">
-                    Konuşma balonlarının ekrana yazılma hızını seç.
+                  <div className="text-xs font-bold text-slate-100">
+                    {bi('Müşteri Diyalog Yazı Hızı', 'Dialogue Typing Speed')}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {bi('Konuşma balonlarının ekrana yazılma hızı.', 'Speed of customer speech bubbles.')}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 w-56 shrink-0">
                   {(
                     [
-                      { id: 'normal', label: 'Normal' },
-                      { id: 'fast', label: 'Hızlı' },
-                      { id: 'instant', label: 'Anında' },
+                      { id: 'normal', label: bi('Normal', 'Normal') },
+                      { id: 'fast', label: bi('Hızlı', 'Fast') },
+                      { id: 'instant', label: bi('Anında', 'Instant') },
                     ] as const
                   ).map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => onSetTextSpeed(opt.id)}
-                      className={`rounded-lg py-2 text-xs font-bold cursor-pointer transition-colors ${
+                      className={`rounded-lg py-1.5 text-[11px] font-bold cursor-pointer transition-colors ${
                         shop.textSpeed === opt.id
                           ? 'bg-amber-500 text-slate-950'
                           : 'border border-white/12 bg-[#111822] text-slate-300 hover:bg-[#1E2938]'
@@ -266,57 +376,59 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
           )}
 
           {tab === 'ACHIEVEMENTS' && (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-center justify-between tabular-nums">
-                <div>
-                  <div className="text-xs font-semibold text-amber-300">
-                    Google Play Games / Game Center Profili
-                  </div>
-                  <div className="font-display text-lg font-extrabold text-slate-50">
-                    {unlockedCount} / {STORE_ACHIEVEMENTS.length} Başarım Açıldı
-                  </div>
+            <div className="flex flex-col gap-2 h-full">
+              <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 flex items-center justify-between tabular-nums">
+                <div className="text-xs font-extrabold text-slate-50">
+                  {bi(
+                    `Play Games / Game Center · ${unlockedCount}/${STORE_ACHIEVEMENTS.length} Başarım`,
+                    `Play Games / Game Center · ${unlockedCount}/${STORE_ACHIEVEMENTS.length} Unlocked`
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="text-[11px] text-amber-200">Başarım Puanı</div>
-                  <div className="font-mono text-xl font-extrabold text-amber-400">
-                    {totalPoints} / {maxPoints} P
-                  </div>
+                <div className="font-mono text-sm font-extrabold text-amber-400">
+                  {totalPoints} / {maxPoints} P
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {STORE_ACHIEVEMENTS.map((ach) => {
                   const unlocked = ach.check(shop);
+                  const locAch = getLocalizedAchievement(ach, lang);
                   return (
                     <div
                       key={ach.id}
-                      className={`rounded-xl border p-3.5 ${
+                      className={`rounded-xl border p-2 flex flex-col justify-between ${
                         unlocked
                           ? 'border-emerald-500/35 bg-emerald-500/10'
-                          : 'border-white/8 bg-[#182230] opacity-75'
+                          : 'border-white/8 bg-[#182230] opacity-80'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-display text-sm font-bold text-slate-100">
-                          {ach.title}
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="font-display text-[11px] font-bold text-slate-100 leading-tight line-clamp-1">
+                            {locAch.title}
+                          </div>
+                          <span
+                            className={`font-mono text-[10px] font-bold shrink-0 ${
+                              unlocked ? 'text-emerald-400' : 'text-slate-500'
+                            }`}
+                          >
+                            +{ach.points}P
+                          </span>
                         </div>
-                        <span
-                          className={`font-mono text-[11px] font-bold ${
-                            unlocked ? 'text-emerald-400' : 'text-slate-500'
-                          }`}
-                        >
-                          +{ach.points}P
-                        </span>
+                        <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-2 leading-tight">
+                          {locAch.description}
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">{ach.description}</p>
-                      <div className="mt-2 text-[11px] font-semibold">
+                      <div className="mt-1 text-[10px] font-semibold">
                         {unlocked ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-400">
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Kazanıldı</span>
+                          <span className="inline-flex items-center gap-0.5 text-emerald-400">
+                            <Check className="w-3 h-3" />
+                            <span>{bi('Kazanıldı', 'Unlocked')}</span>
                           </span>
                         ) : (
-                          <span className="text-slate-500">Devam Ediyor...</span>
+                          <span className="text-slate-500">
+                            {bi('Devam Ediyor', 'In Progress')}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -327,263 +439,258 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
           )}
 
           {tab === 'PRIVACY' && (
-            <div className="space-y-4">
-              {/* KVKK / GDPR Privacy Summary */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-4 space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-100">
-                    <FileText className="w-4 h-4 text-sky-400" />
-                    <span>Gizlilik Politikası (KVKK & GDPR)</span>
-                  </span>
-                  {shop.privacyAccepted ? (
-                    <span className="text-xs font-bold text-emerald-400">Onaylandı</span>
-                  ) : (
+            <div className="grid grid-cols-12 gap-2.5 h-full">
+              {/* Left: Policy & Deletion */}
+              <div className="col-span-6 flex flex-col justify-between gap-2">
+                <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-100">
+                      <FileText className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{bi('KVKK & GDPR Gizlilik', 'Privacy Policy (GDPR)')}</span>
+                    </span>
+                    {shop.privacyAccepted ? (
+                      <span className="text-[10.5px] font-bold text-emerald-400">
+                        {bi('Onaylandı', 'Accepted')}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onAcceptPrivacy}
+                        className="rounded-lg bg-emerald-500 px-2.5 py-0.5 text-[10.5px] font-bold text-slate-950 cursor-pointer"
+                      >
+                        {bi('Onayla', 'Accept')}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-slate-300 leading-snug">
+                    {bi(
+                      'GSM Simulator verilerinizi yalnızca cihaz içi localStorage alanında saklar. Kişisel veri, konum veya reklam kimliği toplamaz.',
+                      'GSM Simulator stores progress strictly on-device via localStorage. Zero personal data, location, or ad tracking is collected.'
+                    )}
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                    <div className="rounded border border-emerald-500/25 bg-[#101722] px-2 py-1">
+                      <span className="text-slate-400">{bi('Veri:', 'Data:')}</span>{' '}
+                      <strong className="text-emerald-400">{bi('Yok (0)', 'None (0)')}</strong>
+                    </div>
+                    <div className="rounded border border-white/10 bg-[#101722] px-2 py-1">
+                      <span className="text-slate-400">{bi('Yaş:', 'Rating:')}</span>{' '}
+                      <strong className="text-amber-300">PEGI 3 / 4+</strong>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <a
+                      href="/privacy.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 underline"
+                    >
+                      <span>{bi('Gizlilik Politikası', 'Privacy Policy')}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                    <a
+                      href="/terms.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 underline"
+                    >
+                      <span>{bi('Koşullar', 'Terms')}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Delete Data */}
+                <div className="rounded-xl border border-rose-500/35 bg-rose-500/8 p-2.5 space-y-1.5">
+                  <div className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{bi('Tüm Verileri Kalıcı Sil', 'Delete All Local Data')}</span>
+                  </div>
+                  {!confirmDelete ? (
                     <button
                       type="button"
-                      onClick={onAcceptPrivacy}
-                      className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-bold text-slate-950 cursor-pointer"
+                      onClick={() => setConfirmDelete(true)}
+                      className="rounded-lg border border-rose-500/50 bg-rose-500/15 px-3 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
                     >
-                      Okudum, Onaylıyorum
+                      {bi('Kariyeri & Verileri Sıfırla...', 'Reset Career & Erase Data...')}
                     </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmDelete(false);
+                          onDeleteAllData();
+                        }}
+                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-rose-500 cursor-pointer"
+                      >
+                        {bi('Evet, Kalıcı Sil', 'Yes, Delete Permanently')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        className="rounded-lg border border-white/15 bg-[#1B2533] px-3 py-1.5 text-[11px] font-semibold text-slate-200 cursor-pointer"
+                      >
+                        {bi('Vazgeç', 'Cancel')}
+                      </button>
+                    </div>
                   )}
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  <strong>GSM Simulator</strong> oyun ilerlemenizi yalnızca kendi cihazınızdaki yerel depolama alanında (localStorage) saklar. Kişisel kimlik, rehber, konum, reklam kimliği (IDFA/AAID) veya ödeme bilgisi toplamaz ve üçüncü taraflarla paylaşmaz.
-                </p>
-
-                {/* Google Play Data Safety & App Store Privacy Nutrition Label */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                  <div className="rounded-lg border border-emerald-500/25 bg-[#101722] p-2">
-                    <div className="text-[10px] text-slate-400">Toplanan Veri</div>
-                    <div className="text-xs font-bold text-emerald-400">Yok (0)</div>
-                  </div>
-                  <div className="rounded-lg border border-emerald-500/25 bg-[#101722] p-2">
-                    <div className="text-[10px] text-slate-400">3. Taraf Paylaşımı</div>
-                    <div className="text-xs font-bold text-emerald-400">Yok</div>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-[#101722] p-2">
-                    <div className="text-[10px] text-slate-400">Depolama</div>
-                    <div className="text-xs font-bold text-slate-100">Cihaz İçi</div>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-[#101722] p-2">
-                    <div className="text-[10px] text-slate-400">Derecelendirme</div>
-                    <div className="text-xs font-bold text-amber-300">PEGI 3 / 4+</div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-400">
-                  <a
-                    href="/privacy.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 underline"
-                  >
-                    <span>Tam Gizlilik Politikası</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                  <a
-                    href="/terms.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 underline"
-                  >
-                    <span>Kullanım Koşulları & Parodi Beyanı</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
                 </div>
               </div>
 
-              {/* Save Backup Export & Import */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-4 space-y-3">
-                <div className="text-sm font-bold text-slate-100">
-                  Cihazlar Arası Kayıt Yedeği (JSON)
-                </div>
-                <p className="text-xs text-slate-400">
-                  Telefon değiştirirken veya APK güncellerken kariyerini kaybetmemek için yedeğini indirebilir veya mobil WebView için doğrudan panoya kopyalayabilirsin.
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleExportSave}
-                    className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-sky-400 cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>{exportCopied ? 'Yedek İndirildi!' : 'Dosya İndir (.json)'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCopySaveToClipboard}
-                    className="inline-flex items-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/12 px-3.5 py-2 text-xs font-bold text-sky-200 hover:bg-sky-500/20 cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>{clipboardCopied ? 'Panoya Kopyalandı!' : 'JSON Panoya Kopyala'}</span>
-                  </button>
+              {/* Right: Save Backup JSON */}
+              <div className="col-span-6 rounded-xl border border-white/10 bg-[#182230] p-2.5 flex flex-col justify-between gap-2">
+                <div className="space-y-1.5">
+                  <div className="text-xs font-bold text-slate-100">
+                    {bi('Kayıt Yedeği (JSON Export / Import)', 'Save Backup (JSON Export / Import)')}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleExportSave}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 hover:bg-sky-400 cursor-pointer whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>
+                        {exportCopied ? bi('İndirildi!', 'Saved!') : bi('.json İndir', 'Download .json')}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopySaveToClipboard}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/12 px-2.5 py-1.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 cursor-pointer whitespace-nowrap"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>
+                        {clipboardCopied ? bi('Kopyalandı!', 'Copied!') : bi('Panoya Kopyala', 'Copy JSON')}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="pt-2 border-t border-white/8 space-y-2">
-                  <label className="block text-xs font-semibold text-slate-300">
-                    Yedek JSON Yapıştır & Geri Yükle
-                  </label>
+                <div className="space-y-1.5">
                   <textarea
                     rows={3}
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                     placeholder='{"day": 5, "cash": 24500, ...}'
-                    className="w-full rounded-lg border border-white/12 bg-[#0F151E] p-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-400"
+                    className="w-full rounded-lg border border-white/12 bg-[#0F151E] p-2 text-[10.5px] font-mono text-slate-200 focus:outline-none focus:border-amber-400"
                   />
                   <div className="flex items-center justify-between gap-2">
                     <button
                       type="button"
                       disabled={!importText.trim()}
                       onClick={handleImportSubmit}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3.5 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40 cursor-pointer whitespace-nowrap"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      <span>Yedeği İçe Aktar</span>
+                      <span>{bi('Yedeği Yükle', 'Import Backup')}</span>
                     </button>
                     {importStatus && (
-                      <span className="text-xs text-amber-300">{importStatus}</span>
+                      <span className="text-[10px] text-amber-300 truncate">{importStatus}</span>
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Permanent Data Deletion (Mandatory for App Store & Play Store) */}
-              <div className="rounded-xl border border-rose-500/35 bg-rose-500/8 p-4 space-y-2.5">
-                <div className="text-sm font-bold text-rose-300 flex items-center gap-1.5">
-                  <Trash2 className="w-4 h-4" />
-                  <span>Tüm Verileri Kalıcı Olarak Sil (Hesap & Kariyer Sıfırlama)</span>
-                </div>
-                <p className="text-xs text-rose-100/80">
-                  Google Play ve App Store veri silme politikası gereği cihazdaki tüm kayıtlarınızı, başarımlarınızı ve tercihlerinizi geri döndürülemez biçimde silebilirsiniz.
-                </p>
-                {!confirmDelete ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    className="rounded-lg border border-rose-500/50 bg-rose-500/15 px-4 py-2 text-xs font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
-                  >
-                    Tüm Oyun Verilerini Sil...
-                  </button>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmDelete(false);
-                        onDeleteAllData();
-                      }}
-                      className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-rose-500 cursor-pointer"
-                    >
-                      Evet, Kalıcı Olarak Sil ve Sıfırla
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(false)}
-                      className="rounded-lg border border-white/15 bg-[#1B2533] px-3.5 py-2 text-xs font-semibold text-slate-200 cursor-pointer"
-                    >
-                      Vazgeç
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
           {tab === 'SUPPORT' && (
-            <div className="space-y-4">
-              {/* Rate Us */}
-              <div className="rounded-xl border border-amber-500/30 bg-[#182230] p-4 text-center space-y-2.5">
-                <div className="font-display text-base font-bold text-slate-100">
-                  GSM Simulator’ı Beğendin mi? Bizi Değerlendir!
-                </div>
-                <p className="text-xs text-slate-400">
-                  Mağaza puanın yeni telefon modelleri ve güncellemeler geliştirmemize güç verir.
-                </p>
-                <div className="flex items-center justify-center gap-2 py-1">
-                  {[1, 2, 3, 4, 5].map((star) => {
-                    const active = star <= (ratingHover || selectedStars);
-                    return (
-                      <button
-                        key={star}
-                        type="button"
-                        onMouseEnter={() => setRatingHover(star)}
-                        onMouseLeave={() => setRatingHover(0)}
-                        onClick={() => {
-                          setSelectedStars(star);
-                          onRateApp(star);
-                        }}
-                        aria-label={`${star} yıldız ver`}
-                        className="p-1 cursor-pointer transition-transform hover:scale-110"
-                      >
-                        <Star
-                          className={`w-7 h-7 ${
-                            active
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-slate-600'
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-                {shop.ratedApp && (
-                  <div className="text-xs font-bold text-emerald-400">
-                    Değerlendirmen için çok teşekkürler!
+            <div className="grid grid-cols-12 gap-2.5 h-full">
+              {/* Left: Rate Us + Build Meta */}
+              <div className="col-span-6 flex flex-col justify-between gap-2">
+                <div className="rounded-xl border border-amber-500/30 bg-[#182230] p-3 text-center space-y-1.5">
+                  <div className="font-display text-sm font-bold text-slate-100">
+                    {bi('GSM Simulator’ı Değerlendir!', 'Rate GSM Simulator!')}
                   </div>
-                )}
+                  <div className="flex items-center justify-center gap-1.5 py-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const active = star <= (ratingHover || selectedStars);
+                      return (
+                        <button
+                          key={star}
+                          type="button"
+                          onMouseEnter={() => setRatingHover(star)}
+                          onMouseLeave={() => setRatingHover(0)}
+                          onClick={() => {
+                            setSelectedStars(star);
+                            onRateApp(star);
+                          }}
+                          aria-label={bi(`${star} yıldız ver`, `Rate ${star} stars`)}
+                          className="p-0.5 cursor-pointer transition-transform hover:scale-110"
+                        >
+                          <Star
+                            className={`w-6 h-6 ${
+                              active ? 'text-amber-400 fill-amber-400' : 'text-slate-600'
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {shop.ratedApp && (
+                    <div className="text-[11px] font-bold text-emerald-400">
+                      {bi('Değerlendirmen için teşekkürler!', 'Thank you for rating!')}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-white/8 bg-[#10161F] p-2.5 space-y-1 text-[10px] text-slate-400">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      {bi('Sürüm', 'Version')}:{' '}
+                      <strong className="text-slate-200">
+                        v{STORE_RELEASE_META.versionName}
+                      </strong>
+                    </span>
+                    <span className="text-emerald-400 font-semibold">
+                      {getPlatformDisplayLabel()}
+                    </span>
+                  </div>
+                  <div className="font-mono text-[9.5px] text-slate-500">
+                    {STORE_RELEASE_META.appId} · © 2026 GSM Simulator
+                  </div>
+                  <div className="text-slate-500 leading-tight">
+                    {bi(
+                      'Parodi markalar (Samxung, aPhone, PocoPop, RedMix, FoldZ, LuminaCam, NovaFold) tamamen kurgusaldır.',
+                      'Parody brands (Samxung, aPhone, PocoPop, RedMix, FoldZ, LuminaCam, NovaFold) are purely fictional.'
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Feedback Note Box */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-4 space-y-2.5">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
-                  <MessageSquare className="w-4 h-4 text-amber-400" />
-                  <span>Geliştiriciye Öneri & Hata Bildirimi</span>
+              {/* Right: Feedback Box */}
+              <div className="col-span-6 rounded-xl border border-white/10 bg-[#182230] p-3 flex flex-col justify-between gap-2">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
+                    <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{bi('Öneri & Hata Bildirimi', 'Feedback & Bug Report')}</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={feedbackDraft}
+                    onChange={(e) => setFeedbackDraft(e.target.value)}
+                    placeholder={bi(
+                      'Oyuna eklenmesini istediğin özellik veya hata notu bırak...',
+                      'Share a feature request or bug report...'
+                    )}
+                    className="w-full rounded-lg border border-white/12 bg-[#0F151E] p-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                  />
                 </div>
-                <textarea
-                  rows={3}
-                  value={feedbackDraft}
-                  onChange={(e) => setFeedbackDraft(e.target.value)}
-                  placeholder="Oyuna eklenmesini istediğin özellik veya fark ettiğin bir hata varsa not bırak..."
-                  className="w-full rounded-lg border border-white/12 bg-[#0F151E] p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
-                />
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
                     disabled={!feedbackDraft.trim()}
                     onClick={handleSendFeedback}
-                    className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
+                    className="rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
                   >
-                    Notu Kaydet & Gönder
+                    {bi('Notu Gönder', 'Send Feedback')}
                   </button>
                   {feedbackSent && (
-                    <span className="text-xs font-bold text-emerald-400">
-                      Geri bildirimin kaydedildi!
+                    <span className="text-[11px] font-bold text-emerald-400">
+                      {bi('Kaydedildi!', 'Saved!')}
                     </span>
                   )}
-                </div>
-                {shop.feedbackNotes.length > 0 && (
-                  <div className="pt-2 border-t border-white/8 space-y-1">
-                    <div className="text-[11px] text-slate-400">
-                      Kaydedilen Notların ({shop.feedbackNotes.length}):
-                    </div>
-                    {shop.feedbackNotes.slice(0, 3).map((n, i) => (
-                      <div key={i} className="text-xs text-slate-300 bg-[#111720] rounded px-2.5 py-1.5">
-                        {n}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Build Version & Legal Notice */}
-              <div className="rounded-xl border border-white/8 bg-[#10161F] p-3.5 space-y-1.5 text-[11px] text-slate-400">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>Sürüm: <strong className="text-slate-200">v2.1.0-store</strong> (Android APK & iOS PWA Hazır)</span>
-                  <span>© 2026 GSM Simulator</span>
-                </div>
-                <div className="text-slate-500">
-                  Parodi marka adları (Samxung, aPhone, PocoPop, RedMix, FoldZ, LuminaCam, NovaFold) tamamen kurgusaldır; gerçek markalarla resmi bağı yoktur. Oyun içi para, kredi ve vergi yalnızca simülasyon amaçlıdır.
                 </div>
               </div>
             </div>
@@ -593,3 +700,4 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
     </div>
   );
 };
+

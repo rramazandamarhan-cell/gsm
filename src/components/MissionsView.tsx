@@ -3,20 +3,20 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Flame,
   Gift,
   Lock,
   MessageSquare,
   Smartphone,
   Sparkles,
-  Star,
   Target,
   Trophy,
 } from 'lucide-react';
 import {
   CAREER_MILESTONES,
   DAILY_STREAK_REWARDS,
-  LEGACY_PATHS,
   LEVEL_PERKS,
   PHONE_CATALOG,
   STORY_CHAPTERS,
@@ -29,7 +29,15 @@ import {
   getStoryChapterCurrentValue,
   getStreakBonusCash,
 } from '../game/engine';
+import {
+  getLocalizedLevelPerk,
+  getLocalizedMilestone,
+  getLocalizedQuest,
+  getLocalizedStoryChapter,
+  useLanguage,
+} from '../game/i18n';
 import { ShopState } from '../game/types';
+import { PhoneModelThumb } from './PhoneInspectSVG';
 
 interface MissionsViewProps {
   shop: ShopState;
@@ -40,7 +48,10 @@ interface MissionsViewProps {
   onBackToCounter: () => void;
 }
 
-type MissionsSubTab = 'STORY' | 'DAILY' | 'MILESTONES' | 'COLLECTION';
+type MissionsSubTab = 'STORY' | 'DAILY' | 'MILESTONES' | 'LEVELS' | 'COLLECTION';
+
+const MS_PER_PAGE = 6;
+const MODELS_PER_PAGE = 8;
 
 export const MissionsView: React.FC<MissionsViewProps> = ({
   shop,
@@ -50,6 +61,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   onClaimDailyStreak,
   onBackToCounter,
 }) => {
+  const { lang, bi } = useLanguage();
   const readyStoryCount = STORY_CHAPTERS.filter(
     (ch) =>
       !shop.claimedChapterIds.includes(ch.id) &&
@@ -67,609 +79,570 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const [subTab, setSubTab] = useState<MissionsSubTab>(
     readyDailyCount > 0 ? 'DAILY' : 'STORY'
   );
+  const [selectedChapterId, setSelectedChapterId] = useState<string>(() => {
+    const firstUnclaimed = STORY_CHAPTERS.find(
+      (c) => !shop.claimedChapterIds.includes(c.id)
+    );
+    return (firstUnclaimed ?? STORY_CHAPTERS[0]).id;
+  });
+  const [msPage, setMsPage] = useState(0);
+  const [colPage, setColPage] = useState(0);
+
   const lvlInfo = getLevelProgress(shop.xp);
   const rank = getShopRank(shop);
-  const currentStreakBonus = getStreakBonusCash(shop.dealStreak, shop.level);
-  const legacyInfo = LEGACY_PATHS[shop.legacyPath];
+  const streakBonus = getStreakBonusCash(shop.dealStreak, shop.level);
+  const todayStreakReward =
+    DAILY_STREAK_REWARDS[
+      Math.min(DAILY_STREAK_REWARDS.length - 1, Math.max(0, shop.loginStreak - 1))
+    ];
+
+  const activeChapterRaw =
+    STORY_CHAPTERS.find((c) => c.id === selectedChapterId) ?? STORY_CHAPTERS[0];
+  const activeChapter = getLocalizedStoryChapter(activeChapterRaw, lang);
+  const activeChVal = getStoryChapterCurrentValue(shop, activeChapterRaw);
+  const activeChClaimed = shop.claimedChapterIds.includes(activeChapterRaw.id);
+  const activeChReady = !activeChClaimed && activeChVal >= activeChapterRaw.target;
+
+  const totalMsPages = Math.max(
+    1,
+    Math.ceil(CAREER_MILESTONES.length / MS_PER_PAGE)
+  );
+  const safeMsPage = Math.min(msPage, totalMsPages - 1);
+  const visibleMilestones = CAREER_MILESTONES.slice(
+    safeMsPage * MS_PER_PAGE,
+    safeMsPage * MS_PER_PAGE + MS_PER_PAGE
+  );
+
+  const totalColPages = Math.max(
+    1,
+    Math.ceil(PHONE_CATALOG.length / MODELS_PER_PAGE)
+  );
+  const safeColPage = Math.min(colPage, totalColPages - 1);
+  const visibleModels = PHONE_CATALOG.slice(
+    safeColPage * MODELS_PER_PAGE,
+    safeColPage * MODELS_PER_PAGE + MODELS_PER_PAGE
+  );
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Top Career & Level Progression Banner */}
-        <div className="rounded-2xl border border-white/10 bg-[#161F2B] p-5 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-400">
-                <Award className="w-4 h-4" />
-                <span>MİRAS: {legacyInfo.name.toUpperCase()} ({legacyInfo.title})</span>
-                <span aria-hidden="true" className="text-white/25">·</span>
-                <span className="text-slate-300">{rank}</span>
-              </div>
-              <h1 className="font-display text-2xl font-extrabold text-slate-50 mt-0.5 tabular-nums">
-                Seviye {lvlInfo.level} Esnaf
-              </h1>
-              <p className="text-xs text-emerald-300/90 mt-1">
-                {legacyInfo.passiveTitle} · Özel Diyalog: {legacyInfo.dialogueName}
-              </p>
-            </div>
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-2 lg:p-3 gap-2">
+      {/* COMPACT LEVEL + XP + STREAK + SUB-TAB HEADER */}
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1.5">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {(
+            [
+              ['STORY', BookOpen, bi('Hikâye', 'Story'), readyStoryCount],
+              ['DAILY', Target, bi('Günlük', 'Daily'), readyDailyCount],
+              ['MILESTONES', Trophy, bi('Kariyer', 'Career'), readyMilestoneCount],
+              ['LEVELS', Sparkles, bi('Seviyeler', 'Levels'), 0],
+              ['COLLECTION', Smartphone, bi('Katalog', 'Catalog'), 0],
+            ] as const
+          ).map(([id, Icon, label, badge]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setSubTab(id)}
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                subTab === id
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+              {badge > 0 && (
+                <span className="rounded bg-emerald-400 px-1 font-mono text-[9.5px] font-extrabold text-slate-950">
+                  +{badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-            <div className="flex flex-wrap items-center gap-5 tabular-nums">
-              <div className="text-right">
-                <div className="text-[11px] text-slate-400">Aktif Anlaşma Serisi</div>
-                <div className="inline-flex items-center gap-1.5 font-mono text-lg font-extrabold text-amber-400">
-                  <Flame className="w-4 h-4 text-orange-400" />
-                  <span>{shop.dealStreak} Seri</span>
-                  {currentStreakBonus > 0 && (
-                    <span className="text-xs font-semibold text-emerald-400">
-                      (+{formatTRY(currentStreakBonus)}/anlaşma)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="h-9 w-px bg-white/10 hidden sm:block" />
-
-              <div className="text-right">
-                <div className="text-[11px] text-slate-400">Model Koleksiyonu</div>
-                <div className="font-mono text-lg font-extrabold text-slate-100">
-                  {shop.discoveredSpecIds.length} / {PHONE_CATALOG.length}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onBackToCounter}
-                className="rounded-xl border border-white/12 bg-[#202B3A] px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-[#2A374A] transition-colors cursor-pointer whitespace-nowrap"
-              >
-                Tezgaha Dön
-              </button>
-            </div>
-          </div>
-
-          {/* Balanced Long-Term XP Progress Bar */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-xs mb-1.5 tabular-nums">
-              <span className="text-slate-300 font-medium">
-                {lvlInfo.level >= 10
-                  ? 'Zirve Seviye (10/10) — GSM Duayeni'
-                  : `Sonraki Seviye İlerlemesi (Sv. ${lvlInfo.level + 1})`}
-              </span>
-              <span className="font-mono text-amber-300 font-semibold">
-                {lvlInfo.currentInLevel} / {lvlInfo.neededForNext} XP (%{lvlInfo.percent})
-              </span>
-            </div>
-            <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
+        {/* Inline Level Progress + Daily Streak Claim */}
+        <div className="flex items-center gap-2 tabular-nums shrink-0">
+          <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-[#0E141D] px-2 py-0.5 text-[10.5px]">
+            <Award className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-mono font-extrabold text-amber-300">
+              {bi('Sv.', 'Lv.')}
+              {shop.level}
+            </span>
+            <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-300"
+                className="h-full bg-amber-400"
                 style={{ width: `${lvlInfo.percent}%` }}
               />
             </div>
+            <span className="hidden md:inline font-mono text-[9.5px] text-slate-400">
+              {lvlInfo.currentInLevel}/{lvlInfo.neededForNext} XP
+            </span>
           </div>
 
-          {/* 7-Day Daily Login Streak Reward Bar */}
-          <div className="mb-4 rounded-xl border border-amber-500/25 bg-[#121924] p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-                <Gift className="w-4 h-4" />
-                <span>Günlük Giriş Serisi ({shop.loginStreak}/7 Gün)</span>
-              </div>
-              {!shop.dailyStreakClaimed ? (
+          {!shop.dailyStreakClaimed && todayStreakReward && (
+            <button
+              type="button"
+              onClick={onClaimDailyStreak}
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
+            >
+              <Gift className="w-3.5 h-3.5" />
+              {bi('Günlük Ödül', 'Daily Bonus')} +{formatTRY(todayStreakReward.cash)}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onBackToCounter}
+            className="rounded-lg border border-white/10 bg-[#1B2432] px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
+          >
+            ← {bi('Tezgah', 'Counter')}
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: STORY CHAPTERS (2-COLUMN ZERO SCROLL) */}
+      {subTab === 'STORY' && (
+        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 overflow-hidden">
+          {/* Chapter List */}
+          <div className="col-span-4 flex flex-col gap-1.5 min-h-0 overflow-hidden">
+            {STORY_CHAPTERS.map((ch) => {
+              const loc = getLocalizedStoryChapter(ch, lang);
+              const val = getStoryChapterCurrentValue(shop, ch);
+              const claimed = shop.claimedChapterIds.includes(ch.id);
+              const ready = !claimed && val >= ch.target;
+              const selected = ch.id === activeChapterRaw.id;
+              return (
                 <button
+                  key={ch.id}
                   type="button"
-                  onClick={onClaimDailyStreak}
-                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer tabular-nums"
+                  onClick={() => setSelectedChapterId(ch.id)}
+                  className={`flex-1 rounded-xl border px-2.5 py-1.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer min-h-0 ${
+                    selected
+                      ? 'border-amber-400 bg-amber-500/15'
+                      : 'border-white/10 bg-[#151D28] hover:bg-[#1B2432]'
+                  }`}
                 >
-                  Bugünün Ödülünü Al (+
-                  {formatTRY(
-                    DAILY_STREAK_REWARDS[Math.min(6, Math.max(0, shop.loginStreak - 1))].cash
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-slate-100 truncate">
+                      {loc.title}
+                    </div>
+                    <div className="text-[9.5px] text-slate-400 truncate">
+                      {Math.min(val, ch.target)} / {ch.target}
+                    </div>
+                  </div>
+                  {claimed ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : ready ? (
+                    <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[9.5px] font-extrabold text-slate-950 shrink-0">
+                      {bi('AL', 'CLAIM')}
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[10px] text-amber-300 shrink-0">
+                      +{ch.rewardXp}XP
+                    </span>
                   )}
-                  )
                 </button>
-              ) : (
-                <span className="text-[11px] font-semibold text-emerald-400">
-                  Bugünkü giriş ödülü kasaya eklendi
+              );
+            })}
+          </div>
+
+          {/* Active Chapter Detail */}
+          <div className="col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between min-h-0 overflow-hidden">
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-amber-300 uppercase">
+                    {rank} · {bi('GÜN', 'DAY')} {shop.day}
+                  </span>
+                  <h3 className="font-display text-base font-extrabold text-slate-50">
+                    {activeChapter.title}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {activeChapter.subtitle}
+                  </p>
+                </div>
+                <div className="text-right font-mono tabular-nums shrink-0">
+                  <div className="text-xs font-extrabold text-emerald-400">
+                    +{formatTRY(activeChapter.rewardCash)}
+                  </div>
+                  <div className="text-[10.5px] font-bold text-amber-300">
+                    +{activeChapter.rewardXp} XP
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-200 leading-relaxed">
+                {activeChapter.narrative}
+              </p>
+
+              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-2 text-[11px] text-amber-100 flex items-start gap-2">
+                <MessageSquare className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span className="italic">{activeChapter.mentorNote}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-white/8 tabular-nums">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-200">
+                  {activeChapter.objectiveText}
+                </span>
+                <span className="font-mono font-bold text-amber-300">
+                  {Math.min(activeChVal, activeChapterRaw.target)} /{' '}
+                  {activeChapterRaw.target}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 transition-all"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round((activeChVal / activeChapterRaw.target) * 100)
+                    )}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-end">
+                {activeChClaimed ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                    {bi('Bölüm Tamamlandı', 'Chapter Completed')}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!activeChReady}
+                    onClick={() => onClaimStoryChapter(activeChapterRaw.id)}
+                    className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                  >
+                    {activeChReady
+                      ? bi('Ödülü Topla', 'Claim Reward')
+                      : bi('Hedef Devam Ediyor', 'In Progress')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: DAILY QUESTS + STREAK BAR (ZERO SCROLL) */}
+      {subTab === 'DAILY' && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
+            {shop.dailyQuests.map((q) => {
+              const loc = getLocalizedQuest(q, lang);
+              const ready = !q.claimed && q.progress >= q.target;
+              const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
+              return (
+                <div
+                  key={q.id}
+                  className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 ${
+                    q.claimed
+                      ? 'border-emerald-500/25 bg-emerald-500/6 opacity-75'
+                      : ready
+                      ? 'border-emerald-400/60 bg-emerald-500/12'
+                      : 'border-white/10 bg-[#151D28]'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-extrabold text-slate-100">
+                        {loc.title}
+                      </span>
+                      <span className="font-mono text-[10px] font-bold text-amber-300 shrink-0">
+                        +{q.xpReward} XP
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-300 mt-1 leading-snug">
+                      {loc.description}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5 tabular-nums">
+                    <div className="flex justify-between text-[10.5px]">
+                      <span className="text-slate-400">
+                        {bi('İlerleme', 'Progress')}
+                      </span>
+                      <span className="font-mono font-bold text-slate-100">
+                        {Math.min(q.progress, q.target)} / {q.target}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
+                    {q.claimed ? (
+                      <div className="text-center text-[11px] font-extrabold text-emerald-400 py-1">
+                        ✓ {bi('Alındı', 'Claimed')}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!ready}
+                        onClick={() => onClaimDailyQuest(q.id)}
+                        className="w-full rounded-lg bg-emerald-500 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                      >
+                        {ready
+                          ? `${bi('Al', 'Claim')} · +${formatTRY(q.reward)}`
+                          : `${bi('Ödül', 'Reward')}: +${formatTRY(q.reward)}`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Compact 7-Day Login Streak Strip */}
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-3 py-1.5 flex items-center justify-between gap-2 tabular-nums">
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <Flame className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-bold text-slate-100 whitespace-nowrap">
+                {bi(`Giriş Serisi: ${shop.loginStreak}. Gün`, `Login Streak: Day ${shop.loginStreak}`)}
+              </span>
+              {streakBonus > 0 && (
+                <span className="text-[10px] text-emerald-300 hidden sm:inline">
+                  · {bi('Anlaşma Serisi Bonusu', 'Deal Streak Bonus')}: +{formatTRY(streakBonus)}
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-7 gap-1.5 tabular-nums">
+            <div className="flex items-center gap-1">
               {DAILY_STREAK_REWARDS.map((r) => {
-                const isPast = r.day < shop.loginStreak;
-                const isToday = r.day === shop.loginStreak;
+                const active = r.day === shop.loginStreak;
+                const past = r.day < shop.loginStreak;
                 return (
-                  <div
+                  <span
                     key={r.day}
-                    className={`rounded-lg border px-1.5 py-2 text-center ${
-                      isToday
-                        ? 'border-amber-400 bg-amber-500/15 text-amber-200'
-                        : isPast
-                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                        : 'border-white/8 bg-[#0E141D] text-slate-500'
+                    className={`rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold ${
+                      active
+                        ? 'bg-amber-500 text-slate-950'
+                        : past
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : 'bg-white/8 text-slate-400'
                     }`}
                   >
-                    <div className="text-[10px] font-bold">G{r.day}</div>
-                    <div className="font-mono text-[10.5px] font-extrabold mt-0.5">
-                      {(r.cash / 1000).toFixed(1)}K
-                    </div>
-                  </div>
+                    {bi('G', 'D')}
+                    {r.day}
+                  </span>
                 );
               })}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* 10-Level Perks Grid (2 rows of 5 on desktop) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {LEVEL_PERKS.map((perk) => {
-              const unlocked = shop.level >= perk.level;
-              const isNext = perk.level === shop.level + 1;
+      {/* TAB 3: CAREER MILESTONES (3x2 PAGINATED, ZERO SCROLL) */}
+      {subTab === 'MILESTONES' && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+            {visibleMilestones.map((m) => {
+              const loc = getLocalizedMilestone(m, lang);
+              const val = getMilestoneCurrentValue(shop, m);
+              const claimed = shop.claimedMilestoneIds.includes(m.id);
+              const ready = !claimed && val >= m.target;
+              const pct = Math.min(100, Math.round((val / m.target) * 100));
               return (
                 <div
-                  key={perk.level}
-                  className={`rounded-xl border p-2.5 text-xs ${
-                    unlocked
-                      ? 'border-emerald-500/35 bg-emerald-500/8 text-slate-100'
-                      : isNext
-                      ? 'border-amber-400/35 bg-amber-500/8 text-slate-200'
-                      : 'border-white/8 bg-[#121822] text-slate-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-[11px] font-bold text-amber-400">
-                      Sv. {perk.level}
-                    </span>
-                    {unlocked ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Lock className="w-3 h-3 text-slate-500" />
-                    )}
-                  </div>
-                  <div className="font-semibold leading-snug text-[11.5px] mb-0.5">
-                    {perk.title}
-                  </div>
-                  <div className="text-[10.5px] text-slate-400 leading-snug">
-                    {perk.description}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Sub-Tabs */}
-        <div className="flex flex-wrap items-center gap-2 mb-5">
-          <button
-            type="button"
-            onClick={() => setSubTab('STORY')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              subTab === 'STORY'
-                ? 'bg-amber-500 text-slate-950'
-                : 'border border-white/10 bg-[#17202C] text-slate-300 hover:text-slate-50'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>
-              Hikaye Bölümleri ({shop.claimedChapterIds.length}/{STORY_CHAPTERS.length})
-            </span>
-            {readyStoryCount > 0 && (
-              <span className="font-mono font-extrabold text-emerald-950 bg-emerald-400 rounded px-1.5 py-0.5 text-[10px]">
-                +{readyStoryCount} Hazır
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSubTab('DAILY')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              subTab === 'DAILY'
-                ? 'bg-amber-500 text-slate-950'
-                : 'border border-white/10 bg-[#17202C] text-slate-300 hover:text-slate-50'
-            }`}
-          >
-            <Target className="w-4 h-4" />
-            <span>
-              Günlük Görevler ({shop.dailyQuests.filter((q) => q.claimed).length}/
-              {shop.dailyQuests.length})
-            </span>
-            {readyDailyCount > 0 && (
-              <span className="font-mono font-extrabold text-emerald-950 bg-emerald-400 rounded px-1.5 py-0.5 text-[10px]">
-                +{readyDailyCount} Hazır
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSubTab('MILESTONES')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              subTab === 'MILESTONES'
-                ? 'bg-amber-500 text-slate-950'
-                : 'border border-white/10 bg-[#17202C] text-slate-300 hover:text-slate-50'
-            }`}
-          >
-            <Trophy className="w-4 h-4" />
-            <span>
-              Kariyer Hedefleri ({shop.claimedMilestoneIds.length}/
-              {CAREER_MILESTONES.length})
-            </span>
-            {readyMilestoneCount > 0 && (
-              <span className="font-mono font-extrabold text-emerald-950 bg-emerald-400 rounded px-1.5 py-0.5 text-[10px]">
-                +{readyMilestoneCount} Hazır
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSubTab('COLLECTION')}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              subTab === 'COLLECTION'
-                ? 'bg-amber-500 text-slate-950'
-                : 'border border-white/10 bg-[#17202C] text-slate-300 hover:text-slate-50'
-            }`}
-          >
-            <Smartphone className="w-4 h-4" />
-            <span>
-              Cihaz Koleksiyonu ({shop.discoveredSpecIds.length}/{PHONE_CATALOG.length})
-            </span>
-          </button>
-        </div>
-
-        {/* TAB 0: 5-CHAPTER CAREER STORY (23-YEAR-OLD APPRENTICE TO EMPIRE) */}
-        {subTab === 'STORY' && (
-          <div className="space-y-4">
-            {STORY_CHAPTERS.map((ch) => {
-              const currentVal = getStoryChapterCurrentValue(shop, ch);
-              const clamped = Math.min(ch.target, currentVal);
-              const pct = Math.min(100, Math.round((clamped / ch.target) * 100));
-              const claimed = shop.claimedChapterIds.includes(ch.id);
-              const ready = !claimed && currentVal >= ch.target;
-
-              return (
-                <article
-                  key={ch.id}
-                  className={`rounded-2xl border p-5 ${
-                    ready
-                      ? 'border-emerald-400/55 bg-emerald-500/8'
-                      : claimed
-                      ? 'border-white/8 bg-[#131A24] opacity-80'
-                      : 'border-white/10 bg-[#161F2B]'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-                    <div>
-                      <div className="text-xs font-mono font-bold text-amber-400 mb-0.5">
-                        0{ch.chapterNumber}. HİKAYE BÖLÜMÜ · {ch.subtitle}
-                      </div>
-                      <h2 className="font-display text-xl font-extrabold text-slate-50">
-                        {ch.title}
-                      </h2>
-                    </div>
-                    <div className="font-mono text-xs font-bold text-emerald-400 tabular-nums shrink-0">
-                      +{formatTRY(ch.rewardCash)} · +{ch.rewardXp} XP
-                    </div>
-                  </div>
-
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-3">
-                    {ch.narrative}
-                  </p>
-
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/6 px-3.5 py-2.5 text-xs text-amber-100 italic mb-4">
-                    {ch.mentorNote}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between text-xs mb-1.5 tabular-nums">
-                        <span className="text-slate-300 font-medium">
-                          Hedef: {ch.objectiveText}
-                        </span>
-                        <span className="font-mono font-bold text-amber-300 ml-3 shrink-0">
-                          {clamped} / {ch.target}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            claimed || ready ? 'bg-emerald-400' : 'bg-amber-400'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="shrink-0">
-                      {claimed ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-300">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Bölüm Tamamlandı</span>
-                        </span>
-                      ) : ready ? (
-                        <button
-                          type="button"
-                          onClick={() => onClaimStoryChapter(ch.id)}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer whitespace-nowrap"
-                        >
-                          <Gift className="w-4 h-4" />
-                          <span>Bölüm Ödülünü Al (+{formatTRY(ch.rewardCash)})</span>
-                        </button>
-                      ) : (
-                        <span className="text-xs font-mono text-slate-400 tabular-nums">
-                          %{pct} Tamamlandı
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-
-            {/* LIVE CUSTOMER REVIEWS FEED */}
-            <div className="rounded-2xl border border-white/10 bg-[#161F2B] p-5">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-amber-400" />
-                  <h3 className="font-display text-base font-bold text-slate-50">
-                    Müşteri Değerlendirmeleri & Semt Yorumları
-                  </h3>
-                </div>
-                <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-amber-400 tabular-nums">
-                  <Star className="w-3.5 h-3.5 fill-amber-400" />
-                  <span>{shop.reputation.toFixed(1)} / 5.0</span>
-                </span>
-              </div>
-
-              {shop.reviews.length === 0 ? (
-                <p className="text-xs text-slate-400">
-                  Henüz yorum bırakılmadı. Tezgahta müşterilerin ruh halini yüksek tutup el sıkıştıkça 5 yıldızlı yorumlar burada birikir!
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {shop.reviews.slice(0, 6).map((rev) => (
-                    <div
-                      key={rev.id}
-                      className="rounded-xl border border-white/8 bg-[#101720] p-3.5 text-xs space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold text-slate-100">
-                          {rev.customerName}
-                          <span className="text-slate-500 font-normal ml-1.5">
-                            · Gün {rev.day}
-                          </span>
-                        </span>
-                        <span className="inline-flex items-center gap-0.5 text-amber-400 font-mono font-bold">
-                          {'★'.repeat(rev.rating)}
-                          <span className="text-slate-600">{'★'.repeat(5 - rev.rating)}</span>
-                        </span>
-                      </div>
-                      <p className="text-slate-300 leading-relaxed">“{rev.comment}”</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 1: DAILY QUESTS */}
-        {subTab === 'DAILY' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {shop.dailyQuests.map((q) => {
-              const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
-              const isReady = !q.claimed && q.progress >= q.target;
-
-              return (
-                <article
-                  key={q.id}
-                  className={`rounded-2xl border p-5 flex flex-col justify-between transition-colors ${
-                    isReady
-                      ? 'border-emerald-400/55 bg-emerald-500/8'
-                      : q.claimed
-                      ? 'border-white/8 bg-[#131A24] opacity-75'
-                      : 'border-white/10 bg-[#161F2B]'
+                  key={m.id}
+                  className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                    claimed
+                      ? 'border-emerald-500/25 bg-emerald-500/6 opacity-75'
+                      : ready
+                      ? 'border-amber-400 bg-amber-500/12'
+                      : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between text-xs mb-2 tabular-nums">
-                      <span className="font-semibold text-amber-400">
-                        Gün {shop.day} Görevi
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-extrabold text-slate-100 truncate">
+                        {loc.title}
                       </span>
-                      <span className="font-mono font-bold text-slate-200">
-                        {q.progress} / {q.target}
-                      </span>
-                    </div>
-
-                    <h3 className="font-display text-lg font-bold text-slate-50 mb-1.5">
-                      {q.title}
-                    </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                      {q.description}
-                    </p>
-
-                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden mb-4">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          q.claimed || isReady ? 'bg-emerald-400' : 'bg-amber-400'
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-xs mb-3 tabular-nums">
-                      <span className="text-slate-400">Ödül Paketi</span>
-                      <span className="font-mono font-bold text-emerald-400">
-                        +{formatTRY(q.reward)} · +{q.xpReward} XP
+                      <span className="font-mono text-[9.5px] text-amber-300 shrink-0">
+                        +{m.rewardXp}XP
                       </span>
                     </div>
-
-                    {q.claimed ? (
-                      <div className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2.5 text-xs font-semibold text-emerald-300">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Ödül Kasaya Alındı</span>
-                      </div>
-                    ) : isReady ? (
-                      <button
-                        type="button"
-                        onClick={() => onClaimDailyQuest(q.id)}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer"
-                      >
-                        <Gift className="w-4 h-4" />
-                        <span>Ödülü Topla (+{formatTRY(q.reward)})</span>
-                      </button>
-                    ) : (
-                      <div className="w-full text-center rounded-xl border border-white/8 bg-[#121822] py-2.5 text-xs text-slate-400">
-                        Devam Ediyor (%{pct})
-                      </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-
-        {/* TAB 2: CAREER MILESTONES */}
-        {subTab === 'MILESTONES' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {CAREER_MILESTONES.map((ms) => {
-              const val = getMilestoneCurrentValue(shop, ms);
-              const clamped = Math.min(ms.target, val);
-              const pct = Math.min(100, Math.round((clamped / ms.target) * 100));
-              const claimed = shop.claimedMilestoneIds.includes(ms.id);
-              const ready = !claimed && val >= ms.target;
-
-              return (
-                <article
-                  key={ms.id}
-                  className={`rounded-2xl border p-5 flex flex-col justify-between ${
-                    ready
-                      ? 'border-amber-400/60 bg-amber-500/10'
-                      : claimed
-                      ? 'border-white/8 bg-[#131A24] opacity-75'
-                      : 'border-white/10 bg-[#161F2B]'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-3 mb-1.5">
-                      <h3 className="font-display text-lg font-bold text-slate-50">
-                        {ms.title}
-                      </h3>
-                      <span className="font-mono text-xs font-bold text-amber-300 whitespace-nowrap shrink-0 tabular-nums">
-                        +{formatTRY(ms.rewardCash)} · +{ms.rewardXp} XP
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 leading-relaxed mb-3.5">
-                      {ms.description}
+                    <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5">
+                      {loc.description}
                     </p>
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between text-xs mb-1.5 tabular-nums">
-                      <span className="text-slate-400">Kariyer İlerlemesi</span>
-                      <span className="font-mono font-semibold text-slate-100">
-                        {ms.metric === 'totalProfitEarned'
-                          ? `${formatTRY(clamped)} / ${formatTRY(ms.target)}`
-                          : `${clamped} / ${ms.target}`}
+                  <div className="space-y-1 tabular-nums">
+                    <div className="flex justify-between text-[9.5px] font-mono">
+                      <span className="text-slate-400">
+                        {Math.min(val, m.target)}/{m.target}
+                      </span>
+                      <span className="text-emerald-300">
+                        +{formatTRY(m.rewardCash)}
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden mb-3.5">
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          claimed || ready ? 'bg-emerald-400' : 'bg-amber-400'
-                        }`}
+                        className="h-full bg-amber-400"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-
                     {claimed ? (
-                      <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Kilometre Taşı Tamamlandı</span>
+                      <div className="text-center text-[10px] font-bold text-emerald-400">
+                        ✓ {bi('Tamamlandı', 'Completed')}
                       </div>
-                    ) : ready ? (
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => onClaimMilestone(ms.id)}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
+                        disabled={!ready}
+                        onClick={() => onClaimMilestone(m.id)}
+                        className="w-full rounded-md bg-amber-500 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
                       >
-                        <Sparkles className="w-4 h-4" />
-                        <span>Kariyer Ödülünü Al (+{formatTRY(ms.rewardCash)})</span>
+                        {ready
+                          ? bi('Ödülü Al', 'Claim')
+                          : bi('Devam Ediyor', 'In Progress')}
                       </button>
-                    ) : (
-                      <span className="text-xs text-slate-500">
-                        Hedefe ulaşmak için dükkanı büyütmeye devam et
-                      </span>
                     )}
                   </div>
-                </article>
+                </div>
               );
             })}
           </div>
-        )}
 
-        {/* TAB 3: PHONE COLLECTION ENCYCLOPEDIA */}
-        {subTab === 'COLLECTION' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {PHONE_CATALOG.map((spec) => {
+          <div className="shrink-0 flex items-center justify-center gap-2 text-[11px]">
+            <button
+              type="button"
+              disabled={safeMsPage === 0}
+              onClick={() => setMsPage((p) => Math.max(0, p - 1))}
+              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> {bi('Önceki', 'Prev')}
+            </button>
+            <span className="font-mono text-slate-400">
+              {safeMsPage + 1} / {totalMsPages}
+            </span>
+            <button
+              type="button"
+              disabled={safeMsPage >= totalMsPages - 1}
+              onClick={() => setMsPage((p) => Math.min(totalMsPages - 1, p + 1))}
+              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+            >
+              {bi('Sonraki', 'Next')} <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: 10-LEVEL PROGRESSION ROADMAP (5x2 ZERO SCROLL) */}
+      {subTab === 'LEVELS' && (
+        <div className="flex-1 min-h-0 grid grid-cols-5 grid-rows-2 gap-2 overflow-hidden">
+          {LEVEL_PERKS.map((perk) => {
+            const loc = getLocalizedLevelPerk(perk.level, lang);
+            const reached = shop.level >= perk.level;
+            const isCurrent = shop.level === perk.level;
+            return (
+              <div
+                key={perk.level}
+                className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                  isCurrent
+                    ? 'border-amber-400 bg-amber-500/15'
+                    : reached
+                    ? 'border-emerald-500/35 bg-emerald-500/8'
+                    : 'border-white/8 bg-[#131A24]/80 opacity-70'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-mono text-[10.5px] font-extrabold text-amber-300">
+                    {bi(`Sv.${perk.level}`, `Lv.${perk.level}`)}
+                  </span>
+                  {reached ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Lock className="w-3 h-3 text-slate-500 shrink-0" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-100 leading-tight line-clamp-2">
+                    {loc.title}
+                  </div>
+                  <p className="text-[9px] text-slate-400 leading-snug line-clamp-3 mt-0.5">
+                    {loc.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* TAB 5: PHONE MODEL COLLECTION (4x2 PAGINATED, ZERO SCROLL) */}
+      {subTab === 'COLLECTION' && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-4 grid-rows-2 gap-2 overflow-hidden">
+            {visibleModels.map((spec) => {
               const discovered = shop.discoveredSpecIds.includes(spec.id);
-              const unlockedByDay = shop.day >= spec.releaseDay;
               return (
-                <article
+                <div
                   key={spec.id}
-                  className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${
+                  className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 ${
                     discovered
-                      ? 'border-white/12 bg-[#161F2B]'
-                      : 'border-white/6 bg-[#111721] opacity-75'
+                      ? 'border-amber-400/35 bg-[#151D28]'
+                      : 'border-white/8 bg-[#111720] opacity-60'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="h-12 w-9 rounded-lg border flex items-center justify-center shrink-0"
-                      style={{
-                        backgroundColor: discovered ? spec.bodyColor : '#1A222E',
-                        borderColor: discovered
-                          ? spec.accentColor
-                          : 'rgba(255,255,255,0.1)',
-                      }}
-                    >
-                      {discovered ? (
-                        <Smartphone className="w-4 h-4 text-white/80" />
-                      ) : (
-                        <Lock className="w-3.5 h-3.5 text-slate-500" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-display text-sm font-bold text-slate-100 truncate">
-                        {discovered
-                          ? `${spec.brand} ${spec.model}`
-                          : unlockedByDay
-                          ? `${spec.brand} ???`
-                          : 'Kilitli Lansman Modeli'}
-                      </div>
-                      <div className="text-[11px] text-slate-400 tabular-nums">
-                        {discovered
-                          ? `${spec.storage} · Piyasa ${formatTRY(spec.baseValue)}`
-                          : unlockedByDay
-                          ? 'Piyasada aktif · Tezgaha gelmesi bekleniyor'
-                          : `Gün ${spec.releaseDay} Lansmanı ile açılır`}
-                      </div>
-                    </div>
+                  <div className="shrink-0 flex items-center justify-between gap-1">
+                    <span className="text-[11px] font-extrabold text-slate-100 truncate">
+                      {discovered ? `${spec.brand} ${spec.model}` : '???'}
+                    </span>
+                    <span className="font-mono text-[9.5px] text-slate-400 shrink-0">
+                      {spec.storage}
+                    </span>
                   </div>
 
-                  <div className="shrink-0 text-right text-[11px] font-semibold">
-                    {discovered ? (
-                      <span className="text-emerald-400">Keşfedildi</span>
-                    ) : (
-                      <span className="text-slate-500">Gün {spec.releaseDay}</span>
-                    )}
+                  <div className="flex-1 min-h-0 my-1 rounded-lg border border-white/6 bg-[#0D131C] p-1.5 flex items-center justify-center overflow-hidden">
+                    <PhoneModelThumb
+                      spec={spec}
+                      showBack
+                      silhouette={!discovered}
+                      className="h-full max-h-20 w-auto"
+                    />
                   </div>
-                </article>
+
+                  <div className="shrink-0 flex items-center justify-between text-[10px] tabular-nums">
+                    <span className="text-slate-400 uppercase font-mono">
+                      {spec.tier}
+                    </span>
+                    <span className="font-mono font-bold text-amber-300">
+                      {discovered ? formatTRY(spec.baseValue) : '—'}
+                    </span>
+                  </div>
+                </div>
               );
             })}
           </div>
-        )}
-      </div>
+
+          <div className="shrink-0 flex items-center justify-center gap-2 text-[11px]">
+            <button
+              type="button"
+              disabled={safeColPage === 0}
+              onClick={() => setColPage((p) => Math.max(0, p - 1))}
+              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> {bi('Önceki', 'Prev')}
+            </button>
+            <span className="font-mono text-slate-400">
+              {safeColPage + 1} / {totalColPages} · {shop.discoveredSpecIds.length}/
+              {PHONE_CATALOG.length}
+            </span>
+            <button
+              type="button"
+              disabled={safeColPage >= totalColPages - 1}
+              onClick={() =>
+                setColPage((p) => Math.min(totalColPages - 1, p + 1))
+              }
+              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+            >
+              {bi('Sonraki', 'Next')} <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

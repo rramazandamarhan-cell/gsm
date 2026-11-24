@@ -1,12 +1,13 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { SHOP_TIERS } from '../game/catalog';
-import { DecorationId, ShopTier, StoreEventVisualKind } from '../game/types';
+import { DecorationId, PhoneDevice, ShopTier, StoreEventVisualKind } from '../game/types';
 
 interface ShopDecorLayerProps {
   shopTier: ShopTier;
   activeDecorations: DecorationId[];
   activeEventVisual?: StoreEventVisualKind | null;
+  listedPhones?: PhoneDevice[];
 }
 
 const TIER_GLOW_BY_TIER: Record<ShopTier, string> = {
@@ -22,6 +23,7 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
   shopTier,
   activeDecorations,
   activeEventVisual = null,
+  listedPhones = [],
 }) => {
   const tierInfo = SHOP_TIERS[shopTier];
   const hasSign = activeDecorations.includes('vintage_sign');
@@ -174,6 +176,35 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
           <circle cx="84" cy="24" r="3.5" fill="#F8FAFC" />
           <circle cx="84" cy="24" r="1.6" fill="#1E3A8A" />
         </motion.svg>
+      )}
+      {/* LIVE GLASS SHOWCASE SHELF: Mirrors player's actual listed showcase inventory */}
+      {listedPhones.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="hidden lg:flex absolute bottom-1.5 left-1/2 -translate-x-1/2 items-end gap-2.5 rounded-t-xl border-x border-t border-white/10 bg-[#0D131C]/55 px-4 pt-2 pb-1.5 backdrop-blur-[2px] opacity-75"
+        >
+          <span className="text-[9px] font-semibold tracking-wider text-amber-300/75 uppercase mr-1 self-center">
+            Vitrin ({listedPhones.length})
+          </span>
+          {listedPhones.slice(0, 7).map((phone) => (
+            <div key={phone.uid} className="flex flex-col items-center gap-0.5">
+              <div
+                className="h-7 w-4 rounded-[3px] border flex flex-col items-center justify-between p-[2px] shadow-sm"
+                style={{
+                  backgroundColor: phone.bodyColor,
+                  borderColor: phone.isBrandNew ? '#34D399' : phone.accentColor,
+                }}
+              >
+                <span className="h-[2px] w-1.5 rounded-full bg-black/60" />
+                <span
+                  className="h-1.5 w-1.5 rounded-full opacity-75"
+                  style={{ backgroundColor: phone.accentColor }}
+                />
+              </div>
+              <span className="h-[2px] w-5 rounded-full bg-amber-400/35" />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

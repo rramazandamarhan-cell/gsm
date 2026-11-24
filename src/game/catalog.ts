@@ -414,6 +414,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     name: '9H Hayalet Kırılmaz Cam',
     category: 'Ekran Koruma',
     shelfGroup: 'protection',
+    minLevel: 2,
     wholesaleCost: 65,
     recommendedPrice: 250,
     minPrice: 120,
@@ -426,6 +427,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     name: 'MagKlik Silikon Kılıf',
     category: 'Kılıf & Koruma',
     shelfGroup: 'protection',
+    minLevel: 2,
     wholesaleCost: 145,
     recommendedPrice: 450,
     minPrice: 220,
@@ -438,6 +440,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     name: 'Manyetik Araç Tutucu',
     category: 'Araç Aksesuarı',
     shelfGroup: 'protection',
+    minLevel: 3,
     wholesaleCost: 220,
     recommendedPrice: 600,
     minPrice: 320,
@@ -450,6 +453,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     name: '30W GaN Hızlı Şarj Seti',
     category: 'Güç & Kablo',
     shelfGroup: 'power',
+    minLevel: 4,
     wholesaleCost: 290,
     recommendedPrice: 780,
     minPrice: 420,
@@ -462,6 +466,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     name: '10.000 mAh Mini Powerbank',
     category: 'Taşınabilir Güç',
     shelfGroup: 'power',
+    minLevel: 5,
     wholesaleCost: 480,
     recommendedPrice: 1180,
     minPrice: 650,
@@ -474,6 +479,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     name: 'ANC Bluetooth Kulaklık',
     category: 'Ses & Kulaklık',
     shelfGroup: 'audio',
+    minLevel: 6,
     wholesaleCost: 640,
     recommendedPrice: 1600,
     minPrice: 880,
@@ -489,40 +495,40 @@ export const BRAND_DISTRIBUTORS: BrandDistributor[] = [
     id: 'dist_budget',
     name: 'Anadolu GSM Toptan (RedMix & PocoPop)',
     brands: ['RedMix', 'PocoPop'],
-    minLevel: 1,
+    minLevel: 2,
     minReputation: 1.0,
     wholesaleRatio: 0.93,
-    tagline: 'İlk Günden Açık · Sıfır Kapalı Kutu',
+    tagline: 'Sv. 2 ile Açılır · Sıfır Kapalı Kutu',
     description: 'Cemal Usta’nın referansıyla açılan ilk resmi toptancın. 24 ay TR garantili sıfır giriş seviyesi cihazlar.',
   },
   {
     id: 'dist_samxung',
     name: 'Samxung Türkiye Yetkili Distribütörü',
     brands: ['Samxung'],
-    minLevel: 2,
-    minReputation: 3.2,
+    minLevel: 3,
+    minReputation: 3.1,
     wholesaleRatio: 0.91,
-    tagline: 'Sv. 2 & 3.2★ İtibar ile Açılır',
+    tagline: 'Sv. 3 & 3.1★ İtibar ile Açılır',
     description: 'Galax A ve S Ultra serilerini fabrikadan kapalı kutu çekip sıfır vitrininde yüksek kârla sat.',
   },
   {
     id: 'dist_aphone',
     name: 'aPhone Yetkili Bayilik Hattı',
     brands: ['aPhone'],
-    minLevel: 3,
-    minReputation: 3.6,
+    minLevel: 4,
+    minReputation: 3.5,
     wholesaleRatio: 0.9,
-    tagline: 'Sv. 3 & 3.6★ İtibar ile Açılır',
+    tagline: 'Sv. 4 & 3.5★ İtibar ile Açılır',
     description: 'Şehrin en çok aranan kapalı kutu aPhone serilerine doğrudan distribütör fiyatından erişim.',
   },
   {
     id: 'dist_luxury',
     name: 'Global Lüks & Katlanabilir İthalat',
     brands: ['FoldZ', 'LuminaCam', 'NovaFold'],
-    minLevel: 5,
+    minLevel: 6,
     minReputation: 4.0,
     wholesaleRatio: 0.88,
-    tagline: 'Sv. 5 & 4.0★ İtibar ile Açılır',
+    tagline: 'Sv. 6 & 4.0★ İtibar ile Açılır',
     description: 'VIP koleksiyonerlerin peşinde olduğu ultra lüks ve katlanabilir sıfır cihazların özel tedarik hattı.',
   },
 ];
@@ -535,14 +541,14 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: 'Bölüm 1: İlk Kepenk (23 Yaş)',
     subtitle: '5 yıllık çıraklıktan kendi 12 m² pasaj dükkanına',
     narrative:
-      'Liseden sonra Cemal Usta’nın yanında 5 yıl pişip biriktirdiğin 16.500 ₺ ile kendi kepengini açtın. İlk iş: sıcak nakit döndürmek için raflardan aksesuar sat ve ilk telefon satışını bağla!',
+      'Liseden sonra Cemal Usta’nın yanında 5 yıl pişip biriktirdiğin sermayeyle kendi kepengini açtın. Önce 2. el telefonları incele, ucuza kapat, vitrine koy ve ilk sıcak satışlarını yap!',
     mentorNote:
-      'Cemal Usta: "Evlat, büyük parayı telefondan kazanırsın ama dükkanın kirasını her zaman kılıf, kırılmaz cam ve şarj aleti çıkarır. Reyonu asla boş bırakma!"',
-    objectiveText: 'Toplam 5 adet telefon aksesuarı sat (Tezgah, çapraz satış veya gün sonu)',
-    rewardCash: 2200,
-    rewardXp: 110,
-    metric: 'totalAccessoriesSold',
-    target: 5,
+      'Cemal Usta: "Evlat, önce 2. el al-satta elin ısınsın. Kusuru yakala, fiyatı kır, vitrinden ilk iki telefonunu satıp Sv. 2 olunca toptancıdan kılıf ve kırılmaz cam bağlarız!"',
+    objectiveText: 'Vitrinden toplam 2 adet telefon satıp kasayı döndür',
+    rewardCash: 2400,
+    rewardXp: 130,
+    metric: 'totalPhonesSold',
+    target: 2,
   },
   {
     id: 'ch_2_own_bench',
@@ -550,43 +556,43 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: 'Bölüm 2: Kendi Tornavidan',
     subtitle: 'Dış tamirciye muhtaç kalmadan usta işçiliği',
     narrative:
-      'Eski ustadan öğrendiğin anakart ve ekran bilgisini artık kendi kasana yazma vakti. Kendi Tamir Tezgahını kurup arızalı cihazları hayata döndürerek gerçek kâr marjını yakala.',
+      'Eski ustadan öğrendiğin anakart ve ekran bilgisini artık kendi kasana yazma vakti. Arızalı cihazları hayata döndürüp Sv. 2 ile açılan aksesuar reyonunu doldurmaya hazırlan!',
     mentorNote:
       'Cemal Usta: "Kırık ekranlı cihazdan herkes kaçar, gerçek usta oradaki kârı görür. Sıcak havayı dengeli tut, flexi koparma!"',
-    objectiveText: 'Atölyede veya acil serviste toplam 3 telefon onarımı tamamla',
+    objectiveText: 'Atölyede veya acil serviste toplam 2 telefon onarımı tamamla',
     rewardCash: 3500,
-    rewardXp: 160,
+    rewardXp: 165,
     metric: 'totalPhonesRepaired',
-    target: 3,
+    target: 2,
   },
   {
-    id: 'ch_3_brand_dealer',
+    id: 'ch_3_accessory_shelf',
     chapterNumber: 3,
-    title: 'Bölüm 3: Sıfır Kutu Bayiliği',
+    title: 'Bölüm 3: Aksesuar Reyonu',
+    subtitle: 'Kırılmaz cam, kılıf ve şarj aletleriyle nakit akışı',
+    narrative:
+      'Seviye atladıkça toptancı kapıları açılıyor! Önce cam & kılıf, sonra araç tutucu, GaN şarj, powerbank ve kulaklıklarla reyonunu büyütüp çapraz satış yap.',
+    mentorNote:
+      'Cemal Usta: "Büyük parayı telefondan kazanırsın ama dükkanın kirasını her zaman kılıf, kırılmaz cam ve şarj aleti çıkarır. Reyonu boş bırakma!"',
+    objectiveText: 'Toptancıdan getirdiğin toplam 5 adet telefon aksesuarı sat',
+    rewardCash: 4800,
+    rewardXp: 210,
+    metric: 'totalAccessoriesSold',
+    target: 5,
+  },
+  {
+    id: 'ch_4_brand_dealer',
+    chapterNumber: 4,
+    title: 'Bölüm 4: Sıfır Kutu Bayiliği',
     subtitle: 'Sadece 2. el değil, resmi marka distribütörlüğü',
     narrative:
       'Artık pasajda sadece eski telefon alıp satan bir genç değilsin. Toptancı sekmesinden sıfır, 24 ay garantili kapalı kutu telefonlar çekip vitrinini üst lige taşı!',
     mentorNote:
-      'Cemal Usta: "Kapalı kutu sıfır telefon vitrine güven verir. Yanına bir de 30W hızlı şarj ve kılıf sattın mı, müşteri buradan bir daha şaşmaz!"',
+      'Cemal Usta: "Kapalı kutu sıfır telefon vitrine güven verir. Yanına bir de kılıf ve hızlı şarj sattın mı, müşteri buradan bir daha şaşmaz!"',
     objectiveText: 'Distribütörden aldığın toplam 2 adet Sıfır Kapalı Kutu telefon sat',
-    rewardCash: 5500,
-    rewardXp: 230,
+    rewardCash: 7500,
+    rewardXp: 280,
     metric: 'totalBrandNewSold',
-    target: 2,
-  },
-  {
-    id: 'ch_4_street_store',
-    chapterNumber: 4,
-    title: 'Bölüm 4: Pasajdan Caddeye',
-    subtitle: 'Artık sen de kendi çırağını yetiştiren bir ustasın',
-    narrative:
-      '12 metrekarelik pasaj gözü artık müşterilerine dar geliyor! Caddeye bakan Köşe Teknoloji Dükkanına geçerek şehrin bilinen markası olma yolunda dev adımı at.',
-    mentorNote:
-      'Cemal Usta: "Beş yıl önce bana çay getiren çocuk bugün cadde mağazası açıyor... Seninle gurur duyuyorum evlat!"',
-    objectiveText: '2. Seviye "Köşe Teknoloji Dükkanı" şubesini aç',
-    rewardCash: 9000,
-    rewardXp: 320,
-    metric: 'shopTier',
     target: 2,
   },
   {
@@ -595,10 +601,10 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: 'Bölüm 5: GSM İmparatorluğu',
     subtitle: 'Şehrin zirvesindeki Showroom & Teknik Servis',
     narrative:
-      '2. el ekspertiz, mikro cerrahi tamir, zengin aksesuar reyonu ve resmi marka bayiliği tek çatı altında! 3. Seviye GSM Showroom’unu açarak adını sektöre altın harflerle yaz.',
+      '2. el ekspertiz, mikro cerrahi tamir, zengin aksesuar reyonu ve resmi marka bayiliği tek çatı altında! Dükkanını 3. Seviye üzerine taşıyarak adını sektöre altın harflerle yaz.',
     mentorNote:
       'Cemal Usta: "Artık benim sana öğreteceğim bir şey kalmadı. Şehrin yeni kralı sensin, kepengin hep bereketle açılsın!"',
-    objectiveText: '3. Seviye "GSM Showroom & Servis" merkezini aç',
+    objectiveText: '3. Seviye "Cadde GSM Mağazası" veya üstü şubeye geç',
     rewardCash: 18000,
     rewardXp: 500,
     metric: 'shopTier',
@@ -717,7 +723,7 @@ export const CUSTOMER_ARCHETYPES: Record<CustomerArchetypeId, CustomerArchetype>
   student: {
     id: 'student',
     title: 'Üniversite Öğrencisi',
-    names: ['Cem', 'Efe', 'Mert', 'Arda', 'Kaan'],
+    names: ['Cem', 'Efe', 'Mert', 'Arda', 'Kaan', 'Berk', 'Emir', 'Batu', 'Yusuf', 'Kerem'],
     portraitPath: '/src/assets/images/customer_student_1795453524285.jpg',
     fallbackColor: '#365314',
     startingPatience: 85,
@@ -731,7 +737,7 @@ export const CUSTOMER_ARCHETYPES: Record<CustomerArchetypeId, CustomerArchetype>
   uncle: {
     id: 'uncle',
     title: 'Şüpheci Esnaf Dayı',
-    names: ['Hüseyin Dayı', 'Kemal Amca', 'Rıza Abi', 'Muzaffer Dayı'],
+    names: ['Hüseyin Dayı', 'Kemal Amca', 'Rıza Abi', 'Muzaffer Dayı', 'İsmail Usta', 'Nurettin Abi', 'Süleyman Amca', 'Fikret Dayı'],
     portraitPath: '/src/assets/images/customer_uncle_1795453527637.jpg',
     fallbackColor: '#78350F',
     startingPatience: 72,
@@ -745,7 +751,7 @@ export const CUSTOMER_ARCHETYPES: Record<CustomerArchetypeId, CustomerArchetype>
   influencer: {
     id: 'influencer',
     title: 'İçerik Üreticisi',
-    names: ['Selin', 'İrem', 'Duru', 'Melis'],
+    names: ['Selin', 'İrem', 'Duru', 'Melis', 'Zeynep', 'Ece', 'Defne', 'Alara', 'Naz', 'Buse'],
     portraitPath: '/src/assets/images/customer_influencer_1795453527434.jpg',
     fallbackColor: '#4C1D95',
     startingPatience: 78,
@@ -759,7 +765,7 @@ export const CUSTOMER_ARCHETYPES: Record<CustomerArchetypeId, CustomerArchetype>
   hustler: {
     id: 'hustler',
     title: 'Pasaj Tüccarı',
-    names: ['Serkan', 'Tarık', 'Gökhan', 'Volkan'],
+    names: ['Serkan', 'Tarık', 'Gökhan', 'Volkan', 'Sinan', 'Erhan', 'Okan', 'Koray', 'Cihan'],
     portraitPath: '/src/assets/images/customer_hustler_1795453527331.jpg',
     fallbackColor: '#1E3A5F',
     startingPatience: 80,
@@ -773,7 +779,7 @@ export const CUSTOMER_ARCHETYPES: Record<CustomerArchetypeId, CustomerArchetype>
   vip: {
     id: 'vip',
     title: 'VIP Koleksiyoner',
-    names: ['Demir Bey', 'Alper Bey', 'Levent Bey'],
+    names: ['Demir Bey', 'Alper Bey', 'Levent Bey', 'Tamer Bey', 'Selçuk Bey', 'Hakan Bey', 'Kürşat Bey'],
     portraitPath: '/src/assets/images/customer_vip_1795455391560.jpg',
     fallbackColor: '#3F2E1A',
     startingPatience: 74,
@@ -1543,6 +1549,59 @@ export const STORE_ACHIEVEMENTS: StoreAchievementSpec[] = [
   },
 ];
 
+// EARNINGS & CASH THRESHOLD BADGES (Trigger top-of-screen celebratory badge popups)
+export interface EarningsBadgeSpec {
+  id: string;
+  threshold: number;
+  title: string;
+  subtitle: string;
+}
+
+export const EARNINGS_BADGE_TIERS: EarningsBadgeSpec[] = [
+  {
+    id: 'earn_10k',
+    threshold: 10000,
+    title: 'Pasajın Çırağı · 10.000 ₺',
+    subtitle: 'İlk 10.000 ₺ kazanç barajını aştın!',
+  },
+  {
+    id: 'earn_25k',
+    threshold: 25000,
+    title: 'Tezgah Ustası · 25.000 ₺',
+    subtitle: '25.000 ₺ eşiğini devirdin, pasaj seni konuşuyor.',
+  },
+  {
+    id: 'earn_50k',
+    threshold: 50000,
+    title: 'Altın Kepenk · 50.000 ₺',
+    subtitle: '50.000 ₺ kazançla mahallenin gözde telefoncususun!',
+  },
+  {
+    id: 'earn_100k',
+    threshold: 100000,
+    title: 'Yüz Binlik Esnaf · 100.000 ₺',
+    subtitle: '100.000 ₺ barajını geçtin — artık büyük oynuyorsun!',
+  },
+  {
+    id: 'earn_250k',
+    threshold: 250000,
+    title: 'Pasaj Ağası · 250.000 ₺',
+    subtitle: 'Çeyrek milyonluk ciro gücüne ulaştın!',
+  },
+  {
+    id: 'earn_500k',
+    threshold: 500000,
+    title: 'GSM Patronu · 500.000 ₺',
+    subtitle: 'Yarım milyon TL barajını kırdın!',
+  },
+  {
+    id: 'earn_1m',
+    threshold: 1000000,
+    title: 'Milyoner Showroom · 1.000.000 ₺',
+    subtitle: 'Efsanevi 1 Milyon ₺ kazanç barajına ulaştın!',
+  },
+];
+
 // AUCTION RIVAL MERCHANTS
 export const AUCTION_RIVALS = [
   { name: 'Kurnaz Kerim', style: 'Köşe Rakibin · İnatçı', avatarColor: '#EF4444' },
@@ -2007,33 +2066,33 @@ export const DEAL_ACCEPTED_LINES: Record<EncounterType, string[]> = {
 export const LEVEL_PERKS: LevelPerk[] = [
   {
     level: 1,
-    title: 'İlk Kepenk (23 Yaş)',
-    description: 'Pasajda kendi dükkanını açtın. RedMix & PocoPop sıfır toptancısı ve aksesuar reyonu açık.',
+    title: 'İlk Kepenk · 2. El Ekspertiz',
+    description: 'Pasajda sadece 2. el telefon al-sat ve temel ekspertiz ile sıfırdan başlarsın.',
   },
   {
     level: 2,
-    title: 'Samxung Bayiliği + %5 Alıcı Bütçesi',
-    description: 'Samxung sıfır distribütörü açılır (3.2★ ile) ve vitrin alıcıları +%5 daha cömert olur.',
+    title: 'Toptancı & Yükseltme + Cam & Kılıf',
+    description: 'Toptancı ve Yükseltme sekmeleri açılır! Kırılmaz Cam, MagKlik Kılıf ve RedMix/PocoPop sıfır kutu kilidi kalkar.',
   },
   {
     level: 3,
-    title: 'aPhone Bayiliği + %10 Parça İndirimi',
-    description: 'aPhone sıfır distribütörü açılır (3.6★ ile) ve tamir parçalarında kalıcı %10 indirim.',
+    title: 'Samxung Bayiliği + Araç Tutucu + -%10 Parça',
+    description: 'Manyetik Araç Tutucu, Samxung sıfır distribütörü (3.1★) ve kalıcı %10 tamir parça indirimi açılır.',
   },
   {
     level: 4,
-    title: 'Aksesuar Cazibesi (+%25 Reyon Satışı)',
-    description: 'Çapraz satış başarı oranı artar, gün sonu pasif aksesuar satışların %25 hızlanır.',
+    title: 'Piyasa İmparatorluğu + 30W GaN + aPhone',
+    description: 'Piyasa (Sarı İlan, İhale, Şube, Banka, Müze), 30W GaN Hızlı Şarj ve aPhone distribütörü (3.5★) açılır!',
   },
   {
     level: 5,
-    title: 'Lüks Distribütör + VIP Mıknatısı',
-    description: 'Lüks katlanabilir distribütör açılır (4.0★ ile) ve VIP müşteri şansı +%15 artar.',
+    title: '10.000 mAh Powerbank + VIP Mıknatısı',
+    description: 'Mini Powerbank stoğu açılır, reyon satışları +%20 hızlanır ve VIP müşteri şansı +%15 artar.',
   },
   {
     level: 6,
-    title: 'Yoğun Trafik (+1 Günlük Müşteri)',
-    description: 'Kapı hiç boş kalmıyor! Her gün fazladan +1 müşteri dükkanından içeri girer.',
+    title: 'ANC Bluetooth Kulaklık + Lüks İthalat',
+    description: 'ANC Bluetooth Kulaklık, Lüks Katlanabilir distribütör (4.0★) ve günlük +1 ekstra müşteri açılır!',
   },
   {
     level: 7,
@@ -2140,3 +2199,55 @@ export const CAREER_MILESTONES: CareerMilestone[] = [
     metric: 'shopTier',
   },
 ];
+
+// === DETECTIVE INSPECTION: SELLER VERBAL CLAIMS (TRUTH VS CATCHABLE LIES) ===
+export const SELLER_CLAIM_LINES: Record<
+  'screen' | 'battery' | 'imei' | 'hardware',
+  { lie: string[]; truth: string[] }
+> = {
+  screen: {
+    lie: [
+      'Ekranı %100 fabrika çıkışlı orijinal, tek çizik bile yok usta!',
+      'Hep koruyucu camla kullandım, ekrana ne darbe geldi ne tornavida değdi.',
+      'TrueTone dahil her şeyi orijinal ekran, ışıkta baksan sıfır sanırsın.',
+    ],
+    truth: [
+      'Ekranı tertemiz, ilk günden beri kaliteli camla korudum.',
+      'Ön panel tamamen orijinal, renkler cam gibi duruyor.',
+    ],
+  },
+  battery: {
+    lie: [
+      'Pil canavar gibi, iki gün çıkarıyor; cihaz hiç açılmadı!',
+      'Batarya %95 üstü gidiyor usta, akşam eve %50 şarjla dönüyorum.',
+      'Şarjı taş gibi, pil değişimi veya yazılım müdahalesi kesinlikle yok!',
+    ],
+    truth: [
+      'Bataryasını hep orijinal adaptörle şarj ettim, sağlığı gayet iyi.',
+      'Pil performansı yerli yerinde, gün sonunu rahat çıkarıyor.',
+    ],
+  },
+  imei: {
+    lie: [
+      'TR faturalı kayıtlı cihaz usta, e-Devlet sorgusu pırıl pırıl çıkar!',
+      'Yurt içi resmi distribütör ürünü, IMEI kaydı ömür boyu sorunsuz.',
+      'Pasaport derdi yok, Türkiye çıkışlı faturalı cihaz getirdim sana.',
+    ],
+    truth: [
+      'Türkiye kayıtlı cihaz, hattını taktığın gibi kullanırsın.',
+      'IMEI numarası resmi TR kayıtlı, için rahat olsun.',
+    ],
+  },
+  hardware: {
+    lie: [
+      'İçi hiç açılmadı, suya toza yaklaşmadı, kameralar ilk günkü gibi!',
+      'Kasa tertemiz, vida izi yok, ne sıvı teması ne kamera buğusu var.',
+      'Masadan düşmedi bile usta, kozmetik ve donanım on üzerinden on!',
+    ],
+    truth: [
+      'Kılıfsız tek gün kullanmadım, kasa ve kameralar tertemiz duruyor.',
+      'Sıvı teması veya darbe görmedi, donanımı saat gibi çalışıyor.',
+    ],
+  },
+};
+

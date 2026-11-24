@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
-  Building2,
-  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Flame,
   Lock,
+  Minus,
   Package,
+  Plus,
   ShoppingBag,
   Sparkles,
-  Tag,
   Truck,
   Zap,
 } from 'lucide-react';
@@ -24,14 +25,16 @@ import {
   getAccessoryWholesaleCost,
   getDistributorWholesalePrice,
   getTotalAccessoryStock,
+  isAccessoryUnlocked,
   isDistributorUnlocked,
 } from '../game/engine';
 import {
-  AccessoryId,
-  AccessoryShelfGroup,
-  PhoneModelSpec,
-  ShopState,
-} from '../game/types';
+  getLocalizedAccessory,
+  getLocalizedDistributor,
+  useLanguage,
+} from '../game/i18n';
+import { AccessoryId, PhoneModelSpec, ShopState } from '../game/types';
+import { PhoneModelThumb } from './PhoneInspectSVG';
 import { AccessoryProductArt, PhoneBoxArt } from './VisualShowcaseArt';
 
 interface WholesaleViewProps {
@@ -50,29 +53,7 @@ interface WholesaleViewProps {
   onBackToCounter: () => void;
 }
 
-type WholesaleSubTab = 'BRAND_NEW' | 'ACCESSORIES';
-
-const ACCESSORY_SHELVES: {
-  group: AccessoryShelfGroup;
-  title: string;
-  subtitle: string;
-}[] = [
-  {
-    group: 'audio',
-    title: 'Kulaklık & Ses Reyonu',
-    subtitle: 'Yüksek marjlı kablosuz kulaklık modelleri',
-  },
-  {
-    group: 'power',
-    title: 'Powerbank & Hızlı Şarj Reyonu',
-    subtitle: 'Her gün sorulan GaN adaptörler ve taşınabilir güç',
-  },
-  {
-    group: 'protection',
-    title: 'Kılıf, Kırılmaz Cam & Araç Tutucu Reyonu',
-    subtitle: 'En hızlı dönen kasa dostu koruma ürünleri',
-  },
-];
+type WholesaleSubTab = 'ACCESSORIES' | 'BRAND_NEW' | 'CARGO';
 
 export const EXPRESS_ACCESSORY_FEE = 250;
 export const EXPRESS_PHONE_FEE = 500;
@@ -84,626 +65,599 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   onOrderBrandNewPhone,
   onBackToCounter,
 }) => {
+  const { lang, bi } = useLanguage();
+  const flashDeal = shop.flashWholesaleDeal;
+  const flashActive = Boolean(
+    flashDeal && !flashDeal.expired && flashDeal.remainingStock > 0
+  );
   const [subTab, setSubTab] = useState<WholesaleSubTab>(
-    shop.flashWholesaleDeal && !shop.flashWholesaleDeal.expired
-      ? 'BRAND_NEW'
-      : 'ACCESSORIES'
+    flashActive ? 'BRAND_NEW' : 'ACCESSORIES'
   );
   const [expressDelivery, setExpressDelivery] = useState(false);
+  const [selectedDistId, setSelectedDistId] = useState<string>(
+    BRAND_DISTRIBUTORS[0].id
+  );
+  const [modelPage, setModelPage] = useState(0);
 
   const totalAccStock = getTotalAccessoryStock(shop.accessories);
-  const flashDeal = shop.flashWholesaleDeal;
-  const flashSoldOut = flashDeal
-    ? flashDeal.expired || flashDeal.remainingStock <= 0
-    : false;
-  const flashPctLeft =
-    flashDeal && flashDeal.initialStock > 0
-      ? Math.round((flashDeal.remainingStock / flashDeal.initialStock) * 100)
-      : 0;
+  const pendingOrders = shop.pendingWholesaleOrders ?? [];
+
+  const activeDist =
+    BRAND_DISTRIBUTORS.find((d) => d.id === selectedDistId) ??
+    BRAND_DISTRIBUTORS[0];
+  const activeDistLoc = getLocalizedDistributor(activeDist.id, lang);
+  const distUnlocked = isDistributorUnlocked(
+    activeDist.id,
+    shop.level,
+    shop.reputation
+  );
+  const distModels = PHONE_CATALOG.filter((p) =>
+    activeDist.brands.includes(p.brand)
+  );
+  const MODELS_PER_PAGE = 4;
+  const totalModelPages = Math.max(
+    1,
+    Math.ceil(distModels.length / MODELS_PER_PAGE)
+  );
+  const safeModelPage = Math.min(modelPage, totalModelPages - 1);
+  const visibleModels = distModels.slice(
+    safeModelPage * MODELS_PER_PAGE,
+    safeModelPage * MODELS_PER_PAGE + MODELS_PER_PAGE
+  );
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Top Header */}
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-0.5">
-              <Building2 className="w-4 h-4" />
-              <span>TAHTAKALE TOPTANCI & RESMİ MARKA DEPOSU</span>
-            </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-50">
-              Model Bazlı Tedarik & Kargo Merkezi
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Standart kargo siparişleri ertesi sabah kapına iner; acil stok için Ekspres Kurye seçebilirsin!
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4 tabular-nums">
-            <div className="text-right">
-              <div className="text-[11px] text-slate-400">Reyon Stoğu</div>
-              <div className="font-mono text-base font-bold text-slate-100">
-                {totalAccStock} adet
-              </div>
-            </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div className="text-right">
-              <div className="text-[11px] text-slate-400">Mevcut Kasa</div>
-              <div className="font-mono text-base font-bold text-emerald-400">
-                {formatTRY(shop.cash)}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onBackToCounter}
-              className="rounded-xl border border-white/12 bg-[#202B3A] px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-[#2A374A] transition-colors cursor-pointer whitespace-nowrap"
-            >
-              Tezgaha Dön
-            </button>
-          </div>
-        </div>
-
-        {/* LIVE FLASH WHOLESALE RIVAL RACE BANNER */}
-        {flashDeal && (
-          <div
-            className={`mb-5 rounded-2xl border p-4 ${
-              flashSoldOut
-                ? 'border-rose-500/35 bg-rose-950/25'
-                : 'border-amber-400/50 bg-gradient-to-r from-amber-500/15 via-[#1C2330] to-emerald-500/10'
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-2 lg:p-3 gap-2">
+      {/* COMPACT SINGLE-ROW TOOLBAR */}
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1.5">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setSubTab('ACCESSORIES')}
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              subTab === 'ACCESSORIES'
+                ? 'bg-amber-500 text-slate-950'
+                : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
             }`}
           >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div>
-                <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-300 mb-0.5">
-                  <Flame className="w-4 h-4 text-orange-400" />
-                  <span>
-                    {flashSoldOut
-                      ? 'RAKİPLER TÜKETTİ — YETİŞEMEDİN!'
-                      : `GAZETE FLAŞ TOPTAN KAMPANYASI · ${flashDeal.brand.toUpperCase()} -%${flashDeal.discountPct}`}
-                  </span>
-                </div>
-                <div className="font-display text-base sm:text-lg font-bold text-slate-50">
-                  {flashDeal.headline}
-                </div>
-                <p className="text-xs text-slate-300 mt-0.5">{flashDeal.subline}</p>
-              </div>
+            <ShoppingBag className="w-3.5 h-3.5" />
+            {bi('Aksesuarlar', 'Accessories')}
+            <span className="font-mono text-[10px] opacity-80">
+              ({totalAccStock})
+            </span>
+          </button>
 
-              <div className="md:w-64 shrink-0 space-y-1.5 tabular-nums">
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span className={flashSoldOut ? 'text-rose-400' : 'text-emerald-400'}>
-                    {flashSoldOut
-                      ? 'Stok Bitti (0 Adet)'
-                      : `Kalan Kota: ${flashDeal.remainingStock} / ${flashDeal.initialStock}`}
-                  </span>
-                  <span className="text-rose-300 text-[11px]">
-                    Rakipler {flashDeal.rivalsSnatchedCount} kaptı!
-                  </span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      flashSoldOut
-                        ? 'bg-rose-500'
-                        : flashPctLeft <= 35
-                        ? 'bg-orange-400'
-                        : 'bg-emerald-400'
-                    }`}
-                    style={{ width: `${flashPctLeft}%` }}
-                  />
-                </div>
-                {!flashSoldOut && subTab !== 'BRAND_NEW' && (
-                  <button
-                    type="button"
-                    onClick={() => setSubTab('BRAND_NEW')}
-                    className="w-full rounded-lg bg-amber-500 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
-                  >
-                    Hemen {flashDeal.brand} Deposuna Git →
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* IN-TRANSIT CARGO TRACKER */}
-        {shop.pendingWholesaleOrders.length > 0 && (
-          <div className="mb-5 rounded-2xl border border-sky-500/30 bg-[#132030] p-4">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="inline-flex items-center gap-2 text-xs font-bold text-sky-300">
-                <Truck className="w-4 h-4" />
-                <span>
-                  Yoldaki Toptancı Kargoların ({shop.pendingWholesaleOrders.length})
-                </span>
+          <button
+            type="button"
+            onClick={() => setSubTab('BRAND_NEW')}
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              subTab === 'BRAND_NEW'
+                ? 'bg-amber-500 text-slate-950'
+                : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {bi('Sıfır Telefon', 'Sealed Phones')}
+            {flashActive && (
+              <span className="rounded bg-rose-500 px-1 py-0.2 text-[9px] font-extrabold text-white">
+                {bi('FLAŞ', 'FLASH')}
               </span>
-              <span className="text-[11px] text-slate-400">
-                Yeni gün başlayınca otomatik stoğa iner
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubTab('CARGO')}
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              subTab === 'CARGO'
+                ? 'bg-sky-500 text-slate-950'
+                : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
+            }`}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            {bi('Yoldaki Kargo', 'In Transit')}
+            {pendingOrders.length > 0 && (
+              <span className="font-mono rounded bg-sky-400/20 px-1 text-[10px] text-sky-300">
+                {pendingOrders.length}
               </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {shop.pendingWholesaleOrders.map((ord) => (
-                <div
-                  key={ord.id}
-                  className="rounded-xl border border-white/10 bg-[#0F1722] px-3 py-2 flex items-center justify-between gap-2 text-xs tabular-nums"
-                >
-                  <div className="truncate font-semibold text-slate-100">
-                    {ord.label}
-                  </div>
-                  <span className="inline-flex items-center gap-1 font-mono font-bold text-amber-300 shrink-0">
-                    <Clock className="w-3.5 h-3.5" />
-                    {ord.daysRemaining} Gün
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+            )}
+          </button>
+        </div>
 
-        {/* Sub-Tabs + Delivery Mode Switch */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSubTab('ACCESSORIES')}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                subTab === 'ACCESSORIES'
-                  ? 'bg-amber-500 text-slate-950'
-                  : 'border border-white/10 bg-[#17202C] text-slate-300 hover:text-slate-50'
-              }`}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Kulaklık, Powerbank & Kılıf Rafları</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubTab('BRAND_NEW')}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                subTab === 'BRAND_NEW'
-                  ? 'bg-amber-500 text-slate-950'
-                  : 'border border-white/10 bg-[#17202C] text-slate-300 hover:text-slate-50'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Sıfır Telefon Modelleri (Bayi)</span>
-              {flashDeal && !flashSoldOut && (
-                <span className="font-mono text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-rose-500 text-white">
-                  {flashDeal.brand} -%{flashDeal.discountPct} ({flashDeal.remainingStock})
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Standard Cargo vs Express Same-Day Delivery Toggle */}
-          <div className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-[#131A24] p-1 text-xs">
+        {/* Cargo vs Express Switch + Back */}
+        <div className="flex items-center gap-1.5">
+          <div className="inline-flex rounded-lg border border-white/10 bg-[#0E141D] p-0.5">
             <button
               type="button"
               onClick={() => setExpressDelivery(false)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold cursor-pointer transition-colors ${
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
                 !expressDelivery
                   ? 'bg-sky-500 text-slate-950'
-                  : 'text-slate-300 hover:text-slate-50'
+                  : 'text-slate-400 hover:text-slate-100'
               }`}
             >
-              <Truck className="w-3.5 h-3.5" />
-              <span>Standart Kargo (1 Gün · Ücretsiz)</span>
+              <Clock className="w-3 h-3" />
+              {bi('Kargo (Ücretsiz)', 'Standard (Free)')}
             </button>
             <button
               type="button"
               onClick={() => setExpressDelivery(true)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold cursor-pointer transition-colors ${
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
                 expressDelivery
                   ? 'bg-amber-500 text-slate-950'
-                  : 'text-slate-300 hover:text-slate-50'
+                  : 'text-slate-400 hover:text-slate-100'
               }`}
             >
-              <Zap className="w-3.5 h-3.5" />
-              <span>
-                Ekspres Kurye (Anında · +
-                {formatTRY(
-                  subTab === 'ACCESSORIES'
-                    ? EXPRESS_ACCESSORY_FEE
-                    : EXPRESS_PHONE_FEE
-                )}
-                )
-              </span>
+              <Zap className="w-3 h-3" />
+              {bi('Ekspres', 'Express')}
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={onBackToCounter}
+            className="rounded-lg border border-white/10 bg-[#1B2432] px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
+          >
+            ← {bi('Tezgah', 'Counter')}
+          </button>
         </div>
+      </div>
 
-        {/* TAB 1: ACCESSORY PRODUCT SHELVES */}
-        {subTab === 'ACCESSORIES' && (
-          <div className="space-y-6">
-            {shop.legacyPath === 'BORN_MERCHANT' && (
-              <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-100">
-                <strong>Doğuştan Tüccar Mirası Aktif:</strong> Tahtakale ağın sayesinde tüm aksesuar toptan alışların <strong>%10 daha ucuz</strong>!
-              </div>
-            )}
+      {/* TAB 1: ALL 6 ACCESSORIES WITH HERO PRODUCT SHOWCASE (3x2 ZERO SCROLL) */}
+      {subTab === 'ACCESSORIES' && (
+        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+          {ACCESSORY_CATALOG.map((spec) => {
+            const loc = getLocalizedAccessory(spec.id, lang);
+            const stock = shop.accessories[spec.id];
+            const unlocked = isAccessoryUnlocked(spec.id, shop.level);
+            const unitCost = getAccessoryWholesaleCost(spec.id, shop.legacyPath);
+            const fee = expressDelivery ? EXPRESS_ACCESSORY_FEE : 0;
+            const cost3 = unitCost * 3 + fee;
+            const cost6 = unitCost * 6 + fee;
+            const currentTag = stock?.retailPrice ?? spec.recommendedPrice;
+            const unitMargin = currentTag - unitCost;
 
-            {ACCESSORY_SHELVES.map((shelf) => {
-              const items = ACCESSORY_CATALOG.filter(
-                (item) => item.shelfGroup === shelf.group
-              );
-              return (
-                <section key={shelf.group} className="space-y-3">
-                  <div className="flex items-end justify-between border-b border-white/10 pb-2">
-                    <div>
-                      <h2 className="font-display text-lg font-bold text-slate-100">
-                        {shelf.title}
-                      </h2>
-                      <p className="text-xs text-slate-400">{shelf.subtitle}</p>
+            return (
+              <div
+                key={spec.id}
+                className={`relative rounded-xl border p-2.5 flex flex-col gap-2 min-h-0 overflow-hidden ${
+                  unlocked
+                    ? 'border-white/10 bg-[#151D28]'
+                    : 'border-white/5 bg-[#121821]/85'
+                }`}
+              >
+                {/* Top Header: Title + Category + Stock/Level */}
+                <div className="shrink-0 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-slate-100 truncate">
+                      {loc.name}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {loc.category}
                     </div>
                   </div>
+                  {unlocked ? (
+                    <span className="font-mono text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-emerald-500/15 text-emerald-300 shrink-0 tabular-nums">
+                      {bi('Stok', 'Qty')}: {stock?.quantity ?? 0}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-300 shrink-0">
+                      <Lock className="w-2.5 h-2.5" />
+                      {bi(`Sv.${spec.minLevel}`, `Lv.${spec.minLevel}`)}
+                    </span>
+                  )}
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {items.map((spec) => {
-                      const stock = shop.accessories[spec.id];
-                      const wholesaleUnit = getAccessoryWholesaleCost(
-                        spec.id,
-                        shop.legacyPath
-                      );
-                      const unitProfit = stock.retailPrice - wholesaleUnit;
-                      const priceRatio = stock.retailPrice / spec.recommendedPrice;
-                      const speedLabel =
-                        priceRatio <= 0.92
-                          ? { text: 'Çok Hızlı Sürüm', cls: 'text-emerald-400' }
-                          : priceRatio <= 1.08
-                          ? { text: 'Dengeli Kâr', cls: 'text-amber-300' }
-                          : { text: 'Yüksek Etiket (Yavaş)', cls: 'text-rose-400' };
+                {/* Center Product Art Showcase Stage — fills the middle cleanly! */}
+                <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0D131C] px-3 py-1.5 flex items-center justify-center gap-3 overflow-hidden">
+                  <AccessoryProductArt
+                    id={spec.id}
+                    className={`h-full max-h-16 lg:max-h-20 w-auto shrink-0 drop-shadow-[0_6px_14px_rgba(0,0,0,0.55)] ${
+                      !unlocked ? 'opacity-45' : ''
+                    }`}
+                  />
 
-                      const deliveryExtra = expressDelivery ? EXPRESS_ACCESSORY_FEE : 0;
-                      const order1Cost = wholesaleUnit + deliveryExtra;
-                      const order5Cost = wholesaleUnit * 5 + deliveryExtra;
+                  {unlocked ? (
+                    <div className="min-w-0 space-y-1 text-[10.5px] tabular-nums">
+                      <div className="text-slate-400">
+                        {bi('Toptan Alış', 'Wholesale')}:{' '}
+                        <strong className="font-mono text-slate-100">
+                          {formatTRY(unitCost)}
+                        </strong>
+                      </div>
+                      <div className="text-slate-400">
+                        {bi('Birim Kâr', 'Unit Profit')}:{' '}
+                        <strong className="font-mono text-emerald-400">
+                          +{formatTRY(unitMargin)}
+                        </strong>
+                      </div>
+                      <div className="text-[9.5px] text-slate-500">
+                        {bi('Önerilen', 'MSRP')}: {formatTRY(spec.recommendedPrice)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="min-w-0 text-left space-y-0.5">
+                      <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-200">
+                        <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        {bi(
+                          `Seviye ${spec.minLevel} ile Açılır`,
+                          `Unlocks at Level ${spec.minLevel}`
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {bi(
+                          `Şu an Sv. ${shop.level} · Al-sat ile XP kazan`,
+                          `Currently Lv. ${shop.level} · Earn XP trading`
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                      return (
-                        <article
-                          key={spec.id}
-                          className="rounded-2xl border border-white/10 bg-[#161F2B] p-4 flex flex-col justify-between gap-3"
+                {/* Bottom Controls */}
+                {unlocked ? (
+                  <div className="shrink-0 space-y-1.5 tabular-nums">
+                    <div className="flex items-center justify-between gap-1 rounded-lg bg-[#0E141D] border border-white/8 px-2 py-1">
+                      <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                        {bi('Reyon Etiketi', 'Shelf Tag')}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateAccessoryPrice(
+                              spec.id,
+                              Math.max(spec.minPrice, currentTag - 25)
+                            )
+                          }
+                          className="w-5 h-5 rounded bg-white/8 hover:bg-white/15 flex items-center justify-center text-slate-200 cursor-pointer"
+                          aria-label={bi('Fiyatı düşür', 'Lower price')}
                         >
-                          <div>
-                            <div className="flex items-start justify-between gap-3 mb-2">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-white/10 bg-[#101722] shrink-0">
-                                  <AccessoryProductArt
-                                    id={spec.id}
-                                    className="w-12 h-12"
-                                  />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-[11px] text-slate-400">
-                                    {spec.category}
-                                  </div>
-                                  <h3 className="font-display text-sm font-bold text-slate-50 leading-snug">
-                                    {spec.name}
-                                  </h3>
-                                </div>
-                              </div>
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="font-mono text-[11px] font-extrabold text-amber-300 min-w-[54px] text-center">
+                          {formatTRY(currentTag)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateAccessoryPrice(
+                              spec.id,
+                              Math.min(spec.maxPrice, currentTag + 25)
+                            )
+                          }
+                          className="w-5 h-5 rounded bg-white/8 hover:bg-white/15 flex items-center justify-center text-slate-200 cursor-pointer"
+                          aria-label={bi('Fiyatı artır', 'Raise price')}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
 
-                              <div className="text-right tabular-nums shrink-0">
-                                <div className="text-[10px] text-slate-500">Rafta</div>
-                                <div
-                                  className={`font-mono text-base font-extrabold ${
-                                    stock.quantity > 0
-                                      ? 'text-emerald-400'
-                                      : 'text-rose-400'
-                                  }`}
-                                >
-                                  {stock.quantity} ad.
-                                </div>
-                              </div>
-                            </div>
-
-                            <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                              {spec.description}
-                            </p>
-
-                            <div className="rounded-xl border border-white/8 bg-[#111720] p-3 space-y-2 tabular-nums">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-400 inline-flex items-center gap-1">
-                                  <Tag className="w-3 h-3" />
-                                  <span>Raf Satış Fiyatın</span>
-                                </span>
-                                <span className="font-mono font-bold text-amber-400">
-                                  {formatTRY(stock.retailPrice)}
-                                </span>
-                              </div>
-
-                              <input
-                                type="range"
-                                min={spec.minPrice}
-                                max={spec.maxPrice}
-                                step={10}
-                                value={stock.retailPrice}
-                                onChange={(e) =>
-                                  onUpdateAccessoryPrice(
-                                    spec.id,
-                                    Number(e.target.value)
-                                  )
-                                }
-                                aria-label={`${spec.name} satış fiyatı`}
-                                className="pasaj-slider w-full"
-                              />
-
-                              <div className="flex items-center justify-between text-[11px]">
-                                <span className={`font-semibold ${speedLabel.cls}`}>
-                                  {speedLabel.text}
-                                </span>
-                                <span className="font-mono text-emerald-400 font-semibold">
-                                  +{formatTRY(unitProfit)} brüt / ad.
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5 pt-1 tabular-nums">
-                            <div className="flex items-center justify-between text-[11px] text-slate-400">
-                              <span>
-                                Toptan: {formatTRY(wholesaleUnit)}
-                                {expressDelivery && (
-                                  <span className="text-amber-300 ml-1">
-                                    (+{formatTRY(EXPRESS_ACCESSORY_FEE)} kurye)
-                                  </span>
-                                )}
-                              </span>
-                              <span>Satılan: {stock.totalSold} ad.</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                type="button"
-                                disabled={shop.cash < order1Cost}
-                                onClick={() =>
-                                  onBuyAccessoryStock(spec.id, 1, expressDelivery)
-                                }
-                                className="rounded-xl border border-white/12 bg-[#1F2A39] py-2 text-xs font-semibold text-slate-100 hover:bg-[#29374B] disabled:opacity-40 cursor-pointer whitespace-nowrap"
-                              >
-                                +1 {expressDelivery ? 'Anında' : 'Sipariş'} ({formatTRY(order1Cost)})
-                              </button>
-                              <button
-                                type="button"
-                                disabled={shop.cash < order5Cost}
-                                onClick={() =>
-                                  onBuyAccessoryStock(spec.id, 5, expressDelivery)
-                                }
-                                className="rounded-xl bg-amber-500 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer whitespace-nowrap"
-                              >
-                                +5 Koli ({formatTRY(order5Cost)})
-                              </button>
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={shop.cash < cost3}
+                        onClick={() =>
+                          onBuyAccessoryStock(spec.id, 3, expressDelivery)
+                        }
+                        className="rounded-lg bg-amber-500/15 border border-amber-400/35 py-1 text-[10.5px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        +3 ({formatTRY(cost3)})
+                      </button>
+                      <button
+                        type="button"
+                        disabled={shop.cash < cost6}
+                        onClick={() =>
+                          onBuyAccessoryStock(spec.id, 6, expressDelivery)
+                        }
+                        className="rounded-lg bg-amber-500 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        +6 ({formatTRY(cost6)})
+                      </button>
+                    </div>
                   </div>
-                </section>
-              );
-            })}
-          </div>
-        )}
+                ) : (
+                  <div className="shrink-0 rounded-lg bg-white/5 border border-white/6 py-1.5 text-center text-[10px] font-semibold text-slate-400">
+                    {bi(
+                      `Kilitli Ürün · Alış ${formatTRY(unitCost)}`,
+                      `Locked Item · Wholesale ${formatTRY(unitCost)}`
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-        {/* TAB 2: OFFICIAL BRAND-NEW SEALED PHONE MODELS */}
-        {subTab === 'BRAND_NEW' && (
-          <div className="space-y-6">
-            {shop.dailyWholesaleDiscountBrand && (
-              <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>
-                    <strong>Günün Bayi Kampanyası:</strong> Bugün{' '}
-                    <strong className="text-amber-300">
-                      {shop.dailyWholesaleDiscountBrand}
-                    </strong>{' '}
-                    markasında ek bayi iskontosu aktif!
-                  </span>
+      {/* TAB 2: FACTORY-SEALED BRAND DISTRIBUTORS WITH LARGE BOX + PHONE MODEL VISUALS */}
+      {subTab === 'BRAND_NEW' && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          {flashActive && flashDeal && (
+            <div className="shrink-0 flex items-center justify-between gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11px]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Flame className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span className="font-bold text-rose-200 truncate">
+                  {bi(
+                    `FLAŞ İNDİRİM: ${flashDeal.brand} -%${flashDeal.discountPct}`,
+                    `FLASH SALE: ${flashDeal.brand} -${flashDeal.discountPct}%`
+                  )}
                 </span>
-                <span className="font-mono text-amber-300 font-semibold tabular-nums">
-                  Toplam Sıfır Satış: {shop.totalBrandNewSold} cihaz
+                <span className="font-mono text-[10px] text-amber-300 shrink-0">
+                  ({bi('Kalan', 'Left')}: {flashDeal.remainingStock})
                 </span>
               </div>
-            )}
+              <span className="text-[10px] text-rose-200/80 whitespace-nowrap shrink-0">
+                {bi('Rakipler kapmadan al!', 'Snatch before rivals!')}
+              </span>
+            </div>
+          )}
 
-            {BRAND_DISTRIBUTORS.map((dist) => {
+          {/* Distributor Selector Tabs */}
+          <div className="shrink-0 grid grid-cols-4 gap-1.5">
+            {BRAND_DISTRIBUTORS.map((d) => {
+              const loc = getLocalizedDistributor(d.id, lang);
               const unlocked = isDistributorUnlocked(
-                dist.id,
+                d.id,
                 shop.level,
                 shop.reputation
               );
-              const models = PHONE_CATALOG.filter(
-                (m) => dist.brands.includes(m.brand) && m.releaseDay <= shop.day
-              );
-              const upcomingCount = PHONE_CATALOG.filter(
-                (m) => dist.brands.includes(m.brand) && m.releaseDay > shop.day
-              ).length;
-
+              const selected = d.id === activeDist.id;
               return (
-                <section
-                  key={dist.id}
-                  className={`rounded-2xl border p-5 ${
-                    unlocked
-                      ? 'border-white/12 bg-[#161F2B]'
-                      : 'border-white/8 bg-[#121822] opacity-85'
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDistId(d.id);
+                    setModelPage(0);
+                  }}
+                  className={`rounded-lg border px-2 py-1.5 text-left transition-colors cursor-pointer min-w-0 ${
+                    selected
+                      ? 'border-amber-400 bg-amber-500/15 text-amber-200'
+                      : 'border-white/10 bg-[#151D28] text-slate-300 hover:bg-[#1B2533]'
                   }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 text-xs font-semibold mb-0.5">
-                        {unlocked ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Yetkili Bayilik Açık</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-amber-400">
-                            <Lock className="w-3.5 h-3.5" />
-                            <span>
-                              Kilitli · Sv. {dist.minLevel} ve{' '}
-                              {dist.minReputation.toFixed(1)}★ İtibar Gerekir
-                            </span>
-                          </span>
-                        )}
-                        <span aria-hidden="true" className="text-white/25">
-                          ·
-                        </span>
-                        <span className="text-slate-400">
-                          {dist.brands.join(', ')}
-                        </span>
-                      </div>
-                      <h2 className="font-display text-lg font-bold text-slate-50">
-                        {dist.name}
-                      </h2>
-                      <p className="text-xs text-slate-400 mt-0.5 max-w-2xl">
-                        {dist.description}
-                      </p>
-                    </div>
-
-                    {upcomingCount > 0 && (
-                      <span className="text-[11px] text-slate-400 whitespace-nowrap">
-                        +{upcomingCount} yeni model gelecek lansmanlarda açılacak
-                      </span>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10.5px] font-bold truncate">
+                      {d.brands.join(' & ')}
+                    </span>
+                    {!unlocked && (
+                      <Lock className="w-3 h-3 text-amber-400 shrink-0" />
                     )}
                   </div>
-
-                  {unlocked ? (
-                    models.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {models.map((spec) => {
-                          const loyaltyUnits =
-                            shop.distributorLoyalty?.[dist.id] ?? 0;
-                          const isFlashMatch =
-                            flashDeal &&
-                            !flashSoldOut &&
-                            flashDeal.brand === spec.brand;
-                          const wholesaleCost = getDistributorWholesalePrice(
-                            spec,
-                            shop.level,
-                            shop.dailyWholesaleDiscountBrand,
-                            shop.legacyPath,
-                            loyaltyUnits,
-                            flashDeal
-                          );
-                          const totalOrderCost =
-                            wholesaleCost +
-                            (expressDelivery ? EXPRESS_PHONE_FEE : 0);
-                          const retailEstimate = estimateBrandNewRetailValue(
-                            spec,
-                            shop.dailyNews
-                          );
-                          const { taxAmount: estSaleTax } = calculateSaleTax(
-                            retailEstimate,
-                            shop.staff,
-                            shop.staffLevels
-                          );
-                          const estNetProfit =
-                            retailEstimate - estSaleTax - totalOrderCost;
-                          const canAfford = shop.cash >= totalOrderCost;
-
-                          return (
-                            <div
-                              key={spec.id}
-                              className={`rounded-xl border p-3 flex flex-col justify-between gap-2.5 ${
-                                isFlashMatch
-                                  ? 'border-amber-400/55 bg-[#18212E]'
-                                  : 'border-white/10 bg-[#121822]'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <PhoneBoxArt
-                                    spec={spec}
-                                    className="w-11 h-13 shrink-0"
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="font-display text-sm font-bold text-slate-100 truncate">
-                                      {spec.brand} {spec.model}
-                                    </div>
-                                    <div className="text-[11px] text-emerald-400 font-medium">
-                                      Kapalı Kutu · {spec.storage} · 24 Ay TR
-                                    </div>
-                                    {isFlashMatch && (
-                                      <div className="text-[10px] font-extrabold text-amber-300 mt-0.5">
-                                        FLAŞ -%{flashDeal.discountPct} · Kalan{' '}
-                                        {flashDeal.remainingStock} adet!
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="space-y-1 text-xs tabular-nums border-t border-white/8 pt-2">
-                                <div className="flex justify-between">
-                                  <span className="text-slate-400">
-                                    {expressDelivery ? 'Bayi + Ekspres Maliyet' : 'Bayi Alış Fiyatı'}
-                                  </span>
-                                  <span className="font-mono font-bold text-slate-100">
-                                    {formatTRY(totalOrderCost)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-400">Sıfır Piyasa Değeri</span>
-                                  <span className="font-mono font-semibold text-amber-300">
-                                    {formatTRY(retailEstimate)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-400">Tahmini Net Kâr (Vergi Sonrası)</span>
-                                  <span
-                                    className={`font-mono font-bold ${
-                                      estNetProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                                    }`}
-                                  >
-                                    {estNetProfit >= 0 ? '+' : ''}
-                                    {formatTRY(estNetProfit)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                disabled={!canAfford}
-                                onClick={() =>
-                                  onOrderBrandNewPhone(
-                                    spec,
-                                    wholesaleCost,
-                                    expressDelivery
-                                  )
-                                }
-                                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                              >
-                                {expressDelivery ? (
-                                  <Zap className="w-3.5 h-3.5" />
-                                ) : (
-                                  <Truck className="w-3.5 h-3.5" />
-                                )}
-                                <span>
-                                  {expressDelivery
-                                    ? `Ekspres Getir (${formatTRY(totalOrderCost)})`
-                                    : `Sipariş Ver · 1 Gün (${formatTRY(totalOrderCost)})`}
-                                </span>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-white/8 bg-[#121822] px-4 py-3 text-xs text-slate-400">
-                        Bu distribütörün modelleri ilerleyen günlerdeki lansmanlarla (Gün 6+) stoklara girecek.
-                      </div>
-                    )
-                  ) : (
-                    <div className="rounded-xl border border-white/8 bg-[#0F151E] px-4 py-3 text-xs text-slate-400 tabular-nums">
-                      Mevcut Durumun:{' '}
-                      <strong className="text-slate-200">Sv. {shop.level}</strong> /{' '}
-                      {dist.minLevel} ·{' '}
-                      <strong className="text-slate-200">
-                        {shop.reputation.toFixed(1)}★
-                      </strong>{' '}
-                      / {dist.minReputation.toFixed(1)}★
-                    </div>
-                  )}
-                </section>
+                  <div className="text-[9.5px] text-slate-400 truncate mt-0.5">
+                    {unlocked
+                      ? bi('Bayilik Açık', 'Authorized')
+                      : loc.tagline}
+                  </div>
+                </button>
               );
             })}
           </div>
-        )}
-      </div>
+
+          {/* Selected Distributor Models Grid */}
+          {!distUnlocked ? (
+            <div className="flex-1 min-h-0 rounded-xl border border-dashed border-amber-400/25 bg-[#151D28] flex flex-col items-center justify-center text-center p-4">
+              <Lock className="w-8 h-8 text-amber-400 mb-2" />
+              <div className="text-sm font-bold text-slate-100">
+                {activeDistLoc.name}
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-md">
+                {activeDistLoc.description}
+              </p>
+              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-1 font-mono text-xs font-bold text-amber-300">
+                {bi(
+                  `Gereken: Seviye ${activeDist.minLevel} · ${activeDist.minReputation.toFixed(1)}★ İtibar`,
+                  `Requires: Level ${activeDist.minLevel} · ${activeDist.minReputation.toFixed(1)}★ Rep`
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
+              <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-4 gap-2 overflow-hidden">
+                {visibleModels.map((spec) => {
+                  const baseWholesale = getDistributorWholesalePrice(
+                    spec,
+                    shop.level,
+                    shop.dailyWholesaleDiscountBrand,
+                    shop.legacyPath
+                  );
+                  const isFlashBrand =
+                    flashActive && flashDeal?.brand === spec.brand;
+                  const finalWholesale = isFlashBrand
+                    ? Math.round(
+                        (baseWholesale *
+                          (1 - (flashDeal?.discountPct ?? 0) / 100)) /
+                          50
+                      ) * 50
+                    : baseWholesale;
+                  const deliveryFee = expressDelivery ? EXPRESS_PHONE_FEE : 0;
+                  const totalPay = finalWholesale + deliveryFee;
+                  const estRetail = estimateBrandNewRetailValue(
+                    spec,
+                    shop.dailyNews
+                  );
+                  const estTax = calculateSaleTax(
+                    estRetail,
+                    shop.staff,
+                    shop.staffLevels
+                  );
+                  const estProfit = estRetail - estTax.taxAmount - totalPay;
+
+                  return (
+                    <div
+                      key={spec.id}
+                      className={`rounded-xl border p-2.5 flex flex-col gap-2 min-h-0 overflow-hidden ${
+                        isFlashBrand
+                          ? 'border-rose-400/50 bg-[#1B1722]'
+                          : 'border-white/10 bg-[#151D28]'
+                      }`}
+                    >
+                      {/* Model Title Header */}
+                      <div className="shrink-0 flex items-start justify-between gap-1">
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-slate-100 truncate">
+                            {spec.brand} {spec.model}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {spec.storage} · {bi('Sıfır Kutu', 'Sealed Box')}
+                          </div>
+                        </div>
+                        {isFlashBrand && (
+                          <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-extrabold text-rose-300 shrink-0">
+                            -%{flashDeal?.discountPct}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* HERO DUAL VISUAL STAGE: SEALED BOX + ACTUAL PHONE MODEL */}
+                      <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0D131C] p-2 flex items-center justify-center gap-3 overflow-hidden">
+                        <PhoneBoxArt
+                          spec={spec}
+                          className="h-full max-h-28 w-auto"
+                        />
+                        <PhoneModelThumb
+                          spec={spec}
+                          showBack
+                          className="h-full max-h-28 w-auto"
+                        />
+                      </div>
+
+                      {/* Pricing Breakdown */}
+                      <div className="shrink-0 space-y-0.5 rounded-lg bg-[#0E141D] border border-white/8 p-1.5 text-[10px] tabular-nums">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">
+                            {bi('Bayi Alış', 'Wholesale')}
+                          </span>
+                          <span className="font-mono font-bold text-slate-100">
+                            {formatTRY(totalPay)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">
+                            {bi('Vitrin Satış', 'Est. Retail')}
+                          </span>
+                          <span className="font-mono text-amber-300">
+                            {formatTRY(estRetail)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-white/8 pt-0.5">
+                          <span className="text-slate-400">
+                            {bi('Tahmini Net', 'Est. Net')}
+                          </span>
+                          <span
+                            className={`font-mono font-extrabold ${
+                              estProfit >= 0
+                                ? 'text-emerald-400'
+                                : 'text-rose-400'
+                            }`}
+                          >
+                            {estProfit >= 0 ? '+' : ''}
+                            {formatTRY(estProfit)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={shop.cash < totalPay}
+                        onClick={() =>
+                          onOrderBrandNewPhone(
+                            spec,
+                            finalWholesale,
+                            expressDelivery
+                          )
+                        }
+                        className="shrink-0 w-full rounded-lg bg-amber-500 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 transition-colors cursor-pointer whitespace-nowrap tabular-nums"
+                      >
+                        {expressDelivery
+                          ? bi(`Hemen Al · ${formatTRY(totalPay)}`, `Buy Now · ${formatTRY(totalPay)}`)
+                          : bi(`Sipariş Ver · ${formatTRY(totalPay)}`, `Order · ${formatTRY(totalPay)}`)}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {totalModelPages > 1 && (
+                <div className="shrink-0 flex items-center justify-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    disabled={safeModelPage === 0}
+                    onClick={() => setModelPage((p) => Math.max(0, p - 1))}
+                    className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    {bi('Önceki', 'Prev')}
+                  </button>
+                  <span className="font-mono text-slate-400">
+                    {safeModelPage + 1} / {totalModelPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={safeModelPage >= totalModelPages - 1}
+                    onClick={() =>
+                      setModelPage((p) => Math.min(totalModelPages - 1, p + 1))
+                    }
+                    className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+                  >
+                    {bi('Sonraki', 'Next')}
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: IN-TRANSIT CARGO ORDERS */}
+      {subTab === 'CARGO' && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {pendingOrders.length === 0 ? (
+            <div className="flex-1 rounded-xl border border-dashed border-white/10 bg-[#151D28] flex flex-col items-center justify-center text-center p-4">
+              <Package className="w-8 h-8 text-slate-500 mb-2" />
+              <div className="text-xs font-bold text-slate-200">
+                {bi('Yolda bekleyen toptancı kargon yok', 'No wholesale shipments in transit')}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {bi(
+                  'Standart kargo ile verilen siparişler ertesi sabah dükkanına teslim edilir.',
+                  'Standard wholesale orders arrive at your shop the next morning.'
+                )}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {pendingOrders.slice(0, 6).map((ord) => (
+                <div
+                  key={ord.id}
+                  className="rounded-xl border border-sky-400/25 bg-[#151D28] p-2.5 flex flex-col justify-between gap-1.5"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-bold text-slate-100 truncate">
+                      {ord.label}
+                    </span>
+                    <span className="font-mono text-[10px] font-bold rounded bg-sky-500/20 px-1.5 py-0.5 text-sky-300 whitespace-nowrap">
+                      {ord.daysRemaining} {bi('gün', 'd')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10.5px] text-slate-400 tabular-nums">
+                    <span>
+                      {ord.kind === 'ACCESSORY'
+                        ? bi('Aksesuar Kolisi', 'Accessory Box')
+                        : bi('Sıfır Telefon', 'Sealed Phone')}
+                    </span>
+                    <span className="font-mono text-amber-300">
+                      {formatTRY(ord.wholesaleCost)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

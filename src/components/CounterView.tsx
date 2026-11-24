@@ -7,7 +7,6 @@ import {
   Award,
   BatteryCharging,
   Check,
-  Clock,
   Coffee,
   Cpu,
   CreditCard,
@@ -15,49 +14,52 @@ import {
   DoorOpen,
   Flame,
   Gavel,
-  Gift,
   Handshake,
-  HeartHandshake,
   Newspaper,
   Package,
-  RefreshCcw,
+  Scale,
   ScanLine,
+  Search,
   ShieldAlert,
   ShieldCheck,
-  Shirt,
   ShoppingBag,
   Smartphone,
   Sparkles,
   Target,
   UserCog,
-  UserX,
   Wrench,
   X,
   Zap,
 } from 'lucide-react';
 import {
   ACCESSORY_CATALOG,
-  CUSTOMER_ARCHETYPES,
   DEFECT_CATALOG,
-  DESK_PLACEMENT_LINES,
   LEGACY_PATHS,
-  NEGOTIATION_TONES,
-  getOutfitSpec,
 } from '../game/catalog';
 import {
   calculateDeviceValuationBreakdown,
   calculateMarketValue,
   formatTRY,
-  getAccessorySpec,
+  getConditionInfo,
   getDiscoveredDefects,
-  getEffectiveSalesTaxRate,
-  getMasterTechSpecs,
   getMoodDisplay,
+  getNegotiationResistance,
   getPatienceLabel,
-  getRepairCost,
-  getStreakBonusCash,
+  isAccessoryUnlocked,
   roundPrice,
 } from '../game/engine';
+import {
+  getLocalizedAccessory,
+  getLocalizedArchetype,
+  getLocalizedCategoryLabel,
+  getLocalizedDefect,
+  getLocalizedNews,
+  getLocalizedQuest,
+  getLocalizedRoleText,
+  getLocalizedTone,
+  localizeDynamicLine,
+  useLanguage,
+} from '../game/i18n';
 import { soundFX } from '../game/sound';
 import {
   AccessoryId,
@@ -72,6 +74,7 @@ import {
   NegotiationTone,
   NextCustomerEventEffect,
   OutfitId,
+  PhoneDevice,
   RandomStoreEvent,
   ShopTier,
   StaffId,
@@ -79,68 +82,14 @@ import {
   UpgradeId,
 } from '../game/types';
 import { CustomerAvatar } from './CustomerAvatar';
-import { DeviceDeskCard } from './DeviceDeskCard';
+import { PhoneInspectSVG, PhoneModelThumb } from './PhoneInspectSVG';
+import { PhysicalInspectModal } from './PhysicalInspectModal';
 import { ShopDecorLayer } from './ShopDecorLayer';
-
-// Smooth Typewriter Effect for Dynamic Witty Shop Dialogues
-const TypewriterText: React.FC<{
-  text: string;
-  animate: boolean;
-  speedMs?: number;
-}> = ({ text, animate, speedMs = 17 }) => {
-  const [visibleCount, setVisibleCount] = useState(animate ? 0 : text.length);
-
-  useEffect(() => {
-    if (!animate) {
-      setVisibleCount(text.length);
-      return;
-    }
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
-      setVisibleCount(text.length);
-      return;
-    }
-
-    setVisibleCount(0);
-    let idx = 0;
-    const timer = window.setInterval(() => {
-      idx += 2;
-      if (idx >= text.length) {
-        setVisibleCount(text.length);
-        window.clearInterval(timer);
-      } else {
-        setVisibleCount(idx);
-      }
-    }, speedMs);
-
-    return () => window.clearInterval(timer);
-  }, [text, animate, speedMs]);
-
-  const isTyping = visibleCount < text.length;
-
-  return (
-    <span
-      onClick={() => {
-        if (isTyping) setVisibleCount(text.length);
-      }}
-      className={isTyping ? 'cursor-pointer' : undefined}
-    >
-      {text.slice(0, visibleCount)}
-      {isTyping && (
-        <span
-          aria-hidden="true"
-          className="inline-block w-1.5 h-3.5 ml-0.5 align-middle bg-amber-400/90"
-        />
-      )}
-    </span>
-  );
-};
+import { AccessoryProductArt } from './VisualShowcaseArt';
 
 interface CounterViewProps {
   encounter: CustomerEncounter | null;
+  day: number;
   cash: number;
   shopTier: ShopTier;
   shopLevel: number;
@@ -148,6 +97,8 @@ interface CounterViewProps {
   dealStreak: number;
   upgrades: UpgradeId[];
   activeDecorations: DecorationId[];
+  listedPhones: PhoneDevice[];
+  showDay1Guide?: boolean;
   accessories: Record<AccessoryId, AccessoryStockItem>;
   dailyNews: DailyMarketEvent;
   dailyQuests: DailyQuest[];
@@ -164,12 +115,15 @@ interface CounterViewProps {
   onOpenNewspaper: () => void;
   onOpenMissions: () => void;
   onOpenWardrobe?: () => void;
+  onDismissDay1Guide?: () => void;
+  onUnlockAllTabsEarly?: () => void;
   onClaimDailyQuest: (questId: string) => void;
   onResolveStoreEventAction: () => void;
   onDismissStoreEvent: () => void;
   onPlaceOnDeskReaction: (line: string) => void;
-  onInspect: (category: InspectionCategory) => void;
+  onInspect: (category: InspectionCategory, silentOverlay?: boolean) => void;
   onInspectAll: () => void;
+  onPhysicalInspectBonus?: () => void;
   onUseLeverage: (defectId: DefectId) => void;
   onServeTea: () => void;
   onBluffOrPitch: () => void;
@@ -195,8 +149,33 @@ interface CounterViewProps {
   shakeTrigger: number;
 }
 
+const INSPECTION_ZONES: {
+  id: InspectionCategory;
+  icon: React.ReactNode;
+}[] = [
+  { id: 'screen', icon: <Smartphone className="w-3.5 h-3.5" /> },
+  { id: 'battery', icon: <BatteryCharging className="w-3.5 h-3.5" /> },
+  { id: 'imei', icon: <ScanLine className="w-3.5 h-3.5" /> },
+  { id: 'hardware', icon: <Cpu className="w-3.5 h-3.5" /> },
+];
+
+const isEncounterOnDesk = (enc: CustomerEncounter | null): boolean => {
+  if (!enc) return false;
+  if (enc.outcome !== 'ACTIVE' || enc.rounds > 0) return true;
+  if (enc.messages.some((m) => m.id.startsWith('desk_'))) return true;
+  const target =
+    enc.type === 'TRADE_IN' && enc.tradeInDevice ? enc.tradeInDevice : enc.device;
+  return (
+    target.inspected.screen ||
+    target.inspected.battery ||
+    target.inspected.imei ||
+    target.inspected.hardware
+  );
+};
+
 export const CounterView: React.FC<CounterViewProps> = ({
   encounter,
+  day,
   cash,
   shopTier,
   shopLevel,
@@ -204,6 +183,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
   dealStreak,
   upgrades,
   activeDecorations,
+  listedPhones,
   accessories,
   dailyNews,
   dailyQuests,
@@ -211,21 +191,16 @@ export const CounterView: React.FC<CounterViewProps> = ({
   queueIndex,
   queueTotal,
   activeStoreEvent,
-  nextCustomerEventEffect,
-  equippedOutfit,
   hiredStaff,
-  staffLevels,
-  staffRepairQueue,
-  textSpeed = 'normal',
   onOpenNewspaper,
   onOpenMissions,
-  onOpenWardrobe,
   onClaimDailyQuest,
   onResolveStoreEventAction,
   onDismissStoreEvent,
   onPlaceOnDeskReaction,
   onInspect,
   onInspectAll,
+  onPhysicalInspectBonus,
   onUseLeverage,
   onServeTea,
   onBluffOrPitch,
@@ -246,224 +221,134 @@ export const CounterView: React.FC<CounterViewProps> = ({
   onResolveDataRecovery,
   shakeTrigger,
 }) => {
+  const { lang, bi } = useLanguage();
+  const [stage, setStage] = useState<'ARRIVED' | 'ON_DESK'>(() =>
+    isEncounterOnDesk(encounter) ? 'ON_DESK' : 'ARRIVED'
+  );
+  const [offerPrice, setOfferPrice] = useState(0);
+  const [tone, setTone] = useState<NegotiationTone>('friendly');
   const [portraitFailed, setPortraitFailed] = useState(false);
-  const [offerPrice, setOfferPrice] = useState<number>(0);
-  const [deskStage, setDeskStage] = useState<'ARRIVING' | 'ON_DESK'>('ARRIVING');
-  const [deviceCardExpanded, setDeviceCardExpanded] = useState<boolean>(true);
-  const [selectedTone, setSelectedTone] = useState<NegotiationTone>('friendly');
-  const [liveTurnSec, setLiveTurnSec] = useState<number>(0);
+  const [showLoupeModal, setShowLoupeModal] = useState(false);
   const turnStartRef = useRef<number>(Date.now());
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const lastEncounterIdRef = useRef<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const hasProDiag = upgrades.includes('pro_diagnostic');
-  const hasSamovar = upgrades.includes('tea_samovar');
-  const legacyInfo = LEGACY_PATHS[legacyPath];
-  const outfitSpec = getOutfitSpec(equippedOutfit);
-  const salesTaxRate = getEffectiveSalesTaxRate(hiredStaff, staffLevels);
-  const hasMasterTech = hiredStaff.includes('master_tech');
-  const masterSpecs = getMasterTechSpecs(staffLevels.master_tech ?? 1, upgrades);
-  const activeEventVisual =
-    activeStoreEvent?.visualKind ?? nextCustomerEventEffect?.visualKind ?? null;
-  const typeSpeedMs = textSpeed === 'fast' ? 7 : 16;
-  const animateText = textSpeed !== 'instant';
+  const activeEventVisual = activeStoreEvent?.visualKind ?? null;
+  const locNews = getLocalizedNews(dailyNews, lang);
 
   useEffect(() => {
-    setPortraitFailed(false);
     if (!encounter) return;
-
-    const isBrandNewEncounter = lastEncounterIdRef.current !== encounter.id;
-    lastEncounterIdRef.current = encounter.id;
-
-    if (isBrandNewEncounter) {
-      setDeviceCardExpanded(true);
-      setSelectedTone(
-        legacyPath === 'EX_APPRENTICE'
-          ? 'analytical'
-          : legacyPath === 'BORN_MERCHANT'
-          ? 'firm'
-          : 'friendly'
-      );
-      turnStartRef.current = Date.now();
-      setLiveTurnSec(0);
-      if (encounter.outcome === 'ACTIVE' && encounter.rounds === 0) {
-        setDeskStage('ARRIVING');
-        soundFX.playDoorBell();
-      } else {
-        setDeskStage('ON_DESK');
-      }
+    const alreadyOnDesk = isEncounterOnDesk(encounter);
+    setStage(alreadyOnDesk ? 'ON_DESK' : 'ARRIVED');
+    setPortraitFailed(false);
+    setShowLoupeModal(false);
+    setTone('friendly');
+    turnStartRef.current = Date.now();
+    if (!alreadyOnDesk) {
+      soundFX.playDoorBell();
     }
 
     if (encounter.type === 'SELLER') {
-      const suggested = roundPrice(Math.max(1000, encounter.customerPrice * 0.82));
-      setOfferPrice(Math.min(suggested, Math.max(1000, cash)));
+      setOfferPrice(roundPrice(encounter.customerPrice * 0.85));
     } else if (encounter.type === 'BUYER') {
-      // Realistic: Start at our own showcase sticker price (never higher!)
-      const sticker = Math.max(encounter.customerPrice, encounter.device.askingPrice);
-      setOfferPrice(sticker);
-    } else if (encounter.type === 'TRADE_IN') {
-      const targetAsk = roundPrice(
-        Math.min(
-          encounter.device.askingPrice,
-          Math.max(encounter.customerPrice + 750, encounter.initialCustomerPrice * 1.28)
+      setOfferPrice(
+        roundPrice(
+          (encounter.customerPrice + encounter.device.askingPrice) / 2
         )
       );
-      setOfferPrice(Math.max(encounter.customerPrice, targetAsk));
+    } else if (encounter.type === 'TRADE_IN') {
+      setOfferPrice(roundPrice(encounter.customerPrice * 1.15));
+    } else {
+      setOfferPrice(encounter.customerPrice);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [encounter?.id]);
 
-  // Reset turn speed timer on every round / customer reply when active on desk
   useEffect(() => {
-    turnStartRef.current = Date.now();
-    setLiveTurnSec(0);
-  }, [encounter?.id, encounter?.rounds, deskStage]);
-
-  useEffect(() => {
-    if (
-      !encounter ||
-      encounter.outcome !== 'ACTIVE' ||
-      deskStage !== 'ON_DESK' ||
-      (encounter.type !== 'SELLER' &&
-        encounter.type !== 'BUYER' &&
-        encounter.type !== 'TRADE_IN')
-    ) {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      const elapsed = Math.floor((Date.now() - turnStartRef.current) / 1000);
-      setLiveTurnSec(elapsed);
-    }, 500);
-    return () => window.clearInterval(timer);
-  }, [encounter?.id, encounter?.outcome, encounter?.type, deskStage]);
-
-  useEffect(() => {
-    if (!encounter || encounter.outcome !== 'ACTIVE') return;
+    if (!encounter) return;
     if (encounter.type === 'SELLER' && offerPrice > encounter.customerPrice) {
       setOfferPrice(encounter.customerPrice);
     }
-    if (encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') {
-      const sticker = Math.max(encounter.customerPrice, encounter.device.askingPrice);
-      if (offerPrice < encounter.customerPrice) {
-        setOfferPrice(encounter.customerPrice);
-      } else if (offerPrice > sticker) {
-        setOfferPrice(sticker);
-      }
+    if (
+      (encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') &&
+      offerPrice < encounter.customerPrice
+    ) {
+      setOfferPrice(encounter.customerPrice);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [encounter?.customerPrice, encounter?.device.askingPrice]);
+  }, [encounter?.customerPrice]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [encounter?.messages.length, deskStage]);
-
-  const handlePlaceOnDesk = () => {
-    if (!encounter) return;
-    soundFX.playDeskThud();
-    turnStartRef.current = Date.now();
-    setLiveTurnSec(0);
-    setDeskStage('ON_DESK');
-    const lines = DESK_PLACEMENT_LINES[encounter.type];
-    if (lines && lines.length > 0 && encounter.messages.length <= 2) {
-      const line = lines[Math.floor(Math.random() * lines.length)];
-      onPlaceOnDeskReaction(line);
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  };
-
-  const triggerOfferSubmit = () => {
-    if (!encounter || encounter.outcome !== 'ACTIVE') return;
-    if (encounter.type === 'SELLER' && offerPrice > cash) return;
-    const elapsedSec = (Date.now() - turnStartRef.current) / 1000;
-    onSubmitOffer(offerPrice, selectedTone, elapsedSec);
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!encounter) return;
-      if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return;
-
-      if (deskStage === 'ARRIVING' && encounter.outcome === 'ACTIVE') {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handlePlaceOnDesk();
-        }
-        return;
-      }
-
-      if (
-        e.key === 'Enter' &&
-        encounter.outcome === 'ACTIVE' &&
-        (encounter.type === 'SELLER' ||
-          encounter.type === 'BUYER' ||
-          encounter.type === 'TRADE_IN')
-      ) {
-        e.preventDefault();
-        triggerOfferSubmit();
-      } else if (e.key === ' ' && encounter.outcome !== 'ACTIVE') {
-        e.preventDefault();
-        onNextCustomer();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [encounter, deskStage, offerPrice, cash, selectedTone, onSubmitOffer, onNextCustomer]);
+  }, [encounter?.messages.length, stage]);
 
   const sliderBounds = useMemo(() => {
-    if (!encounter) return { min: 1000, max: 20000, step: 250 };
+    if (!encounter) return { min: 500, max: 10000, step: 250 };
     if (encounter.type === 'SELLER') {
-      const min = roundPrice(Math.max(750, encounter.initialCustomerPrice * 0.4));
-      const max = Math.max(min + 500, encounter.customerPrice);
-      const step = max > 20000 ? 500 : 250;
-      return { min, max, step };
-    } else {
-      // BUYER & TRADE_IN: Bounded between [Customer's Current Offer, Our Showcase Ceiling]
-      const min = encounter.customerPrice;
-      const max = Math.max(min, encounter.device.askingPrice);
-      const step = max > 20000 ? 500 : 250;
-      return { min, max, step };
+      const min = roundPrice(Math.max(500, encounter.customerPrice * 0.45));
+      const max = Math.max(min + 250, encounter.customerPrice);
+      return { min, max, step: max > 20000 ? 500 : 250 };
     }
+    if (encounter.type === 'TRADE_IN') {
+      const min = encounter.customerPrice;
+      const max = roundPrice(Math.max(min + 1000, encounter.customerPrice * 1.8));
+      return { min, max, step: 250 };
+    }
+    const min = encounter.customerPrice;
+    const max = Math.max(min + 250, encounter.device.askingPrice);
+    return { min, max, step: max > 20000 ? 500 : 250 };
   }, [encounter]);
 
-  const readyQuest = dailyQuests.find((q) => !q.claimed && q.progress >= q.target);
-  const activeQuest =
-    readyQuest ?? dailyQuests.find((q) => !q.claimed) ?? dailyQuests[0];
-
+  // Level-gated cross-sell options — 0 accessories at Level 1
   const stockedCrossSellOptions = useMemo(
     () =>
-      ACCESSORY_CATALOG.filter((spec) => (accessories[spec.id]?.quantity ?? 0) > 0),
-    [accessories]
+      ACCESSORY_CATALOG.filter(
+        (spec) =>
+          isAccessoryUnlocked(spec.id, shopLevel) &&
+          (accessories[spec.id]?.quantity ?? 0) > 0
+      ),
+    [accessories, shopLevel]
   );
+
+  const readyQuest = dailyQuests.find((q) => !q.claimed && q.progress >= q.target);
+  const activeQuestRaw =
+    readyQuest ?? dailyQuests.find((q) => !q.claimed) ?? dailyQuests[0];
+  const activeQuest = activeQuestRaw
+    ? getLocalizedQuest(activeQuestRaw, lang)
+    : null;
 
   if (!encounter) {
     return (
-      <div className="relative flex-1 flex flex-col items-center justify-center p-8 text-center">
+      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center p-4 text-center overflow-hidden">
         <ShopDecorLayer
           shopTier={shopTier}
           activeDecorations={activeDecorations}
           activeEventVisual={activeEventVisual}
+          listedPhones={listedPhones}
         />
-        <div className="relative z-10">
-          <h2 className="font-display text-2xl font-bold text-slate-100 mb-2">
-            Bugünkü Müşteriler Tamamlandı
+        <div className="relative z-10 rounded-2xl border border-white/12 bg-[#141C27]/95 p-5 max-w-md shadow-2xl">
+          <h2 className="font-display text-lg font-extrabold text-slate-100">
+            {bi('Bugünkü Müşteriler Tamamlandı', 'All Customers Served Today')}
           </h2>
-          <p className="text-sm text-slate-300 max-w-md mb-6">
-            Kepenkleri indirmeden önce Atölye veya Toptancı sekmesine uğrayıp telefonlarını hazırlayabilir, aksesuar reyonunu doldurabilirsin.
+          <p className="text-xs text-slate-300 mt-1.5 mb-4">
+            {bi(
+              'Kepenkleri indirmeden önce atölyeye uğrayıp cihazlarını tamir edip vitrine koyabilirsin.',
+              'Before closing shutters, visit your workshop to repair and list phones on your showcase.'
+            )}
           </p>
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={onGoToWorkshop}
-              className="rounded-xl border border-white/15 bg-[#1D2634] px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-[#273345] transition-colors cursor-pointer whitespace-nowrap"
+              className="rounded-xl border border-white/15 bg-[#1D2634] px-4 py-2 text-xs font-bold text-slate-200 hover:bg-[#273345] cursor-pointer whitespace-nowrap"
             >
-              Atölyeye Göz At
+              {bi('Atölyeye Göz At', 'Visit Workshop')}
             </button>
             <button
               type="button"
               onClick={onNextCustomer}
-              className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+              className="rounded-xl bg-amber-500 px-5 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
             >
-              Günü Bitir & Kasa Raporu
+              {bi('Günü Bitir & Rapor', 'End Day & Report')}
             </button>
           </div>
         </div>
@@ -471,2227 +356,1365 @@ export const CounterView: React.FC<CounterViewProps> = ({
     );
   }
 
-  const archetype = CUSTOMER_ARCHETYPES[encounter.archetypeId];
+  const archetype = getLocalizedArchetype(encounter.archetypeId, lang);
   const patienceInfo = getPatienceLabel(encounter.patience);
+  const moodInfo = getMoodDisplay(encounter.mood);
   const inspectedTarget =
     encounter.type === 'TRADE_IN' && encounter.tradeInDevice
       ? encounter.tradeInDevice
       : encounter.device;
   const discoveredDefects = getDiscoveredDefects(inspectedTarget);
-  const allChecked =
-    inspectedTarget.inspected.screen &&
-    inspectedTarget.inspected.battery &&
-    inspectedTarget.inspected.imei &&
-    inspectedTarget.inspected.hardware;
-
+  const condition = getConditionInfo(
+    inspectedTarget,
+    encounter.type === 'SELLER' || encounter.type === 'TRADE_IN'
+  );
   const isNegotiable =
     encounter.type === 'SELLER' ||
     encounter.type === 'BUYER' ||
     encounter.type === 'TRADE_IN';
 
-  const estimatedMarketValue = calculateMarketValue(
+  const valuation = calculateDeviceValuationBreakdown(
     inspectedTarget,
-    encounter.type === 'SELLER' || encounter.type === 'TRADE_IN',
-    dailyNews,
-    upgrades
-  );
-  const buyingValuation = calculateDeviceValuationBreakdown(
-    inspectedTarget,
-    encounter.type === 'SELLER' ? offerPrice : 0,
+    offerPrice,
     upgrades,
     dailyNews,
     shopLevel,
     legacyPath,
-    encounter.type === 'SELLER' || encounter.type === 'TRADE_IN'
+    true
   );
-  const totalCostBasis =
-    encounter.device.purchasePrice + encounter.device.repairSpend;
-  const projectedBuyerProfit =
-    encounter.type === 'TRADE_IN' && encounter.tradeInDevice
-      ? offerPrice +
-        buyingValuation.postRepairValue -
-        buyingValuation.estimatedRepairCost -
-        totalCostBasis
-      : offerPrice - totalCostBasis;
-  const canAffordOffer = encounter.type !== 'SELLER' || offerPrice <= cash;
-  const canAffordInstant =
-    encounter.type !== 'SELLER' || encounter.customerPrice <= cash;
-  const isLastCustomer = queueIndex >= queueTotal - 1;
-  const nextStreakBonus = getStreakBonusCash(dealStreak + 1, shopLevel);
-  const buyerDiscountFromSticker =
-    encounter.type === 'BUYER'
-      ? Math.max(0, encounter.device.askingPrice - offerPrice)
-      : 0;
+  const sellerAsIsVal = calculateMarketValue(
+    inspectedTarget,
+    true,
+    dailyNews,
+    upgrades,
+    day
+  );
+  const resistance = isNegotiable
+    ? getNegotiationResistance(encounter, offerPrice, tone)
+    : null;
 
-  const offerTension = (() => {
-    if (encounter.type === 'SELLER') {
-      const ratio = offerPrice / Math.max(1, encounter.customerPrice);
-      if (ratio < 0.65) {
-        return {
-          label: 'Aşırı Sert · Kızıp Kalkabilir!',
-          tone: 'danger' as const,
-          fill: 92,
-        };
-      }
-      if (ratio < 0.8) {
-        return {
-          label: 'Sert Pazarlık · Sabır Harcar',
-          tone: 'warning' as const,
-          fill: 68,
-        };
-      }
-      if (ratio < 0.94) {
-        return {
-          label: 'Tatlı Nokta · Kârlı & Dengeli',
-          tone: 'positive' as const,
-          fill: 42,
-        };
-      }
-      return {
-        label: 'Cömert Teklif · Hızlı El Sıkışma',
-        tone: 'safe' as const,
-        fill: 18,
-      };
-    } else {
-      // BUYER: Comparing our counter-price against buyer's current offer & sticker
-      const span = Math.max(1, encounter.device.askingPrice - encounter.customerPrice);
-      const firmness = (offerPrice - encounter.customerPrice) / span;
-      if (offerPrice <= encounter.customerPrice) {
-        return {
-          label: 'Anında Satış · Garanti El Sıkışma',
-          tone: 'safe' as const,
-          fill: 16,
-        };
-      }
-      if (firmness <= 0.45) {
-        return {
-          label: 'Tatlı İndirim · Yüksek Anlaşma Şansı',
-          tone: 'positive' as const,
-          fill: 38,
-        };
-      }
-      if (firmness <= 0.85) {
-        return {
-          label: 'Dengeli İndirim · Pazarlık Devam Eder',
-          tone: 'warning' as const,
-          fill: 66,
-        };
-      }
-      return {
-        label: 'Etikette Sabit · Alıcı Sabır Harcar',
-        tone: 'danger' as const,
-        fill: 88,
-      };
-    }
-  })();
+  const roleText = getLocalizedRoleText(encounter.type, lang, {
+    isBrandNew: encounter.device.isBrandNew,
+    isVip: encounter.archetypeId === 'vip',
+  });
 
-  const testButtons: {
-    key: InspectionCategory;
-    label: string;
-    icon: React.ReactNode;
-  }[] = [
-    { key: 'screen', label: 'Ekran & Kasa', icon: <Smartphone className="w-4 h-4" /> },
-    { key: 'battery', label: 'Pil & Devir', icon: <BatteryCharging className="w-4 h-4" /> },
-    { key: 'imei', label: 'IMEI Sorgu', icon: <ScanLine className="w-4 h-4" /> },
-    { key: 'hardware', label: 'Sıvı & Sensör', icon: <Cpu className="w-4 h-4" /> },
-  ];
+  const all4Inspected =
+    inspectedTarget.inspected.screen &&
+    inspectedTarget.inspected.battery &&
+    inspectedTarget.inspected.imei &&
+    inspectedTarget.inspected.hardware;
 
-  const adjustOffer = (delta: number) => {
-    setOfferPrice((prev) => {
-      const next = Math.max(sliderBounds.min, Math.min(sliderBounds.max, prev + delta));
-      return roundPrice(next);
-    });
+  const hasRepairBench = upgrades.includes('repair_bench');
+  const hasSamovar = upgrades.includes('tea_samovar');
+  const hasMasterTech = hiredStaff.includes('master_tech');
+  const hasSmartPos = upgrades.includes('smart_pos_zero');
+  const legacyInfo = LEGACY_PATHS[legacyPath];
+  const teaCost = hasSamovar ? 0 : 120;
+
+  const handlePlaceOnDesk = () => {
+    soundFX.playClick();
+    setStage('ON_DESK');
+    turnStartRef.current = Date.now();
+    onPlaceOnDeskReaction(
+      bi(
+        'Buyur bakalım, cihazı tezgaha aldım. Hemen inceleyelim.',
+        'Alright, placed it on the counter — let’s inspect it!'
+      )
+    );
   };
 
-  const roleText =
-    encounter.type === 'SELLER'
-      ? 'Cihaz Satıyor'
-      : encounter.type === 'BUYER'
-      ? encounter.device.isBrandNew
-        ? 'Sıfır Kutu Alıcısı'
-        : encounter.archetypeId === 'vip'
-        ? 'VIP Alıcı'
-        : 'Vitrin Alıcısı'
-      : encounter.type === 'TRADE_IN'
-      ? 'Takas (Trade-In)'
-      : encounter.type === 'WARRANTY_CLAIM'
-      ? 'Garanti & İade'
-      : encounter.type === 'DATA_RECOVERY'
-      ? 'Veri Kurtarma'
-      : encounter.type === 'EXPRESS_REPAIR'
-      ? 'Acil Tamir'
-      : encounter.type === 'ACCESSORY_BUYER'
-      ? 'Aksesuar Alıcısı'
-      : 'Kapalı Kutu İhale';
+  const handleOfferClick = () => {
+    if (encounter.type === 'SELLER' && offerPrice > cash) return;
+    const elapsedSec = (Date.now() - turnStartRef.current) / 1000;
+    turnStartRef.current = Date.now();
+    onSubmitOffer(offerPrice, tone, elapsedSec);
+  };
 
-  const placeButtonLabel =
-    encounter.type === 'SELLER'
-      ? 'Telefonu Masaya Al & İncele (Enter)'
-      : encounter.type === 'BUYER'
-      ? 'Vitrinden Cihazı Masaya Çıkar (Enter)'
-      : encounter.type === 'TRADE_IN'
-      ? 'Takas Cihazını Masaya Al & İncele (Enter)'
-      : encounter.type === 'WARRANTY_CLAIM'
-      ? 'Garanti Dosyasını & Cihazı İncele (Enter)'
-      : encounter.type === 'DATA_RECOVERY'
-      ? 'Cihazı Veri Masasına Bağla (Enter)'
-      : encounter.type === 'EXPRESS_REPAIR'
-      ? 'Arızalı Cihazı Tezgaha Al (Enter)'
-      : encounter.type === 'ACCESSORY_BUYER'
-      ? 'Aksesuar Sepetini Tezgaha Al (Enter)'
-      : 'Kapalı Koliyi Masaya Koy (Enter)';
+  const adjustOffer = (delta: number) => {
+    setOfferPrice((prev) =>
+      Math.max(sliderBounds.min, Math.min(sliderBounds.max, prev + delta))
+    );
+  };
 
-  const lastMessageId = encounter.messages[encounter.messages.length - 1]?.id;
+  const recentMessages = encounter.messages.slice(-6);
+
+  const queueCode = (t: CustomerEncounter['type']) => {
+    if (t === 'SELLER') return 'S';
+    if (t === 'BUYER') return lang === 'en' ? 'B' : 'A';
+    if (t === 'TRADE_IN') return 'T';
+    if (t === 'EXPRESS_REPAIR') return 'R';
+    if (t === 'ACCESSORY_BUYER') return 'K';
+    return '★';
+  };
+
+  const moodMarkerLeft = Math.max(4, Math.min(96, Math.round(encounter.moodScore)));
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B]">
       <ShopDecorLayer
         shopTier={shopTier}
         activeDecorations={activeDecorations}
         activeEventVisual={activeEventVisual}
+        listedPhones={listedPhones}
       />
 
-      {/* Ultra-Compact Single-Row Info Strip: Newspaper + Active Quest + Outfit + Queue */}
-      <div className="relative z-10 shrink-0 safe-px pt-1.5 lg:pt-2.5 space-y-1.5">
-        <div
-          className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1 lg:px-3.5 lg:py-1.5 text-[11px] lg:text-xs ${
-            dailyNews.kind === 'launch'
-              ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
-              : dailyNews.kind === 'drop'
-              ? 'border-rose-400/30 bg-rose-500/10 text-rose-100'
-              : dailyNews.kind === 'discount'
-              ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
-              : 'border-white/8 bg-[#131B26]/90 text-slate-300'
-          }`}
+      {/* SLIM SINGLE-LINE TOP BAR: NEWS + QUEUE + ACTIVE QUEST */}
+      <div className="relative z-10 shrink-0 flex items-center justify-between gap-2 border-b border-white/10 bg-[#131A24]/95 px-2.5 py-1 text-[10.5px]">
+        <button
+          type="button"
+          onClick={onOpenNewspaper}
+          className="inline-flex items-center gap-1.5 text-amber-200 hover:text-amber-100 min-w-0 cursor-pointer"
         >
-          <button
-            type="button"
-            onClick={onOpenNewspaper}
-            className="flex items-center gap-1.5 min-w-0 flex-1 text-left hover:opacity-90 transition-opacity cursor-pointer"
-            title="Pasaj Postası gazetesini aç"
-          >
-            <Newspaper
-              className={`w-3.5 h-3.5 shrink-0 ${
-                dailyNews.kind === 'launch'
-                  ? 'text-amber-400'
-                  : dailyNews.kind === 'drop'
-                  ? 'text-rose-400'
-                  : dailyNews.kind === 'discount'
-                  ? 'text-emerald-400'
-                  : 'text-amber-300'
-              }`}
-            />
-            <span className="font-semibold truncate">{dailyNews.headline}</span>
-          </button>
+          <Newspaper className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="truncate font-semibold">{locNews.headline}</span>
+        </button>
 
-          {/* Compact Inline Active Quest Chip / Claim CTA */}
-          {activeQuest && (
-            <div className="hidden sm:flex items-center gap-1.5 shrink-0 border-l border-white/12 pl-2 tabular-nums">
-              {readyQuest ? (
-                <button
-                  type="button"
-                  onClick={() => onClaimDailyQuest(readyQuest.id)}
-                  className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-0.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <Gift className="w-3 h-3" />
-                  <span>Ödül +{formatTRY(readyQuest.reward)}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onOpenMissions}
-                  title={`${activeQuest.title}: ${activeQuest.description}`}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-[#101720]/80 px-2 py-0.5 text-[10.5px] text-slate-200 hover:border-amber-400/40 cursor-pointer whitespace-nowrap"
-                >
-                  <Target className="w-3 h-3 text-amber-400 shrink-0" />
-                  <span className="max-w-[130px] lg:max-w-[200px] truncate font-semibold">
-                    {activeQuest.title}
-                  </span>
-                  <span className="font-mono text-[10px] text-amber-300 font-bold">
-                    {activeQuest.progress}/{activeQuest.target}
-                  </span>
-                </button>
-              )}
-            </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {dealStreak >= 2 && (
+            <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-extrabold text-amber-300">
+              <Flame className="w-3 h-3 text-amber-400" />
+              {dealStreak}x
+            </span>
           )}
 
-          <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
-            {onOpenWardrobe && (
-              <button
-                type="button"
-                onClick={onOpenWardrobe}
-                title={`Kıyafet: ${outfitSpec.name} (${outfitSpec.bonusDescription})`}
-                className="hidden xl:inline-flex items-center gap-1 rounded-md border border-white/10 bg-[#182230] px-2 py-0.5 text-[10.5px] font-semibold text-amber-200 hover:border-amber-400/40 cursor-pointer"
+          {/* Mini Queue Chips */}
+          <div className="hidden sm:flex items-center gap-0.5">
+            {queue.slice(0, 8).map((q, idx) => (
+              <span
+                key={q.id}
+                className={`w-4 h-4 rounded text-[9px] font-mono font-extrabold flex items-center justify-center ${
+                  idx < queueIndex
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : idx === queueIndex
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-white/8 text-slate-400'
+                }`}
               >
-                <Shirt className="w-3 h-3 text-amber-400" />
-                <span>{outfitSpec.name}</span>
-              </button>
-            )}
-            {dealStreak >= 2 && (
-              <span className="inline-flex items-center gap-0.5 font-mono text-[10.5px] font-bold text-orange-300 tabular-nums whitespace-nowrap">
-                <Flame className="w-3 h-3 text-orange-400" />
-                <span>{dealStreak}x</span>
+                {queueCode(q.type)}
               </span>
-            )}
-
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[155px] lg:max-w-none" aria-label="Günün müşteri sırası">
-              {queue.map((qItem, idx) => {
-                const isCurrent = idx === queueIndex;
-                const roleLetter =
-                  qItem.type === 'SELLER'
-                    ? 'S'
-                    : qItem.type === 'BUYER'
-                    ? 'A'
-                    : qItem.type === 'TRADE_IN'
-                    ? 'K'
-                    : qItem.type === 'WARRANTY_CLAIM'
-                    ? 'G'
-                    : qItem.type === 'DATA_RECOVERY'
-                    ? 'V'
-                    : qItem.type === 'EXPRESS_REPAIR'
-                    ? 'T'
-                    : qItem.type === 'ACCESSORY_BUYER'
-                    ? 'R'
-                    : 'İ';
-                const statusClass =
-                  qItem.outcome === 'DEAL_CLOSED'
-                    ? 'bg-emerald-500/25 border-emerald-400/60 text-emerald-200'
-                    : qItem.outcome === 'WALKED_OUT'
-                    ? 'bg-rose-500/25 border-rose-400/60 text-rose-200'
-                    : qItem.outcome === 'DISMISSED'
-                    ? 'bg-white/5 border-white/15 text-slate-500'
-                    : isCurrent
-                    ? 'bg-amber-500 border-amber-300 text-slate-950 font-bold'
-                    : 'bg-[#1A2433] border-white/12 text-slate-400';
-                return (
-                  <span
-                    key={qItem.id}
-                    title={`#${idx + 1} ${qItem.customerName}`}
-                    className={`flex h-4 w-4 lg:h-5 lg:w-5 shrink-0 items-center justify-center rounded border font-mono text-[9.5px] lg:text-[10px] transition-colors ${statusClass}`}
-                  >
-                    {roleLetter}
-                  </span>
-                );
-              })}
-            </div>
+            ))}
           </div>
-        </div>
 
-        {/* Portrait-only compact quest strip if ready or active */}
-        {activeQuest && (
-          <div className="sm:hidden flex items-center justify-between gap-2 rounded-lg border border-white/8 bg-[#121923]/90 px-2.5 py-1 text-[11px] tabular-nums">
-            <button
-              type="button"
-              onClick={onOpenMissions}
-              className="flex items-center gap-1.5 min-w-0 text-left"
-            >
-              <Target className={`w-3.5 h-3.5 shrink-0 ${readyQuest ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <span className="font-bold text-slate-100 truncate">{activeQuest.title}</span>
-              <span className="font-mono text-[10px] text-amber-300 shrink-0">
-                {activeQuest.progress}/{activeQuest.target}
-              </span>
-            </button>
-            {readyQuest && (
+          {activeQuest &&
+            (readyQuest ? (
               <button
                 type="button"
                 onClick={() => onClaimDailyQuest(readyQuest.id)}
-                className="rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-extrabold text-slate-950 shrink-0"
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
               >
-                Topla +{formatTRY(readyQuest.reward)}
+                <Target className="w-3 h-3" />
+                {bi('Ödül Al', 'Claim')} +{formatTRY(readyQuest.reward)}
               </button>
-            )}
-          </div>
-        )}
-        {/* ACTIVE MID-DAY RANDOM STORE EVENT BANNER */}
-        {activeStoreEvent && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-xs shadow-lg ${
-              activeStoreEvent.moodDelta >= 0
-                ? 'border-emerald-400/45 bg-emerald-500/15 text-emerald-100'
-                : 'border-amber-400/45 bg-amber-500/14 text-amber-100'
-            }`}
-          >
-            <div className="flex items-start gap-2.5 min-w-0 flex-1">
-              <AlertTriangle
-                className={`w-4 h-4 shrink-0 mt-0.5 ${
-                  activeStoreEvent.moodDelta >= 0 ? 'text-emerald-300' : 'text-amber-300'
-                }`}
-              />
-              <div className="min-w-0">
-                <div className="font-bold text-slate-50 flex flex-wrap items-center gap-2">
-                  <span>Mağaza Olayı: {activeStoreEvent.title}</span>
-                  <span className="font-mono text-[10px] rounded bg-black/30 px-1.5 py-0.5 text-amber-200">
-                    Sonraki Müşteri: {activeStoreEvent.moodDelta >= 0 ? '+' : ''}
-                    {activeStoreEvent.moodDelta} Ruh Hali
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-200/90 mt-0.5 leading-snug">
-                  {activeStoreEvent.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {!activeStoreEvent.resolved && activeStoreEvent.actionLabel && (
-                <button
-                  type="button"
-                  disabled={cash < (activeStoreEvent.actionCost ?? 0)}
-                  onClick={onResolveStoreEventAction}
-                  className="rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                >
-                  {activeStoreEvent.actionLabel}
-                </button>
-              )}
+            ) : (
               <button
                 type="button"
-                onClick={onDismissStoreEvent}
-                aria-label="Mağaza olayını kapat"
-                className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-black/25 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-black/40 cursor-pointer"
+                onClick={onOpenMissions}
+                className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-[#1B2432] px-2 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-[#243042] cursor-pointer whitespace-nowrap"
               >
-                <X className="w-3.5 h-3.5" />
-                <span>Tamam</span>
+                <Target className="w-3 h-3 text-amber-400" />
+                <span className="max-w-[120px] truncate">{activeQuest.title}</span>
+                <span className="font-mono text-amber-300">
+                  {activeQuest.progress}/{activeQuest.target}
+                </span>
               </button>
-            </div>
-          </motion.div>
-        )}
-
-        {!activeStoreEvent && nextCustomerEventEffect && (
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-[11px] text-sky-100">
-            <span>
-              <strong>Sıradaki Müşteri Etkisi:</strong> {nextCustomerEventEffect.title} (
-              {nextCustomerEventEffect.moodDelta >= 0 ? '+' : ''}
-              {nextCustomerEventEffect.moodDelta} Ruh Hali)
-            </span>
-          </div>
-        )}
+            ))}
+        </div>
       </div>
 
-      {/* MAIN COUNTER PLAYFIELD: SHOP ENTRANCE -> PHYSICAL ON-DESK WORKBENCH */}
+      {/* COMPACT LIVE STORE EVENT STRIP */}
+      {activeStoreEvent && !activeStoreEvent.resolved && (
+        <div className="relative z-20 shrink-0 flex items-center justify-between gap-2 border-b border-amber-400/35 bg-amber-500/15 px-3 py-1 text-[10.5px]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <strong className="text-amber-200 shrink-0">
+              {activeStoreEvent.title}:
+            </strong>
+            <span className="text-slate-100 truncate">
+              {activeStoreEvent.description}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={onResolveStoreEventAction}
+              className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
+            >
+              {activeStoreEvent.actionLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onDismissStoreEvent}
+              className="p-0.5 text-slate-300 hover:text-white cursor-pointer"
+              aria-label={bi('Kapat', 'Close')}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MAIN PLAYFIELD — ZERO VERTICAL SCROLL */}
       <AnimatePresence mode="wait">
-        {deskStage === 'ARRIVING' && encounter.outcome === 'ACTIVE' ? (
+        {stage === 'ARRIVED' ? (
           <motion.div
-            key={`arriving_${encounter.id}`}
-            initial={{ opacity: 0, y: 12 }}
+            key={`arrived_${encounter.id}`}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.2 }}
-            className="relative z-10 flex-1 min-h-0 flex flex-col items-center safe-px py-1.5 sm:py-2.5 lg:p-5 overflow-y-auto pasaj-scroll"
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.16 }}
+            className="relative z-10 flex-1 min-h-0 flex items-center justify-center p-2.5 overflow-hidden"
           >
-            <div className="w-full max-w-2xl lg:max-w-3xl my-auto rounded-2xl border border-white/12 bg-[#141C27]/95 shadow-[0_24px_60px_rgba(0,0,0,0.65)] overflow-hidden shrink-0">
-              {/* Entrance Ambience Header */}
-              <div className="border-b border-white/8 bg-[#101720] px-3 sm:px-4 py-1.5 flex items-center justify-between text-[11px] lg:text-xs">
-                <span className="inline-flex items-center gap-1.5 text-amber-300 font-semibold truncate">
+            <div className="w-full max-w-3xl rounded-2xl border border-white/12 bg-[#141C27]/95 shadow-2xl overflow-hidden flex flex-col">
+              <div className="border-b border-white/8 bg-[#101720] px-3 py-1.5 flex items-center justify-between text-[11px]">
+                <span className="inline-flex items-center gap-1.5 text-amber-300 font-bold truncate">
                   <DoorOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="truncate">Kapı zili çaldı · Müşteri tezgahın önüne geldi</span>
+                  {bi(
+                    'Kapı zili çaldı · Müşteri tezgaha geldi',
+                    'Doorbell chimed · Customer approached counter'
+                  )}
                 </span>
-                <span className="font-mono text-slate-400 tabular-nums shrink-0 ml-2">
+                <span className="font-mono text-slate-400 tabular-nums shrink-0">
                   #{queueIndex + 1} / {queueTotal}
                 </span>
               </div>
 
-              {/* Customer Entrance + Live Typing Speech Bubble (Fits above fold on both portrait & landscape) */}
-              <div className="p-3 sm:p-4 lg:p-6 flex flex-col sm:flex-row items-center gap-2.5 sm:gap-4">
-                <motion.div
-                  initial={{ x: -24, opacity: 0, scale: 0.94 }}
-                  animate={{ x: 0, opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-                  className="shrink-0"
-                >
-                  <CustomerAvatar
-                    name={encounter.customerName}
-                    title={encounter.customerTitle}
-                    portraitPath={encounter.portraitPath}
-                    fallbackColor={archetype.fallbackColor}
-                    mood={encounter.mood}
-                    moodScore={encounter.moodScore}
-                    isVip={encounter.archetypeId === 'vip'}
-                    isAccessoryBuyer={encounter.type === 'ACCESSORY_BUYER'}
-                    size="sm"
-                    portraitFailed={portraitFailed}
-                    onPortraitError={() => setPortraitFailed(true)}
-                  />
-                </motion.div>
+              <div className="p-3.5 flex items-center gap-4">
+                <CustomerAvatar
+                  name={encounter.customerName}
+                  title={archetype.title}
+                  portraitPath={encounter.portraitPath}
+                  fallbackColor={archetype.fallbackColor}
+                  mood={encounter.mood}
+                  moodScore={encounter.moodScore}
+                  isVip={encounter.archetypeId === 'vip'}
+                  isAccessoryBuyer={encounter.type === 'ACCESSORY_BUYER'}
+                  size="sm"
+                  portraitFailed={portraitFailed}
+                  onPortraitError={() => setPortraitFailed(true)}
+                />
 
-                <div className="flex-1 min-w-0 text-center sm:text-left">
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 text-[10.5px] lg:text-xs mb-0.5">
-                    <span className="font-semibold text-emerald-300">{roleText}</span>
-                    <span aria-hidden="true" className="text-white/25">·</span>
-                    <span className="text-slate-400">{encounter.customerTitle}</span>
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                    <span className="font-bold text-emerald-300">{roleText}</span>
+                    <span className="text-white/25">·</span>
+                    <span className="text-slate-400">{archetype.title}</span>
                     {encounter.isRegular && (
-                      <>
-                        <span aria-hidden="true" className="text-white/25">·</span>
-                        <span className="font-bold text-amber-300">Müdavim ★</span>
-                      </>
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.2 font-bold text-amber-300">
+                        {bi('Müdavim ★', 'Regular ★')}
+                      </span>
                     )}
                   </div>
 
-                  <h2 className="font-display text-base sm:text-xl lg:text-2xl font-extrabold text-slate-50 mb-1.5 leading-tight">
-                    {encounter.customerName} içeri girdi
+                  <h2 className="font-display text-base sm:text-lg font-extrabold text-slate-50 leading-tight">
+                    {bi(
+                      `${encounter.customerName} içeri girdi`,
+                      `${encounter.customerName} walked in`
+                    )}
                   </h2>
 
-                  {/* Witty Typing Speech Bubble */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="rounded-xl border border-amber-400/20 bg-[#1C2634] px-3 py-2 lg:px-4 lg:py-2.5 text-xs lg:text-sm text-slate-100 leading-snug lg:leading-relaxed mb-2"
-                  >
-                    “
-                    <TypewriterText
-                      text={encounter.messages[0]?.text ?? ''}
-                      animate={animateText}
-                      speedMs={typeSpeedMs}
-                    />
-                    ”
-                  </motion.div>
+                  <div className="rounded-xl border border-amber-400/20 bg-[#1C2634] px-3 py-2 text-xs text-slate-100 leading-snug line-clamp-2">
+                    “{localizeDynamicLine(encounter.messages[0]?.text ?? '', lang)}”
+                  </div>
 
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-0.5 text-[11px] lg:text-xs text-slate-400 tabular-nums">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400 tabular-nums">
                     <span>
-                      Konu:{' '}
+                      {bi('Konu', 'Item')}:{' '}
                       <strong className="text-slate-100">
                         {encounter.type === 'BULK_AUCTION'
-                          ? '2’li Kapalı Toptancı Kolisi'
+                          ? bi('2’li Kapalı Toptancı Kolisi', '2-Unit Sealed Mystery Box')
                           : encounter.type === 'ACCESSORY_BUYER'
-                          ? `${encounter.accessoryOrder?.length ?? 1} Çeşit Aksesuar Sepeti`
+                          ? bi(
+                              `${encounter.accessoryOrder?.length ?? 1} Çeşit Aksesuar`,
+                              `${encounter.accessoryOrder?.length ?? 1} Accessory Item(s)`
+                            )
                           : encounter.type === 'TRADE_IN' && encounter.tradeInDevice
-                          ? `${encounter.tradeInDevice.brand} ${encounter.tradeInDevice.model} ⇄ ${encounter.device.brand} ${encounter.device.model}`
-                          : encounter.type === 'WARRANTY_CLAIM'
-                          ? `Garanti Talebi · ${encounter.warrantyRecord?.deviceName ?? encounter.device.model}`
-                          : encounter.type === 'DATA_RECOVERY'
-                          ? `${encounter.dataRecoveryJob?.title ?? 'Veri Kurtarma'} (${encounter.device.brand} ${encounter.device.model})`
+                          ? `${encounter.tradeInDevice.model} ⇄ ${encounter.device.model}`
                           : `${encounter.device.brand} ${encounter.device.model} (${encounter.device.storage})`}
                       </strong>
                     </span>
-                    <span aria-hidden="true" className="text-white/20">·</span>
                     <span>
-                      {encounter.type === 'BUYER'
-                        ? 'Alıcı Teklifi:'
-                        : encounter.type === 'TRADE_IN'
-                        ? 'Nakit Fark:'
-                        : encounter.type === 'WARRANTY_CLAIM'
-                        ? 'Onarım Maliyeti:'
-                        : encounter.type === 'DATA_RECOVERY'
-                        ? 'Servis Ödemesi:'
-                        : 'İlk Fiyat:'}{' '}
+                      {bi('İlk Fiyat', 'Opening')}:{' '}
                       <strong className="font-mono text-amber-400">
                         {formatTRY(encounter.customerPrice)}
                       </strong>
                     </span>
                   </div>
                 </div>
+
+                {/* Visual Preview of Incoming Phone / Accessory */}
+                <div className="hidden sm:flex shrink-0 rounded-xl border border-white/10 bg-[#0E141D] p-2.5 items-center justify-center gap-1.5">
+                  {encounter.type === 'ACCESSORY_BUYER' &&
+                  encounter.accessoryOrder &&
+                  encounter.accessoryOrder[0] ? (
+                    <AccessoryProductArt
+                      id={encounter.accessoryOrder[0].id}
+                      className="w-16 h-16"
+                    />
+                  ) : encounter.type === 'BULK_AUCTION' &&
+                    encounter.bundleDevices ? (
+                    <div className="flex items-center -space-x-2">
+                      {encounter.bundleDevices.slice(0, 2).map((d) => (
+                        <PhoneModelThumb
+                          key={d.uid}
+                          device={d}
+                          showBack
+                          silhouette
+                          className="w-11 h-16"
+                        />
+                      ))}
+                    </div>
+                  ) : encounter.type === 'TRADE_IN' && encounter.tradeInDevice ? (
+                    <div className="flex items-center gap-1">
+                      <PhoneModelThumb
+                        device={encounter.tradeInDevice}
+                        showBack
+                        className="w-10 h-16"
+                      />
+                      <ArrowLeftRight className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <PhoneModelThumb
+                        device={encounter.device}
+                        showBack
+                        className="w-10 h-16"
+                      />
+                    </div>
+                  ) : (
+                    <PhoneModelThumb
+                      device={encounter.device}
+                      showBack
+                      className="w-14 h-24"
+                    />
+                  )}
+                </div>
               </div>
 
-              {/* ESD Counter Placement Bar */}
-              <div className="border-t border-white/10 bg-[#1B1713]/92 px-3 sm:px-4 py-2 lg:py-3 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                <div className="hidden sm:block text-[11px] lg:text-xs text-amber-200/85 text-left">
-                  {encounter.type === 'ACCESSORY_BUYER'
-                    ? 'Müşteri seçtiği ürünleri uzatıyor. Tezgaha alıp kasadan geçir.'
-                    : 'Cihazı ESD tezgah matına al; teknik kartı inceleyip pazarlığa başla.'}
-                </div>
+              <div className="border-t border-white/10 bg-[#1B1713]/92 px-3.5 py-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-amber-200/85 truncate">
+                  {bi(
+                    'Cihazı tezgaha alıp incele ve pazarlığa başla.',
+                    'Place the device on the counter to inspect and negotiate.'
+                  )}
+                </span>
                 <button
                   type="button"
                   onClick={handlePlaceOnDesk}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 lg:px-6 lg:py-3 text-xs lg:text-sm font-extrabold text-slate-950 hover:bg-amber-400 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shadow-[0_8px_24px_rgba(245,158,11,0.3)] shrink-0"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <ArrowDownToLine className="w-4 h-4" />
-                  <span>{placeButtonLabel}</span>
+                  {bi('Tezgaha Al', 'Place on Counter')}
                 </button>
               </div>
             </div>
           </motion.div>
         ) : (
-          /* 3-COLUMN PHYSICAL ON-DESK WORKBENCH (Side-by-side at >= 640px landscape, smooth scroll in portrait) */
+          /* 3-COLUMN ZERO-SCROLL WORKBENCH */
           <motion.div
-            key={`ondesk_${encounter.id}`}
-            initial={{ opacity: 0, y: 8 }}
+            key={`desk_${encounter.id}`}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="relative z-10 flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-2.5 lg:gap-4 safe-px py-1.5 sm:py-2 lg:p-4 lg:pt-3 overflow-y-auto sm:overflow-hidden pasaj-scroll safe-pb"
+            transition={{ duration: 0.16 }}
+            className="relative z-10 flex-1 min-h-0 grid grid-cols-12 gap-2 p-2 overflow-hidden"
           >
-            {/* COLUMN 1: CUSTOMER PORTRAIT, DYNAMIC MOOD GAUGE & WITTY TYPING DIALOGUE (4 cols) */}
-            <section className="sm:col-span-4 flex flex-col sm:min-h-0 sm:h-full rounded-xl lg:rounded-2xl border border-white/10 bg-[#161E29]/92 sm:overflow-hidden">
-              <div className="p-2.5 lg:p-4 border-b border-white/8 shrink-0 space-y-2 lg:space-y-3">
-                <div className="flex items-center gap-2.5 lg:gap-3.5">
-                  <CustomerAvatar
-                    name={encounter.customerName}
-                    title={encounter.customerTitle}
-                    portraitPath={encounter.portraitPath}
-                    fallbackColor={archetype.fallbackColor}
-                    mood={encounter.mood}
-                    moodScore={encounter.moodScore}
-                    isVip={encounter.archetypeId === 'vip'}
-                    isAccessoryBuyer={encounter.type === 'ACCESSORY_BUYER'}
-                    size="sm"
-                    portraitFailed={portraitFailed}
-                    onPortraitError={() => setPortraitFailed(true)}
-                    shakeKey={shakeTrigger}
-                  />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <h2 className="font-display text-sm lg:text-lg font-bold text-slate-50 truncate">
-                        {encounter.customerName}
-                      </h2>
+            {/* COLUMN 1: CUSTOMER, MOOD/PATIENCE & CHAT (4 cols) */}
+            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-2.5 gap-2 overflow-hidden">
+              {/* Avatar + Name + Patience */}
+              <div className="shrink-0 flex items-center gap-2.5 border-b border-white/8 pb-2">
+                <CustomerAvatar
+                  name={encounter.customerName}
+                  title={archetype.title}
+                  portraitPath={encounter.portraitPath}
+                  fallbackColor={archetype.fallbackColor}
+                  mood={encounter.mood}
+                  moodScore={encounter.moodScore}
+                  isVip={encounter.archetypeId === 'vip'}
+                  isAccessoryBuyer={encounter.type === 'ACCESSORY_BUYER'}
+                  size="sm"
+                  portraitFailed={portraitFailed}
+                  onPortraitError={() => setPortraitFailed(true)}
+                  shakeKey={shakeTrigger}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-extrabold text-slate-50 truncate">
+                      {encounter.customerName}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-300 shrink-0">
+                      {roleText}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate">
+                    {archetype.title}
+                  </div>
+                  {/* Patience Mini Bar */}
+                  <div className="mt-1 space-y-0.5">
+                    <div className="flex justify-between text-[9.5px] tabular-nums">
+                      <span className="text-slate-400">
+                        {bi('Sabır', 'Patience')}
+                      </span>
                       <span
-                        className={`text-[10.5px] lg:text-xs font-semibold whitespace-nowrap shrink-0 ${
-                          encounter.type === 'SELLER'
-                            ? 'text-amber-400'
-                            : encounter.type === 'BUYER' ||
-                              encounter.type === 'ACCESSORY_BUYER'
-                            ? 'text-emerald-400'
-                            : 'text-sky-300'
+                        className={`font-bold ${
+                          patienceInfo.tone === 'positive'
+                            ? 'text-emerald-300'
+                            : patienceInfo.tone === 'warning'
+                            ? 'text-amber-300'
+                            : 'text-rose-300'
                         }`}
                       >
-                        {roleText}
+                        {patienceInfo.text} %{Math.round(encounter.patience)}
                       </span>
                     </div>
-
-                    <div className="text-[11px] lg:text-xs text-slate-400 truncate">
-                      {encounter.customerTitle}
-                      {encounter.isRegular && (
-                        <span className="ml-1 font-semibold text-amber-300">
-                          · Müdavim ★
-                        </span>
-                      )}
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${
+                          patienceInfo.tone === 'positive'
+                            ? 'bg-emerald-400'
+                            : patienceInfo.tone === 'warning'
+                            ? 'bg-amber-400'
+                            : 'bg-rose-500'
+                        }`}
+                        style={{
+                          width: `${Math.max(0, Math.min(100, encounter.patience))}%`,
+                        }}
+                      />
                     </div>
-                    {encounter.isRegular && encounter.regularNote && (
-                      <div className="hidden lg:block text-[11px] text-amber-200/80 mt-0.5 truncate">
-                        {encounter.regularNote}
-                      </div>
-                    )}
-
-                    {isNegotiable && (
-                      <div className="mt-1 lg:mt-2">
-                        <div className="flex items-center justify-between text-[10px] lg:text-[11px] mb-0.5 tabular-nums">
-                          <span className="text-slate-400">Sabır</span>
-                          <span
-                            className={`font-semibold ${
-                              patienceInfo.tone === 'positive'
-                                ? 'text-emerald-400'
-                                : patienceInfo.tone === 'warning'
-                                ? 'text-amber-400'
-                                : 'text-rose-400'
-                            }`}
-                          >
-                            {patienceInfo.text} · %{encounter.patience}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-300 ${
-                              patienceInfo.tone === 'positive'
-                                ? 'bg-emerald-500'
-                                : patienceInfo.tone === 'warning'
-                                ? 'bg-amber-500'
-                                : 'bg-rose-500'
-                            }`}
-                            style={{ width: `${encounter.patience}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
-
-                {/* DYNAMIC VISUAL CUSTOMER MOOD GAUGE (Compact for Landscape) */}
-                {isNegotiable && (() => {
-                  const moodInfo = getMoodDisplay(encounter.mood);
-                  const paceStatus =
-                    liveTurnSec < 2
-                      ? { text: 'Hızlı', cls: 'text-sky-300' }
-                      : liveTurnSec <= 15
-                      ? { text: 'Kararlı', cls: 'text-emerald-400' }
-                      : { text: 'Bekletiyor!', cls: 'text-rose-400' };
-                  return (
-                    <div className="rounded-lg lg:rounded-xl border border-white/8 bg-[#101720] px-2.5 py-1.5 lg:px-3 lg:py-2.5 space-y-1">
-                      <div className="flex items-center justify-between gap-2 text-[10px] lg:text-[11px] tabular-nums">
-                        <span className="font-semibold text-slate-300">Ruh Hali</span>
-                        <span
-                          className={`font-bold transition-colors duration-300 ${
-                            moodInfo.tone === 'positive'
-                              ? 'text-emerald-400'
-                              : moodInfo.tone === 'neutral'
-                              ? 'text-sky-300'
-                              : moodInfo.tone === 'warning'
-                              ? 'text-amber-400'
-                              : 'text-rose-400'
-                          }`}
-                        >
-                          {moodInfo.label} ({encounter.moodScore})
-                        </span>
-                      </div>
-
-                      <div className="relative h-1.5 lg:h-2 w-full rounded-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 overflow-visible">
-                        <div
-                          className="absolute top-1/2 -translate-y-1/2 -ml-1.5 h-3 w-3 lg:h-3.5 lg:w-3.5 rounded-full border-2 border-[#101720] bg-white shadow-[0_0_8px_rgba(255,255,255,0.85)] transition-all duration-300 ease-out"
-                          style={{
-                            left: `${Math.max(3, Math.min(97, encounter.moodScore))}%`,
-                          }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between gap-1.5 text-[9.5px] lg:text-[10.5px] text-slate-400">
-                        <span className="truncate">
-                          {encounter.lastMoodReason ?? moodInfo.shortNote}
-                        </span>
-                        {encounter.outcome === 'ACTIVE' && (
-                          <span
-                            className={`inline-flex items-center gap-0.5 font-mono font-semibold shrink-0 tabular-nums ${paceStatus.cls}`}
-                            title="Müzakere hızın müşteri ruh halini doğrudan etkiler"
-                          >
-                            <Clock className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
-                            <span>{liveTurnSec}s</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Heated Negotiation Fire Meter */}
-                      {(encounter.rounds > 0 || (encounter.negotiationHeat ?? 0) > 20) && (
-                        <div className="pt-1 border-t border-white/8 flex items-center gap-2">
-                          <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-orange-300 shrink-0">
-                            <Flame className="w-2.5 h-2.5 text-orange-400" />
-                            <span>Ateş</span>
-                          </span>
-                          <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 transition-all duration-300"
-                              style={{
-                                width: `${Math.min(100, Math.max(10, encounter.negotiationHeat ?? 25))}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="font-mono text-[9.5px] font-bold text-orange-200 tabular-nums shrink-0">
-                            %{Math.min(100, Math.round(encounter.negotiationHeat ?? 25))}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
               </div>
 
-              {/* Dynamic Witty Dialogue Thread with Typewriter on Latest Customer Bubble */}
-              <div className="min-h-[84px] max-h-48 sm:max-h-none sm:flex-1 sm:min-h-0 overflow-y-auto pasaj-scroll p-2.5 lg:p-4 space-y-1.5 lg:space-y-2.5">
-                {encounter.messages.map((msg) => {
-                  const shouldType =
-                    animateText &&
-                    msg.speaker === 'customer' &&
-                    msg.id === lastMessageId;
-                  return (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.16 }}
-                      className={`flex ${
-                        msg.speaker === 'player'
-                          ? 'justify-end'
-                          : msg.speaker === 'system'
-                          ? 'justify-center'
-                          : 'justify-start'
-                      }`}
-                    >
-                      <div
-                        className={`rounded-xl px-2.5 py-1.5 lg:px-3.5 lg:py-2.5 text-xs lg:text-sm leading-snug lg:leading-relaxed ${
-                          msg.speaker === 'system'
-                            ? 'w-full text-center text-[11px] lg:text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-200'
-                            : msg.speaker === 'player'
-                            ? 'max-w-[92%] bg-amber-500/15 border border-amber-500/25 text-amber-50'
-                            : msg.tone === 'danger'
-                            ? 'max-w-[92%] bg-rose-500/15 border border-rose-500/30 text-rose-100'
-                            : msg.tone === 'positive'
-                            ? 'max-w-[92%] bg-emerald-500/12 border border-emerald-500/25 text-emerald-50'
-                            : msg.tone === 'warning'
-                            ? 'max-w-[92%] bg-amber-500/10 border border-amber-500/25 text-amber-100'
-                            : 'max-w-[92%] bg-[#202B39] border border-white/8 text-slate-100'
-                        }`}
-                      >
-                        <TypewriterText
-                          text={msg.text}
-                          animate={shouldType}
-                          speedMs={typeSpeedMs}
-                        />
-                      </div>
-                    </motion.div>
-                  );
-                })}
-                <div ref={chatEndRef} />
+              {/* Mood Visual Meter with Gradient Track */}
+              <div className="shrink-0 rounded-lg border border-white/8 bg-[#0E141D] px-2.5 py-1.5 space-y-1">
+                <div className="flex items-center justify-between gap-1.5 text-[10.5px]">
+                  <span className="inline-flex items-center gap-1.5 font-bold text-slate-100">
+                    <span className="text-sm leading-none">{moodInfo.emoji}</span>
+                    <span>{moodInfo.simpleLabel}</span>
+                    <span className="text-slate-400 font-normal hidden lg:inline">
+                      · {moodInfo.label}
+                    </span>
+                  </span>
+                  <span className="font-mono text-[10px] text-amber-300 font-bold tabular-nums">
+                    {Math.round(encounter.moodScore)}/100
+                  </span>
+                </div>
+                <div className="relative h-1.5 rounded-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400">
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-[#0E141D] shadow"
+                    style={{ left: `${moodMarkerLeft}%` }}
+                  />
+                </div>
               </div>
 
-              <div className="px-2.5 py-1.5 lg:px-4 lg:py-2.5 border-t border-white/8 bg-[#121923] text-[10.5px] lg:text-xs text-slate-400 shrink-0 truncate">
-                İpucu: {archetype.traitSummary}
+              {/* Chat Log (anchored cleanly top-down, scrollable inside card if needed) */}
+              <div
+                ref={chatScrollRef}
+                className="flex-1 min-h-0 flex flex-col justify-start gap-1.5 overflow-y-auto pasaj-scroll pr-0.5"
+              >
+                {recentMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`rounded-lg px-2.5 py-1.5 text-[11px] leading-snug ${
+                      msg.speaker === 'player'
+                        ? 'ml-4 bg-amber-500/14 border border-amber-400/25 text-amber-100'
+                        : msg.tone === 'positive'
+                        ? 'mr-2 bg-emerald-500/12 border border-emerald-400/25 text-emerald-100'
+                        : msg.tone === 'danger'
+                        ? 'mr-2 bg-rose-500/12 border border-rose-400/25 text-rose-100'
+                        : 'mr-2 bg-[#1D2736] border border-white/8 text-slate-100'
+                    }`}
+                  >
+                    {localizeDynamicLine(msg.text, lang)}
+                  </div>
+                ))}
+              </div>
+
+              {/* Archetype Trait Tip */}
+              <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-[10px] text-slate-300 truncate">
+                <strong className="text-amber-300">{bi('İpucu', 'Tip')}:</strong>{' '}
+                {archetype.traitSummary}
               </div>
             </section>
 
-            {/* COLUMN 2: PHYSICAL ESD DESK MAT & EXPANDABLE DEVICE CARD (4 cols) */}
-            <section className="sm:col-span-4 flex flex-col sm:min-h-0 sm:h-full rounded-xl lg:rounded-2xl border border-white/10 bg-[#161E29]/92 p-2.5 lg:p-4 sm:overflow-y-auto pasaj-scroll">
+            {/* COLUMN 2: INTERACTIVE PHONE MODEL VISUAL & INSPECTION MAT (4 cols) */}
+            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-2.5 gap-2 overflow-hidden">
               {encounter.type === 'ACCESSORY_BUYER' && encounter.accessoryOrder ? (
-                <div className="flex flex-col flex-1 justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold mb-1">
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  <div className="shrink-0 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
                       <ShoppingBag className="w-4 h-4" />
-                      <span>AKSESUAR REYONU · TEZGAH SATIŞI</span>
+                      {bi('Aksesuar Sepeti', 'Accessory Basket')}
                     </div>
-                    <h3 className="font-display text-xl font-bold text-slate-50 mb-1">
-                      Müşterinin Seçtiği Ürünler
-                    </h3>
-                    <p className="text-xs text-slate-400 mb-4">
-                      Reyonundan seçilen ürünler tezgaha bırakıldı. Etiket fiyatından peşin satış yapıp hemen nakit kazan!
-                    </p>
-
-                    <div className="space-y-2.5">
-                      {encounter.accessoryOrder.map((line) => {
-                        const spec = getAccessorySpec(line.id);
-                        const lineTotal = line.quantity * line.unitPrice;
-                        const lineProfit =
-                          line.quantity * (line.unitPrice - spec.wholesaleCost);
-                        return (
-                          <div
-                            key={line.id}
-                            className="rounded-xl border border-white/10 bg-[#121822] p-3.5 flex items-center justify-between gap-3 tabular-nums"
-                          >
-                            <div className="min-w-0">
-                              <div className="text-[11px] text-slate-400">
-                                {spec.category}
-                              </div>
-                              <div className="font-display text-sm font-bold text-slate-100 truncate">
-                                {line.quantity}x {spec.name}
-                              </div>
-                              <div className="text-[11px] text-emerald-400 font-mono">
-                                Net kâr: +{formatTRY(lineProfit)}
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="text-[10px] text-slate-500">
-                                Birim {formatTRY(line.unitPrice)}
-                              </div>
-                              <div className="font-mono text-base font-extrabold text-amber-400">
-                                {formatTRY(lineTotal)}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {encounter.accessoryOrder.length} {bi('ürün', 'items')}
+                    </span>
                   </div>
-
-                  <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3 text-xs text-emerald-200">
-                    Cemal Usta’nın dediği gibi: dükkanın kirasını her gün aksesuar reyonu çıkarır!
+                  <div className="flex-1 min-h-0 grid grid-cols-1 gap-1.5 overflow-y-auto pasaj-scroll">
+                    {encounter.accessoryOrder.map((line) => (
+                      <div
+                        key={line.id}
+                        className="rounded-xl border border-white/10 bg-[#0E141D] px-3 py-2 flex items-center gap-3 tabular-nums"
+                      >
+                        <div className="w-12 h-12 rounded-lg bg-[#151F2C] border border-white/8 p-1.5 flex items-center justify-center shrink-0">
+                          <AccessoryProductArt id={line.id} className="w-9 h-9" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-slate-100 truncate">
+                            {getLocalizedAccessory(line.id, lang).name}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {line.quantity} × {formatTRY(line.unitPrice)}
+                          </div>
+                        </div>
+                        <span className="font-mono text-xs text-amber-300 font-extrabold shrink-0">
+                          {formatTRY(line.quantity * line.unitPrice)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-[10px] text-slate-400 text-center">
+                    {bi(
+                      'Müşteri reyon etiketinden nakit almaya hazır.',
+                      'Customer is ready to pay full shelf tag price.'
+                    )}
                   </div>
                 </div>
               ) : encounter.type === 'BULK_AUCTION' && encounter.bundleDevices ? (
-                <div className="flex flex-col flex-1 justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold mb-1">
-                      <Package className="w-4 h-4" />
-                      <span>ÖZEL SÜRPRİZ OLAY · KAPALI KUTU İHALE</span>
-                    </div>
-                    <h3 className="font-display text-xl font-bold text-slate-50 mb-1">
-                      2’li Gizemli Toptancı Kolisi
-                    </h3>
-                    <p className="text-xs text-slate-400 mb-4">
-                      Cihazların kusurları koli açılmadan görünmez. Risk alırsan piyasanın çok altında kapatabilirsin!
-                    </p>
-
-                    <div className="space-y-3">
-                      {encounter.bundleDevices.map((d, idx) => (
-                        <div
-                          key={d.uid}
-                          className="rounded-xl border border-white/10 bg-[#121822] p-3.5 flex items-center justify-between gap-3"
-                        >
-                          <div>
-                            <div className="text-xs text-amber-400 font-semibold">
-                              Kutu #{idx + 1}
-                            </div>
-                            <div className="font-display text-base font-bold text-slate-100">
-                              {d.brand} {d.model}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              {d.storage} ·{' '}
-                              {encounter.outcome === 'DEAL_CLOSED'
-                                ? `${d.defects.length} kusur tespit edildi`
-                                : 'Durum Gizli (Koli Kapalı)'}
-                            </div>
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  <div className="shrink-0 inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-300">
+                    <Package className="w-4 h-4" />
+                    {bi('2’li Kapalı Toptancı Kolisi', '2-Unit Sealed Mystery Box')}
+                  </div>
+                  <div className="flex-1 min-h-0 grid grid-cols-2 gap-2 overflow-hidden">
+                    {encounter.bundleDevices.map((d, idx) => (
+                      <div
+                        key={d.uid}
+                        className="rounded-xl border border-amber-400/20 bg-[#0E141D] p-2.5 flex flex-col items-center justify-between text-center min-h-0"
+                      >
+                        <span className="font-mono text-[10px] font-bold text-amber-300">
+                          #{idx + 1} · {bi('Kapalı', 'Sealed')}
+                        </span>
+                        <div className="flex-1 min-h-0 flex items-center justify-center py-1">
+                          <PhoneModelThumb
+                            device={d}
+                            showBack
+                            className="h-full max-h-28 w-auto"
+                          />
+                        </div>
+                        <div className="w-full">
+                          <div className="text-[11px] font-extrabold text-slate-100 truncate">
+                            {d.brand} {d.model}
                           </div>
-                          <div className="text-right tabular-nums">
-                            <div className="text-[11px] text-slate-400">
-                              {encounter.outcome === 'DEAL_CLOSED'
-                                ? 'Gerçek Değer'
-                                : 'Temiz Piyasa'}
-                            </div>
-                            <div className="font-mono text-sm font-bold text-slate-100">
-                              {encounter.outcome === 'DEAL_CLOSED'
-                                ? formatTRY(calculateMarketValue(d, false, dailyNews))
-                                : formatTRY(d.baseValue)}
-                            </div>
+                          <div className="text-[9.5px] text-slate-400">
+                            {d.storage}
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/8 p-3 text-xs text-amber-200 tabular-nums">
-                    Temiz hallerinin toplam piyasa değeri:{' '}
-                    <strong>
-                      {formatTRY(
-                        encounter.bundleDevices.reduce((s, d) => s + d.baseValue, 0)
-                      )}
-                    </strong>
+                  <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-[10px] text-slate-400 text-center">
+                    {bi(
+                      'Koli açılmadan alınır — içeride temiz cihaz da çıkabilir arızalı da!',
+                      'Sold sight unseen — may contain clean gems or fixable defects!'
+                    )}
                   </div>
                 </div>
               ) : encounter.type === 'WARRANTY_CLAIM' && encounter.warrantyRecord ? (
-                <div className="flex flex-col flex-1 justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-rose-400 text-xs font-semibold mb-1">
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  <div className="shrink-0 flex items-center justify-between gap-1">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-rose-300">
                       <ShieldAlert className="w-4 h-4" />
-                      <span>GARANTİ & İADE MASASI · DÜKKAN İTİBARI SINAVI</span>
-                    </div>
-                    <h3 className="font-display text-xl font-bold text-slate-50 mb-1">
-                      {encounter.warrantyRecord.deviceName}
-                    </h3>
-                    <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                      Müşteri daha önce senden aldığı cihazla geri döndü. Vereceğin karar pasajdaki itibarını ve sadık müşteri oranını doğrudan etkiler.
-                    </p>
-
-                    <div className="rounded-xl border border-white/10 bg-[#121822] p-4 space-y-2.5 text-xs tabular-nums">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Satış Günü</span>
-                        <span className="font-mono font-semibold text-slate-200">
-                          Gün {encounter.warrantyRecord.daySold}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Satış Bedeli</span>
-                        <span className="font-mono font-semibold text-amber-300">
-                          {formatTRY(encounter.warrantyRecord.salePrice)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Cihaz Geçmişi</span>
-                        <span
-                          className={`font-semibold ${
-                            encounter.warrantyRecord.hadDefects
-                              ? 'text-rose-400'
-                              : 'text-emerald-400'
-                          }`}
-                        >
-                          {encounter.warrantyRecord.hadDefects
-                            ? 'Kusurlu satılmıştı (Riskli)'
-                            : 'Temiz satılmıştı (Sonradan arıza)'}
-                        </span>
-                      </div>
-                      <div className="pt-2 border-t border-white/8 flex items-center justify-between">
-                        <span className="text-slate-400">Ücretsiz Onarım Maliyeti</span>
-                        <span className="font-mono font-bold text-emerald-300">
-                          {formatTRY(encounter.warrantyRepairCost ?? 1000)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Kısmi İade Bedeli</span>
-                        <span className="font-mono font-bold text-amber-300">
-                          {formatTRY(encounter.warrantyRefundCost ?? 1500)}
-                        </span>
-                      </div>
-                    </div>
+                      {bi('Garanti & İade Talebi', 'Warranty Claim')}
+                    </span>
+                    <span className="font-mono text-xs font-extrabold text-amber-300">
+                      {formatTRY(encounter.warrantyRecord.salePrice)}
+                    </span>
                   </div>
-
-                  <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-3 text-xs text-amber-200 leading-relaxed">
-                    Esnaf Kuralı: Malının arkasında duran telefoncuya pasajda her zaman yüksek itibar ve müdavim yağar!
+                  <div className="flex-1 min-h-0">
+                    <PhoneInspectSVG device={encounter.device} revealAll fluid />
+                  </div>
+                  <div className="shrink-0 rounded-lg border border-rose-400/25 bg-rose-500/10 px-2.5 py-1.5 text-[10px] text-slate-200 text-center">
+                    {bi(
+                      'Ücretsiz onarım itibar kazandırır; reddetmek puan düşürür.',
+                      'Free repair boosts reputation; rejecting harms shop rating.'
+                    )}
                   </div>
                 </div>
               ) : encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob ? (
-                <div className="flex flex-col flex-1 justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-sky-400 text-xs font-semibold mb-1">
-                      <Database className="w-4 h-4" />
-                      <span>VERİ KURTARMA & YAZILIM SERVİSİ</span>
-                    </div>
-                    <h3 className="font-display text-xl font-bold text-slate-50 mb-1">
-                      {encounter.dataRecoveryJob.title}
-                    </h3>
-                    <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                      {encounter.device.brand} {encounter.device.model} ({encounter.device.storage}) cihazındaki kritik dosyalar kurtarılmayı bekliyor.
-                    </p>
-
-                    <div className="space-y-2.5 text-xs tabular-nums">
-                      <div className="rounded-xl border border-sky-500/30 bg-[#121C26] p-3.5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-sky-300">
-                            1. Yazılım Kurtarma (Hızlı & Ucuz)
-                          </span>
-                          <span className="font-mono text-amber-300 font-bold">
-                            %{Math.round(encounter.dataRecoveryJob.softwareSuccessRate * 100)} Başarı
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-400">
-                          <span>Maliyet: {formatTRY(encounter.dataRecoveryJob.softwareCost)}</span>
-                          <span className="text-emerald-400 font-mono font-semibold">
-                            Ödeme: +{formatTRY(encounter.dataRecoveryJob.softwarePayout)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-emerald-500/30 bg-[#11211E] p-3.5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-emerald-300">
-                            2. Temiz Oda Mikro-Kurtarma
-                          </span>
-                          <span className="font-mono text-emerald-400 font-bold">
-                            %100 Garanti
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-400">
-                          <span>Maliyet: {formatTRY(encounter.dataRecoveryJob.cleanRoomCost)}</span>
-                          <span className="text-emerald-400 font-mono font-semibold">
-                            Ödeme: +{formatTRY(encounter.dataRecoveryJob.cleanRoomPayout)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  <div className="shrink-0 flex items-center justify-between gap-1">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-sky-300 truncate">
+                      <Database className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{encounter.dataRecoveryJob.title}</span>
+                    </span>
+                    <span className="font-mono text-xs font-extrabold text-emerald-400 shrink-0">
+                      +{formatTRY(encounter.customerPrice)}
+                    </span>
                   </div>
-
-                  <div className="rounded-xl border border-sky-500/25 bg-sky-500/8 p-3 text-xs text-sky-200 leading-relaxed">
-                    Temiz Oda çözümü asla veri kaybetmez, yüksek net servis kârı ve ekstra itibar kazandırır!
+                  <div className="flex-1 min-h-0">
+                    <PhoneInspectSVG device={encounter.device} revealAll fluid />
+                  </div>
+                  <div className="shrink-0 rounded-lg border border-sky-400/25 bg-sky-500/10 px-2.5 py-1.5 text-[10px] text-slate-200 text-center">
+                    {bi(
+                      'Yazılım kurtarma ücretsiz ama risklidir; laboratuvar garantilidir.',
+                      'Software recovery is free but risky; lab recovery guarantees success.'
+                    )}
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 flex-1">
-                  {/* TRADE-IN COMPARISON BANNER */}
-                  {encounter.type === 'TRADE_IN' && encounter.tradeInDevice && (
-                    <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3.5 py-2.5 text-xs tabular-nums">
-                      <div className="flex items-center gap-1.5 font-bold text-sky-300 mb-1">
-                        <ArrowLeftRight className="w-3.5 h-3.5" />
-                        <span>TAKAS (TRADE-IN) İŞLEMİ</span>
+                /* STANDARD DEVICE INSPECTION & LIVE PHONE MODEL VISUAL */
+                <>
+                  {/* Compact Device Tech Header */}
+                  <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2.5 py-1.5 space-y-1 tabular-nums">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="min-w-0">
+                        <div className="text-xs font-extrabold text-slate-50 truncate">
+                          {inspectedTarget.brand} {inspectedTarget.model}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {inspectedTarget.storage} · {condition.label} ({condition.score})
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between gap-2 text-slate-200">
-                        <span className="truncate">
-                          Vitrinin: <strong>{encounter.device.brand} {encounter.device.model}</strong>
-                        </span>
-                        <span className="font-mono font-bold text-amber-300 shrink-0">
-                          Etiket {formatTRY(encounter.device.askingPrice)}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-sky-200/85 mt-1">
-                        Aşağıda müşterinin getirdiği takas cihazını ekspertiz et; kusur yakalarsan vereceği nakit fark artar!
+                      <div className="text-right shrink-0">
+                        <div className="text-[9px] text-slate-400">
+                          {bi('Tahmini Değer', 'Est. Value')}
+                        </div>
+                        <div className="font-mono text-xs font-extrabold text-amber-300">
+                          {formatTRY(sellerAsIsVal)}
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* EXPANDABLE PROFESSIONAL DEVICE CARD ON DESK */}
-                  <DeviceDeskCard
-                    device={inspectedTarget}
-                    encounterType={encounter.type === 'TRADE_IN' ? 'SELLER' : encounter.type}
-                    dailyNews={dailyNews}
-                    upgrades={upgrades}
-                    expanded={deviceCardExpanded}
-                    onToggleExpand={() => setDeviceCardExpanded((v) => !v)}
-                  />
+                    {encounter.type === 'TRADE_IN' && encounter.tradeInDevice && (
+                      <div className="flex items-center gap-1 rounded bg-sky-500/15 border border-sky-400/25 px-1.5 py-0.5 text-[9.5px] font-bold text-sky-200 truncate">
+                        <ArrowLeftRight className="w-3 h-3 shrink-0" />
+                        {bi('İstediği', 'Wants')}: {encounter.device.brand}{' '}
+                        {encounter.device.model}
+                      </div>
+                    )}
+                  </div>
 
-                  {(encounter.type === 'SELLER' ||
-                    (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (
-                    <div className="flex flex-col gap-3 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-300">
-                          {encounter.type === 'TRADE_IN'
-                            ? 'Takas Cihazı Ekspertizi (Kusur Bul → Farkı Artır)'
-                            : 'Ekspertiz Testleri (Büyüteçle Tara)'}
-                        </span>
-                        {hasProDiag && !allChecked && encounter.outcome === 'ACTIVE' && (
+                  {/* LIVE INTERACTIVE SMARTPHONE VISUAL MODEL (FRONT / BACK + DEFECTS) */}
+                  <div className="relative flex-1 min-h-[116px] overflow-hidden">
+                    <PhoneInspectSVG
+                      device={inspectedTarget}
+                      revealAll={
+                        encounter.type === 'BUYER' ||
+                        encounter.type === 'EXPRESS_REPAIR'
+                      }
+                      fluid
+                    />
+
+                    {/* Floating Optical Loupe & Quick Scan Buttons right on the ESD Mat */}
+                    {(encounter.type === 'SELLER' ||
+                      (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundFX.playClick();
+                            setShowLoupeModal(true);
+                          }}
+                          className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg border border-amber-400/55 bg-[#1B160E]/92 px-2 py-1 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap shadow-md"
+                          title={bi('Büyüteçle Fiziksel İncele', 'Optical Loupe Inspect')}
+                        >
+                          <Search className="w-3 h-3 text-amber-400" />
+                          {bi('Büyüteç', 'Loupe')}
+                        </button>
+                        {!all4Inspected && (
                           <button
                             type="button"
                             onClick={onInspectAll}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 hover:text-amber-300 cursor-pointer whitespace-nowrap"
+                            className="absolute top-2 right-2 rounded-lg border border-white/15 bg-[#1B2534]/95 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-[#27354A] cursor-pointer whitespace-nowrap shadow-md"
                           >
-                            <Zap className="w-3.5 h-3.5" />
-                            <span>Tümünü Tara</span>
+                            {bi('Hızlı Tara', 'Scan All')}
                           </button>
                         )}
-                      </div>
+                      </>
+                    )}
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-1.5 lg:gap-2">
-                        {testButtons.map((tb) => {
-                          const checked = inspectedTarget.inspected[tb.key];
-                          const categoryHasDefect =
-                            checked &&
-                            inspectedTarget.defects.some(
-                              (d) => DEFECT_CATALOG[d].category === tb.key
-                            );
+                  {/* SELLER / TRADE-IN: 2x2 INSPECTION CONTROLS + LEVERAGE BAR */}
+                  {(encounter.type === 'SELLER' ||
+                    (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (
+                    <div className="shrink-0 space-y-1.5">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {INSPECTION_ZONES.map((z) => {
+                          const done = inspectedTarget.inspected[z.id];
+                          const foundDefect = inspectedTarget.defects.find(
+                            (d) => DEFECT_CATALOG[d].category === z.id
+                          );
                           return (
                             <button
-                              key={tb.key}
+                              key={z.id}
                               type="button"
-                              disabled={checked || encounter.outcome !== 'ACTIVE'}
-                              onClick={() => onInspect(tb.key)}
-                              className={`flex items-center justify-between gap-1.5 rounded-lg lg:rounded-xl border px-2 py-1.5 lg:px-3 lg:py-2.5 text-[11px] lg:text-xs font-semibold transition-all duration-150 whitespace-nowrap ${
-                                !checked
-                                  ? 'border-white/12 bg-[#1E2937] text-slate-100 hover:border-amber-400/50 hover:bg-[#253345] cursor-pointer'
-                                  : categoryHasDefect
-                                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-200 cursor-default'
-                                  : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200 cursor-default'
+                              disabled={done}
+                              onClick={() => onInspect(z.id)}
+                              className={`rounded-lg border px-2 py-1 flex items-center justify-between gap-1 text-[10px] font-bold transition-colors ${
+                                !done
+                                  ? 'border-white/12 bg-[#1B2534] text-slate-100 hover:border-amber-400/50 cursor-pointer'
+                                  : foundDefect
+                                  ? 'border-rose-500/45 bg-rose-500/12 text-rose-200'
+                                  : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
                               }`}
                             >
-                              <span className="inline-flex items-center gap-1 min-w-0 truncate">
-                                {tb.icon}
-                                <span className="truncate">{tb.label}</span>
+                              <span className="inline-flex items-center gap-1 truncate">
+                                {z.icon}
+                                <span className="truncate">
+                                  {getLocalizedCategoryLabel(z.id, lang)}
+                                </span>
                               </span>
-                              {checked ? (
-                                categoryHasDefect ? (
-                                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                              {done ? (
+                                foundDefect ? (
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                                 ) : (
                                   <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                                 )
                               ) : (
-                                <span className="text-[10px] lg:text-[11px] text-amber-400">Tara</span>
+                                <span className="text-[9px] text-amber-300 shrink-0">
+                                  {bi('Test', 'Scan')}
+                                </span>
                               )}
                             </button>
                           );
                         })}
                       </div>
 
-                      <div className="mt-1 space-y-2">
-                        {discoveredDefects.length > 0 ? (
-                          discoveredDefects.map((defectId) => {
-                            const def = DEFECT_CATALOG[defectId];
-                            const used = encounter.usedLeverageDefects.includes(defectId);
-                            const estRepair = getRepairCost(
-                              defectId,
-                              upgrades,
-                              dailyNews,
-                              false,
-                              shopLevel,
-                              legacyPath
-                            );
+                      {discoveredDefects.length > 0 ? (
+                        <div className="space-y-1">
+                          {discoveredDefects.slice(0, 2).map((d) => {
+                            const locDef = getLocalizedDefect(d, lang);
+                            const used = encounter.usedLeverageDefects.includes(d);
                             return (
                               <div
-                                key={defectId}
-                                className="flex items-center justify-between gap-2 rounded-xl border border-rose-500/25 bg-[#1B212C] px-3 py-2"
+                                key={d}
+                                className="rounded-lg border border-rose-400/35 bg-rose-500/10 px-2 py-1 flex items-center justify-between gap-1.5"
                               >
-                                <div className="min-w-0">
-                                  <div className="text-xs font-semibold text-rose-200 truncate">
-                                    {def.name}
-                                  </div>
-                                  <div className="text-[11px] text-slate-400 tabular-nums">
-                                    {def.repairable
-                                      ? hasProDiag
-                                        ? `Parça: ${formatTRY(estRepair)}`
-                                        : 'Atölyede tamir edilebilir'
-                                      : 'Tamir edilemez (Kalıcı değer kaybı)'}
-                                  </div>
-                                </div>
-
-                                {encounter.outcome === 'ACTIVE' && (
-                                  <button
-                                    type="button"
-                                    disabled={used}
-                                    onClick={() => onUseLeverage(defectId)}
-                                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
-                                      used
-                                        ? 'bg-white/5 text-slate-500 cursor-default'
-                                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400 cursor-pointer'
-                                    }`}
-                                  >
-                                    <Gavel className="w-3.5 h-3.5" />
-                                    <span>{used ? 'Kullanıldı' : 'Koz Kullan'}</span>
-                                  </button>
-                                )}
+                                <span className="text-[10px] font-bold text-rose-200 truncate">
+                                  ⚠ {locDef.shortLabel}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={used || encounter.outcome !== 'ACTIVE'}
+                                  onClick={() => onUseLeverage(d)}
+                                  className="rounded bg-rose-500 px-2 py-0.5 text-[9.5px] font-extrabold text-white hover:bg-rose-400 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  {used
+                                    ? bi('Kullanıldı ✓', 'Used ✓')
+                                    : bi('Koz Vur!', 'Use Leverage')}
+                                </button>
                               </div>
                             );
-                          })
-                        ) : allChecked ? (
-                          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-3 py-2.5 text-xs text-emerald-200">
-                            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>Tüm testler temiz! Cihaz kusursuz çıktı.</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400">
-                            {encounter.type === 'TRADE_IN'
-                              ? 'Takas cihazını tarayıp gizli kusurları yakalarsan müşteriden daha fazla nakit fark alırsın.'
-                              : 'Testleri çalıştırarak büyüteçle gizli kusurları yakala ve pazarlıkta fiyat kır.'}
-                          </p>
-                        )}
-                      </div>
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-white/6 bg-[#0E141D] px-2 py-1 text-[10px] text-slate-400 text-center truncate">
+                          {all4Inspected
+                            ? bi(
+                                '✓ 4 test tamamlandı — gizli kusur tespit edilmedi.',
+                                '✓ All 4 checks clean — no hidden defects found.'
+                              )
+                            : bi(
+                                'Gizli kusurları bulup fiyat kırmak için test et!',
+                                'Scan the device to expose hidden defects for leverage!'
+                              )}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* MULTI-ACCESSORY CROSS-SELL PANEL FOR PHONE BUYERS */}
-                  {encounter.type === 'BUYER' && encounter.outcome === 'ACTIVE' && (() => {
-                    const attachedList =
-                      encounter.crossSellAttachments && encounter.crossSellAttachments.length > 0
-                        ? encounter.crossSellAttachments
-                        : encounter.crossSellAttached
-                        ? [encounter.crossSellAttached]
-                        : [];
-                    const triedIds = encounter.crossSellTriedIds ?? [];
-                    const remainingOptions = stockedCrossSellOptions.filter(
-                      (spec) => !triedIds.includes(spec.id)
-                    );
-                    const totalAttachedRev = attachedList.reduce(
-                      (sum, item) => sum + item.retailPrice,
-                      0
-                    );
-                    return (
-                      <div className="rounded-xl border border-emerald-500/25 bg-[#121B22] p-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-300">
-                            <ShoppingBag className="w-3.5 h-3.5" />
-                            <span>Yanında Aksesuar Kombini Öner</span>
-                          </span>
-                          {attachedList.length > 0 && (
-                            <span className="font-mono text-[11px] font-bold text-emerald-400 tabular-nums">
-                              +{formatTRY(totalAttachedRev)} ({attachedList.length} ürün)
-                            </span>
-                          )}
+                  {/* BUYER: COMPACT CROSS-SELL ACCESSORY BAR */}
+                  {encounter.type === 'BUYER' && encounter.outcome === 'ACTIVE' && (
+                    <div className="shrink-0 rounded-lg border border-white/8 bg-[#0E141D] p-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-sky-300">
+                        <span className="inline-flex items-center gap-1">
+                          <ShoppingBag className="w-3 h-3" />
+                          {bi('Yanına Aksesuar Öner', 'Cross-Sell Add-Ons')}
+                        </span>
+                        <span className="font-mono text-[9.5px] text-slate-400">
+                          {encounter.crossSellAttachments?.length ?? 0}{' '}
+                          {bi('eklendi', 'added')}
+                        </span>
+                      </div>
+                      {stockedCrossSellOptions.length === 0 ? (
+                        <div className="text-center text-[10px] text-slate-400 py-0.5">
+                          {shopLevel < 2
+                            ? bi(
+                                'Aksesuar satışları Seviye 2 ile açılır.',
+                                'Accessory cross-selling unlocks at Level 2.'
+                              )
+                            : bi(
+                                'Reyonda stok yok — Toptancıdan aksesuar al.',
+                                'Out of stock — order accessories from Wholesale.'
+                              )}
                         </div>
-
-                        {attachedList.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {attachedList.map((item) => (
-                              <span
-                                key={item.id}
-                                className="inline-flex items-center gap-1 rounded-md border border-emerald-400/35 bg-emerald-500/15 px-2 py-0.5 text-[10.5px] font-semibold text-emerald-200 tabular-nums"
-                              >
-                                <Check className="w-3 h-3" />
-                                <span>{item.name}</span>
-                                <span className="font-mono text-emerald-300">
-                                  +{formatTRY(item.retailPrice)}
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {remainingOptions.length > 0 ? (
-                          <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pasaj-scroll">
-                            {remainingOptions.map((spec) => {
-                              const st = accessories[spec.id];
-                              return (
-                                <button
-                                  key={spec.id}
-                                  type="button"
-                                  onClick={() => onPitchCrossSell(spec.id)}
-                                  className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#182430] px-2.5 py-2 text-left text-xs hover:border-emerald-400/50 hover:bg-[#1E2E3D] transition-colors cursor-pointer tabular-nums"
-                                >
-                                  <span className="text-slate-100 font-medium truncate">
-                                    {spec.name}{' '}
-                                    <span className="text-slate-400">({st.quantity} ad.)</span>
-                                  </span>
-                                  <span className="font-mono font-bold text-emerald-400 shrink-0">
-                                    +{formatTRY(st.retailPrice)}
-                                  </span>
-                                </button>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-1">
+                          {stockedCrossSellOptions.slice(0, 4).map((spec) => {
+                            const loc = getLocalizedAccessory(spec.id, lang);
+                            const tried = encounter.crossSellTriedIds?.includes(
+                              spec.id
+                            );
+                            const accepted =
+                              encounter.crossSellAttachments?.some(
+                                (a) => a.id === spec.id
                               );
-                            })}
-                          </div>
-                        ) : attachedList.length > 0 ? (
-                          <div className="text-[11px] text-emerald-300/80">
-                            Stoktaki tüm uygun aksesuarları teklif ettin!
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-400">
-                            {stockedCrossSellOptions.length === 0
-                              ? 'Aksesuar stoğun boş. Toptancıdan kılıf, şarj, kulaklık alarak çoklu kombin sat!'
-                              : 'Müşteri bu sefer başka aksesuar eklemek istemedi.'}
-                          </div>
+                            return (
+                              <button
+                                key={spec.id}
+                                type="button"
+                                disabled={tried}
+                                onClick={() => onPitchCrossSell(spec.id)}
+                                className={`rounded-md border px-1.5 py-1 flex items-center gap-1.5 text-left text-[9.5px] font-bold transition-colors ${
+                                  accepted
+                                    ? 'border-emerald-400/50 bg-emerald-500/15 text-emerald-200'
+                                    : tried
+                                    ? 'border-white/5 bg-white/5 text-slate-500'
+                                    : 'border-white/10 bg-[#17202D] text-slate-100 hover:border-amber-400/50 cursor-pointer'
+                                }`}
+                              >
+                                <AccessoryProductArt
+                                  id={spec.id}
+                                  className="w-5 h-5 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate leading-tight">
+                                    {loc.name}
+                                  </div>
+                                  <div className="font-mono text-[9px] text-amber-300 leading-tight">
+                                    +
+                                    {formatTRY(
+                                      accessories[spec.id]?.retailPrice ??
+                                        spec.recommendedPrice
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* EXPRESS REPAIR INFO STRIP */}
+                  {encounter.type === 'EXPRESS_REPAIR' && encounter.expressDefectId && (
+                    <div className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 flex items-center justify-between gap-2 text-[10.5px]">
+                      <span className="font-bold text-amber-200 truncate">
+                        {bi('Arıza', 'Fault')}:{' '}
+                        {getLocalizedDefect(encounter.expressDefectId, lang).shortLabel}
+                      </span>
+                      <span className="font-mono font-extrabold text-emerald-300 shrink-0">
+                        +{formatTRY(encounter.customerPrice)}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
+            {/* COLUMN 3: STRUCTURED NEGOTIATION / RESOLUTION DECK (4 cols) */}
+            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-2.5 gap-2 overflow-hidden">
+              {encounter.outcome !== 'ACTIVE' ? (
+                /* DEAL / WALKED OUT / DISMISSED OUTCOME CARD */
+                <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-2.5 p-2">
+                  <div
+                    className={`animate-stamp-pop rounded-xl border-2 px-4 py-1.5 font-display text-base font-extrabold tracking-wide ${
+                      encounter.outcome === 'DEAL_CLOSED'
+                        ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                        : 'border-rose-400 bg-rose-500/15 text-rose-300'
+                    }`}
+                  >
+                    {encounter.outcome === 'DEAL_CLOSED'
+                      ? bi('EL SIKIŞILDI', 'DEAL CLOSED')
+                      : encounter.outcome === 'WALKED_OUT'
+                      ? bi('MASADAN KALKTI', 'WALKED OUT')
+                      : bi('GEÇİLDİ', 'PASSED')}
+                  </div>
+
+                  {encounter.outcome === 'DEAL_CLOSED' && (
+                    <div className="font-mono text-xl font-extrabold text-slate-50 tabular-nums">
+                      {formatTRY(encounter.finalPrice ?? encounter.customerPrice)}
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-slate-300 max-w-xs">
+                    {encounter.outcome === 'DEAL_CLOSED'
+                      ? encounter.type === 'SELLER' ||
+                        encounter.type === 'TRADE_IN' ||
+                        encounter.type === 'BULK_AUCTION'
+                        ? bi(
+                            'Cihaz atölyene eklendi. Tamir edip vitrine koyabilirsin.',
+                            'Device added to workshop. Repair and list it on your showcase!'
+                          )
+                        : bi(
+                            'Satış kasaya işlendi ve XP kazandın!',
+                            'Sale booked to your register and XP awarded!'
+                          )
+                      : bi(
+                          'Bu müşteriyle anlaşma olmadı. Sıradaki müşteri seni bekliyor.',
+                          'No deal this time. Next customer is waiting.'
+                        )}
+                  </p>
+
+                  <div className="w-full flex items-center gap-1.5 mt-1">
+                    {(encounter.type === 'SELLER' ||
+                      encounter.type === 'TRADE_IN' ||
+                      encounter.type === 'BULK_AUCTION') &&
+                      encounter.outcome === 'DEAL_CLOSED' && (
+                        <button
+                          type="button"
+                          onClick={onGoToWorkshop}
+                          className="flex-1 rounded-xl border border-white/15 bg-[#1D2634] py-2 text-xs font-bold text-slate-100 hover:bg-[#273345] cursor-pointer whitespace-nowrap"
+                        >
+                          {bi('Atölye', 'Workshop')}
+                        </button>
+                      )}
+                    <button
+                      type="button"
+                      onClick={onNextCustomer}
+                      className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
+                    >
+                      {bi('Sıradaki Müşteri →', 'Next Customer →')}
+                    </button>
+                  </div>
+                </div>
+              ) : isNegotiable ? (
+                /* ACTIVE NEGOTIATION DECK — TIGHT, BALANCED, ZERO VOID */
+                <>
+                  {/* Block 1: Customer Ask + Resistance Meter */}
+                  <div className="shrink-0 rounded-xl border border-white/10 bg-[#0E141D] px-2.5 py-2 space-y-1.5 tabular-nums">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10.5px] font-medium text-slate-400">
+                        {encounter.type === 'SELLER'
+                          ? bi('Satıcı İstediği', 'Seller Asks')
+                          : encounter.type === 'TRADE_IN'
+                          ? bi('Önerdiği Fark', 'Cash Diff')
+                          : bi('Alıcı Teklifi', 'Buyer Offers')}
+                      </span>
+                      <span className="font-mono text-base font-extrabold text-amber-300">
+                        {formatTRY(encounter.customerPrice)}
+                      </span>
+                    </div>
+
+                    {resistance && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-300 truncate">
+                            {resistance.resistanceLabel}
+                          </span>
+                          <span className="font-mono font-bold text-amber-300 shrink-0">
+                            %{resistance.resistancePct}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className={`h-full transition-all ${
+                              resistance.resistanceTone === 'positive'
+                                ? 'bg-emerald-400'
+                                : resistance.resistanceTone === 'neutral'
+                                ? 'bg-amber-400'
+                                : resistance.resistanceTone === 'warning'
+                                ? 'bg-orange-400'
+                                : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${resistance.resistancePct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Middle Balanced Stack (Tone/Tactics + Slider + Valuation) */}
+                  <div className="flex-1 min-h-0 flex flex-col justify-center gap-2 overflow-hidden">
+                    {/* Block 2: Tone Selector + Tactics */}
+                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2 space-y-1.5">
+                      <div className="grid grid-cols-3 gap-1">
+                        {(['friendly', 'analytical', 'firm'] as NegotiationTone[]).map(
+                          (t) => {
+                            const locT = getLocalizedTone(t, lang);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setTone(t)}
+                                className={`rounded-md py-1 text-[10.5px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                                  tone === t
+                                    ? 'bg-amber-500 text-slate-950'
+                                    : 'bg-[#17202D] border border-white/8 text-slate-300 hover:text-white'
+                                }`}
+                              >
+                                {locT.label}
+                              </button>
+                            );
+                          }
                         )}
                       </div>
-                    );
-                  })()}
 
-                  {encounter.type === 'EXPRESS_REPAIR' && encounter.expressDefectId && (
-                    <div className="space-y-2 border-t border-white/8 pt-3 text-xs tabular-nums">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Arıza Kaydı</span>
-                        <span className="font-semibold text-rose-300">
-                          {DEFECT_CATALOG[encounter.expressDefectId].name}
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          type="button"
+                          disabled={encounter.teaServed || cash < teaCost}
+                          onClick={onServeTea}
+                          className="inline-flex items-center justify-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/12 py-1 text-[9.5px] font-bold text-amber-200 hover:bg-amber-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                        >
+                          <Coffee className="w-3 h-3" />
+                          {encounter.teaServed
+                            ? bi('Çay ✓', 'Tea ✓')
+                            : teaCost === 0
+                            ? bi('Çay (0₺)', 'Tea (Free)')
+                            : bi(`Çay (${teaCost}₺)`, `Tea (${teaCost}₺)`)}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            encounter.bluffUsed || encounter.honestPitchUsed
+                          }
+                          onClick={onBluffOrPitch}
+                          className="inline-flex items-center justify-center gap-1 rounded-md border border-sky-400/30 bg-sky-500/12 py-1 text-[9.5px] font-bold text-sky-200 hover:bg-sky-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                        >
+                          <Scale className="w-3 h-3" />
+                          {encounter.type === 'SELLER'
+                            ? bi('Blöf Yap', 'Bluff')
+                            : bi('Övgü Yap', 'Pitch')}
+                        </button>
+
+                        {encounter.type === 'BUYER' && hasSmartPos ? (
+                          <button
+                            type="button"
+                            onClick={onAcceptPosInstallment}
+                            className="inline-flex items-center justify-center gap-1 rounded-md border border-emerald-400/35 bg-emerald-500/15 py-1 text-[9.5px] font-bold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap"
+                          >
+                            <CreditCard className="w-3 h-3" />
+                            {bi('0% POS', '0% POS')}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={encounter.legacyDialogueUsed}
+                            onClick={onUseLegacyDialogue}
+                            className="inline-flex items-center justify-center gap-1 rounded-md border border-purple-400/30 bg-purple-500/12 py-1 text-[9.5px] font-bold text-purple-200 hover:bg-purple-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                            title={legacyInfo.title}
+                          >
+                            <Award className="w-3 h-3" />
+                            {bi('Esnaf Sözü', 'Perk Line')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Block 3: Slider + Quick Adjust */}
+                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2 space-y-1.5 tabular-nums">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-slate-400">
+                          {bi('Senin Teklifin', 'Your Offer')}
+                        </span>
+                        <span className="font-mono text-sm font-extrabold text-slate-50">
+                          {formatTRY(offerPrice)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Parça Maliyeti</span>
-                        <span className="font-mono text-slate-200">
-                          {formatTRY(encounter.expressPartCost ?? 0)}
-                        </span>
+                      <input
+                        type="range"
+                        min={sliderBounds.min}
+                        max={sliderBounds.max}
+                        step={sliderBounds.step}
+                        value={Math.min(
+                          sliderBounds.max,
+                          Math.max(sliderBounds.min, offerPrice)
+                        )}
+                        onChange={(e) => setOfferPrice(Number(e.target.value))}
+                        className="pasaj-slider w-full"
+                      />
+                      <div className="grid grid-cols-4 gap-1 font-mono text-[10px]">
+                        {[-1000, -250, 250, 1000].map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => adjustOffer(d)}
+                            className="rounded bg-[#17202D] border border-white/10 py-1 font-bold text-slate-200 hover:bg-[#223044] cursor-pointer"
+                          >
+                            {d > 0 ? `+${d}` : d}
+                          </button>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Müşteri Ödemesi</span>
-                        <span className="font-mono font-bold text-emerald-400">
+                    </div>
+
+                    {/* Block 4: Valuation & Profit Strip */}
+                    <div className="rounded-xl border border-white/8 bg-[#0E141D] px-2.5 py-1.5 text-[10px] space-y-1 tabular-nums">
+                      {encounter.type === 'SELLER' ? (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">
+                              {bi('Kusurlu / Tamir Sonrası', 'As-Is / Repaired')}
+                            </span>
+                            <span className="font-mono text-slate-200">
+                              {formatTRY(valuation.asIsValue)} /{' '}
+                              <strong className="text-amber-300">
+                                {formatTRY(valuation.postRepairValue)}
+                              </strong>
+                            </span>
+                          </div>
+                          {(() => {
+                            const netAfterRepair =
+                              valuation.postRepairValue -
+                              valuation.estimatedRepairCost -
+                              offerPrice;
+                            return (
+                              <div className="flex justify-between border-t border-white/6 pt-1">
+                                <span className="text-slate-400">
+                                  {bi('Tahmini Net Kâr', 'Est. Net Profit')}
+                                </span>
+                                <span
+                                  className={`font-mono font-extrabold ${
+                                    netAfterRepair >= 0
+                                      ? 'text-emerald-400'
+                                      : 'text-rose-400'
+                                  }`}
+                                >
+                                  {netAfterRepair >= 0 ? '+' : ''}
+                                  {formatTRY(netAfterRepair)}
+                                  {netAfterRepair < 0
+                                    ? bi(' · ZARAR!', ' · LOSS!')
+                                    : ''}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">
+                            {bi('Etiket / Maliyet', 'Tag / Cost')}
+                          </span>
+                          <span className="font-mono text-slate-200">
+                            {formatTRY(encounter.device.askingPrice)} /{' '}
+                            <strong className="text-emerald-300">
+                              {formatTRY(
+                                encounter.device.purchasePrice +
+                                  encounter.device.repairSpend
+                              )}
+                            </strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Block 5: Primary CTA + Accept / Pass */}
+                  <div className="shrink-0 space-y-1.5 tabular-nums">
+                    <button
+                      type="button"
+                      disabled={encounter.type === 'SELLER' && offerPrice > cash}
+                      onClick={handleOfferClick}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                    >
+                      <Handshake className="w-4 h-4" />
+                      {bi('Teklif Ver', 'Send Offer')} ({formatTRY(offerPrice)})
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={
+                          encounter.type === 'SELLER' &&
+                          encounter.customerPrice > cash
+                        }
+                        onClick={onAcceptCurrentPrice}
+                        className="rounded-lg border border-emerald-400/35 bg-emerald-500/15 py-1.5 text-[10.5px] font-bold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate px-1"
+                      >
+                        ✓ {bi('Kabul', 'Accept')} ({formatTRY(encounter.customerPrice)})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onDismiss}
+                        className="rounded-lg border border-white/12 bg-[#1D2634] py-1.5 text-[10.5px] font-bold text-slate-300 hover:text-white cursor-pointer whitespace-nowrap"
+                      >
+                        {bi('Kalsın', 'Pass')}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* SPECIAL ENCOUNTER ACTION DECKS */
+                <div className="flex-1 flex flex-col justify-center gap-3">
+                  {encounter.type === 'ACCESSORY_BUYER' && (
+                    <>
+                      <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-center">
+                        <div className="text-[10.5px] text-emerald-200">
+                          {bi('Sepet Toplamı', 'Basket Total')}
+                        </div>
+                        <div className="font-mono text-xl font-extrabold text-emerald-300">
                           {formatTRY(encounter.customerPrice)}
-                        </span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={onCompleteAccessoryOrder}
+                        className="w-full rounded-xl bg-emerald-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                      >
+                        ✓ {bi('Kasadan Geç & Sat', 'Ring Up & Sell')}
+                      </button>
+                    </>
+                  )}
+
+                  {encounter.type === 'EXPRESS_REPAIR' && (
+                    <>
+                      <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center tabular-nums">
+                        <div className="text-[10.5px] text-amber-200">
+                          {bi('Acil Servis Ücreti', 'Express Payout')}
+                        </div>
+                        <div className="font-mono text-xl font-extrabold text-emerald-300">
+                          +{formatTRY(encounter.customerPrice)}
+                        </div>
+                        <div className="text-[10px] text-slate-300 mt-0.5">
+                          {bi('Parça Maliyeti', 'Part Cost')}:{' '}
+                          {formatTRY(encounter.expressPartCost ?? 0)}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        {hasRepairBench && (
+                          <button
+                            type="button"
+                            disabled={cash < (encounter.expressPartCost ?? 0)}
+                            onClick={onExpressRepairMini}
+                            className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            {bi('Kendin Onar (Mini Oyun)', 'Fix Yourself (Mini-Game)')}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={cash < (encounter.expressPartCost ?? 0)}
+                          onClick={onExpressRepairQuick}
+                          className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                        >
+                          <Wrench className="w-3.5 h-3.5" />
+                          {bi('Hızlı Onar & Teslim Et', 'Quick Repair & Deliver')}
+                        </button>
+                        {hasMasterTech && (
+                          <button
+                            type="button"
+                            disabled={cash < (encounter.expressPartCost ?? 0)}
+                            onClick={onDelegateExpressRepair}
+                            className="w-full inline-flex items-center justify-center gap-1 rounded-xl border border-sky-400/35 bg-sky-500/15 py-1.5 text-[11px] font-bold text-sky-200 cursor-pointer"
+                          >
+                            <UserCog className="w-3.5 h-3.5" />
+                            {bi('Hasan Ustaya Devret', 'Delegate to Master Hasan')}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={onDismiss}
+                          className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
+                        >
+                          {bi('Reddet', 'Decline')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {encounter.type === 'BULK_AUCTION' && (
+                    <>
+                      <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center">
+                        <div className="text-[10.5px] text-amber-200">
+                          {bi('Koli Fiyatı', 'Lot Price')}
+                        </div>
+                        <div className="font-mono text-xl font-extrabold text-amber-300">
+                          {formatTRY(encounter.customerPrice)}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <button
+                          type="button"
+                          disabled={cash < encounter.customerPrice}
+                          onClick={onAcceptBulkAuction}
+                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                        >
+                          <Gavel className="w-4 h-4" />
+                          {bi('Koliyi Satın Al', 'Buy Mystery Lot')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onDismiss}
+                          className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
+                        >
+                          {bi('Risk Alma · Geç', 'Skip Lot')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {encounter.type === 'WARRANTY_CLAIM' && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        disabled={cash < encounter.customerPrice}
+                        onClick={() => onResolveWarranty('REPAIR')}
+                        className="w-full rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
+                        {bi('Ücretsiz Onar', 'Free Repair')} ({formatTRY(encounter.customerPrice)})
+                      </button>
+                      <button
+                        type="button"
+                        disabled={cash < (encounter.warrantyRecord?.salePrice ?? 0)}
+                        onClick={() => onResolveWarranty('REFUND')}
+                        className="w-full rounded-xl border border-amber-400/35 bg-amber-500/15 py-2 text-xs font-bold text-amber-200 disabled:opacity-35 cursor-pointer"
+                      >
+                        {bi('Tam İade Yap', 'Full Refund')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onResolveWarranty('REJECT')}
+                        className="w-full rounded-xl border border-rose-500/35 bg-rose-500/15 py-1.5 text-xs font-bold text-rose-200 cursor-pointer"
+                      >
+                        {bi('Reddet (-İtibar)', 'Reject (-Rep)')}
+                      </button>
+                    </div>
+                  )}
+
+                  {encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => onResolveDataRecovery('SOFTWARE')}
+                        className="w-full rounded-xl bg-sky-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-sky-400 cursor-pointer"
+                      >
+                        {bi('Yazılımla Kurtar (Ücretsiz)', 'Software Recovery (Free)')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={cash < encounter.dataRecoveryJob.cleanRoomCost}
+                        onClick={() => onResolveDataRecovery('CLEAN_ROOM')}
+                        className="w-full rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                      >
+                        {bi('Temiz Oda Lab', 'Clean Room Lab')} ({formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onDismiss}
+                        className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
+                      >
+                        {bi('İade Et · Geç', 'Decline')}
+                      </button>
                     </div>
                   )}
                 </div>
               )}
             </section>
-
-            {/* COLUMN 3: NEGOTIATION OR SPECIAL EVENT ACTION PANEL (4 cols, Pinned Footer!) */}
-            <section className="sm:col-span-4 flex flex-col sm:min-h-0 sm:h-full rounded-xl lg:rounded-2xl border border-white/10 bg-[#161E29]/92 p-2.5 lg:p-4 sm:overflow-hidden">
-              <div className="sm:flex-1 sm:min-h-0 sm:overflow-y-auto pasaj-scroll pr-0.5">
-                <div className="flex items-baseline justify-between border-b border-white/8 pb-2 lg:pb-3 mb-2 lg:mb-3 tabular-nums">
-                  <div>
-                    <div className="text-[10.5px] lg:text-xs text-slate-400">
-                      {encounter.type === 'SELLER'
-                        ? 'Satıcının İstediği Fiyat'
-                        : encounter.type === 'BUYER'
-                        ? 'Alıcının Mevcut Teklifi'
-                        : encounter.type === 'TRADE_IN'
-                        ? 'Üstüne Ödeyeceği Nakit Fark'
-                        : encounter.type === 'WARRANTY_CLAIM'
-                        ? 'Ücretsiz Onarım Maliyeti'
-                        : encounter.type === 'DATA_RECOVERY'
-                        ? 'Temiz Oda Servis Ödemesi'
-                        : encounter.type === 'EXPRESS_REPAIR'
-                        ? 'Acil Servis Ücreti'
-                        : encounter.type === 'ACCESSORY_BUYER'
-                        ? 'Aksesuar Sepeti Tutarı'
-                        : 'Kapalı Koli İhale Bedeli'}
-                    </div>
-                    <motion.div
-                      key={encounter.customerPrice}
-                      initial={{ scale: 1.07 }}
-                      animate={{ scale: 1 }}
-                      transition={{ duration: 0.16 }}
-                      className="font-mono text-xl lg:text-3xl font-extrabold text-slate-50 mt-0.5"
-                    >
-                      {formatTRY(encounter.customerPrice)}
-                    </motion.div>
-                  </div>
-                  {encounter.type === 'BUYER' || encounter.type === 'TRADE_IN' ? (
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-500">Etiketin</div>
-                      <div className="font-mono text-[11px] lg:text-xs font-bold text-amber-400">
-                        {formatTRY(encounter.device.askingPrice)}
-                      </div>
-                    </div>
-                  ) : encounter.customerPrice !== encounter.initialCustomerPrice ? (
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-500">İlk Fiyat</div>
-                      <div className="font-mono text-[11px] lg:text-xs text-slate-400 line-through">
-                        {formatTRY(encounter.initialCustomerPrice)}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                {encounter.outcome === 'ACTIVE' ? (
-                  <>
-                    {isNegotiable && (
-                      <>
-                        <div className="mb-2 lg:mb-3 space-y-1.5">
-                          <div className="flex items-center justify-between text-[10.5px] lg:text-xs">
-                            <span className="font-semibold text-slate-300">
-                              Esnaf & Miras
-                            </span>
-                            <div className="flex items-center gap-1.5 tabular-nums">
-                              {encounter.finalWarningGiven && (
-                                <span className="font-mono text-[10px] font-bold text-rose-400">
-                                  SON SÖZ!
-                                </span>
-                              )}
-                              {encounter.rounds > 0 && (
-                                <span className="font-mono text-[10px] text-slate-400">
-                                  Tur {encounter.rounds + 1}
-                                </span>
-                              )}
-                              {nextStreakBonus > 0 && (
-                                <span className="font-mono text-[10px] text-orange-300">
-                                  +{formatTRY(nextStreakBonus)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              type="button"
-                              disabled={encounter.teaServed}
-                              onClick={onServeTea}
-                              className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] lg:text-xs font-semibold transition-all duration-150 whitespace-nowrap ${
-                                encounter.teaServed
-                                  ? 'border-white/8 bg-white/5 text-slate-500 cursor-default'
-                                  : 'border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 cursor-pointer'
-                              }`}
-                            >
-                              <Coffee className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
-                              <span className="truncate">
-                                {encounter.teaServed
-                                  ? 'Çay İçildi'
-                                  : hasSamovar
-                                  ? 'Semaver'
-                                  : 'Çay İkram'}
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={encounter.bluffUsed}
-                              onClick={onBluffOrPitch}
-                              className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] lg:text-xs font-semibold transition-all duration-150 whitespace-nowrap ${
-                                encounter.bluffUsed
-                                  ? 'border-white/8 bg-white/5 text-slate-500 cursor-default'
-                                  : 'border-white/15 bg-[#1F2A38] text-slate-100 hover:bg-[#283648] cursor-pointer'
-                              }`}
-                            >
-                              <Sparkles className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-amber-400 shrink-0" />
-                              <span className="truncate">
-                                {encounter.bluffUsed
-                                  ? 'Kullanıldı'
-                                  : encounter.type === 'SELLER'
-                                  ? 'Piyasa Blöfü'
-                                  : 'Garanti Sun'}
-                              </span>
-                            </button>
-                          </div>
-
-                          {/* 23-YEAR LEGACY EXCLUSIVE DIALOGUE ACTION */}
-                          <button
-                            type="button"
-                            disabled={encounter.legacyDialogueUsed}
-                            onClick={onUseLegacyDialogue}
-                            className={`w-full flex items-center justify-between gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] lg:text-xs font-semibold transition-all duration-150 ${
-                              encounter.legacyDialogueUsed
-                                ? 'border-white/8 bg-white/5 text-slate-500 cursor-default'
-                                : legacyInfo.accentColor === 'amber'
-                                ? 'border-amber-400/40 bg-amber-500/12 text-amber-100 hover:bg-amber-500/20 cursor-pointer'
-                                : legacyInfo.accentColor === 'emerald'
-                                ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-100 hover:bg-emerald-500/20 cursor-pointer'
-                                : 'border-sky-400/40 bg-sky-500/12 text-sky-100 hover:bg-sky-500/20 cursor-pointer'
-                            }`}
-                          >
-                            <span className="inline-flex items-center gap-1 min-w-0 truncate">
-                              <Award className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0 text-amber-300" />
-                              <span className="truncate">
-                                {encounter.legacyDialogueUsed
-                                  ? `${legacyInfo.name} Kullanıldı`
-                                  : `${legacyInfo.dialogueName}`}
-                              </span>
-                            </span>
-                            {!encounter.legacyDialogueUsed && (
-                              <span className="font-mono text-[9.5px] font-bold text-amber-300 shrink-0">
-                                MİRAS
-                              </span>
-                            )}
-                          </button>
-
-                          {/* POS CREDIT CARD INSTALLMENT BUTTON FOR BUYER / TRADE-IN */}
-                          {(encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') &&
-                            encounter.wantsInstallment && (
-                              <button
-                                type="button"
-                                disabled={encounter.posAccepted}
-                                onClick={onAcceptPosInstallment}
-                                className={`w-full flex items-center justify-between gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] lg:text-xs font-semibold transition-all duration-150 ${
-                                  encounter.posAccepted
-                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 cursor-default'
-                                    : 'border-sky-400/45 bg-sky-500/12 text-sky-100 hover:bg-sky-500/20 cursor-pointer'
-                                }`}
-                              >
-                                <span className="inline-flex items-center gap-1 min-w-0 truncate">
-                                  <CreditCard className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0 text-sky-300" />
-                                  <span className="truncate">
-                                    {encounter.posAccepted
-                                      ? 'POS Taksit Onaylı'
-                                      : 'POS Taksit (+%7 Teklif)'}
-                                  </span>
-                                </span>
-                                <span className="font-mono text-[9.5px] font-bold text-sky-300 shrink-0">
-                                  {encounter.posAccepted
-                                    ? 'AKTİF'
-                                    : upgrades.includes('smart_pos_zero')
-                                    ? '-%1'
-                                    : '-%5'}
-                                </span>
-                              </button>
-                            )}
-                        </div>
-
-                        {/* NEGOTIATION TONE (ÜSLUP) SELECTOR */}
-                        <div className="mb-2 lg:mb-3">
-                          <div className="flex items-center justify-between text-[10px] lg:text-[11px] mb-1">
-                            <span className="font-semibold text-slate-300">Üslup</span>
-                            <span className="text-slate-400 truncate max-w-[160px]">
-                              {NEGOTIATION_TONES[selectedTone].shortHint}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-1">
-                            {(['friendly', 'analytical', 'firm'] as NegotiationTone[]).map(
-                              (toneKey) => {
-                                const t = NEGOTIATION_TONES[toneKey];
-                                const active = selectedTone === toneKey;
-                                return (
-                                  <button
-                                    key={toneKey}
-                                    type="button"
-                                    onClick={() => {
-                                      soundFX.playClick();
-                                      setSelectedTone(toneKey);
-                                    }}
-                                    className={`rounded-lg border py-1 lg:py-1.5 px-1.5 text-[11px] lg:text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                                      active
-                                        ? toneKey === 'friendly'
-                                          ? 'border-emerald-400/60 bg-emerald-500/18 text-emerald-200'
-                                          : toneKey === 'analytical'
-                                          ? 'border-sky-400/60 bg-sky-500/18 text-sky-200'
-                                          : 'border-rose-400/60 bg-rose-500/18 text-rose-200'
-                                        : 'border-white/10 bg-[#121822] text-slate-400 hover:text-slate-200'
-                                    }`}
-                                  >
-                                    {t.label}
-                                  </button>
-                                );
-                              }
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-white/10 bg-[#121822] p-2.5 lg:p-3.5 mb-2">
-                          <div className="flex items-baseline justify-between mb-1.5 lg:mb-2 tabular-nums">
-                            <span className="text-[10.5px] lg:text-xs font-medium text-slate-400 truncate">
-                              {encounter.type === 'SELLER'
-                                ? 'Alış Teklifin'
-                                : encounter.type === 'TRADE_IN'
-                                ? 'İstediğin Fark'
-                                : buyerDiscountFromSticker > 0
-                                ? `İndirimli (-${formatTRY(buyerDiscountFromSticker)})`
-                                : 'Etikette Sabit'}
-                            </span>
-                            <span className="font-mono text-lg lg:text-2xl font-bold text-amber-400">
-                              {formatTRY(offerPrice)}
-                            </span>
-                          </div>
-
-                          {sliderBounds.max > sliderBounds.min ? (
-                            <input
-                              type="range"
-                              min={sliderBounds.min}
-                              max={sliderBounds.max}
-                              step={sliderBounds.step}
-                              value={Math.min(
-                                sliderBounds.max,
-                                Math.max(sliderBounds.min, offerPrice)
-                              )}
-                              onChange={(e) => setOfferPrice(Number(e.target.value))}
-                              aria-label="Teklif fiyatı"
-                              className="pasaj-slider w-full mb-2"
-                            />
-                          ) : (
-                            <div className="text-[11px] text-emerald-300 mb-2">
-                              Alıcı etiket fiyatını ({formatTRY(encounter.customerPrice)}) kabul ediyor!
-                            </div>
-                          )}
-
-                          {/* Esnaf Tension & Opportunity Meter */}
-                          <div className="mb-2">
-                            <div className="flex items-center justify-between text-[10px] lg:text-[11px] mb-0.5">
-                              <span className="text-slate-500">Esnaf Hissi</span>
-                              <span
-                                className={`font-semibold ${
-                                  offerTension.tone === 'danger'
-                                    ? 'text-rose-400'
-                                    : offerTension.tone === 'warning'
-                                    ? 'text-amber-400'
-                                    : offerTension.tone === 'positive'
-                                    ? 'text-emerald-400'
-                                    : 'text-sky-300'
-                                }`}
-                              >
-                                {offerTension.label}
-                              </span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-white/8 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-150 ${
-                                  offerTension.tone === 'danger'
-                                    ? 'bg-rose-500'
-                                    : offerTension.tone === 'warning'
-                                    ? 'bg-amber-400'
-                                    : offerTension.tone === 'positive'
-                                    ? 'bg-emerald-400'
-                                    : 'bg-sky-400'
-                                }`}
-                                style={{ width: `${offerTension.fill}%` }}
-                              />
-                            </div>
-                          </div>
-
-                          {encounter.type === 'SELLER' ? (
-                            <div className="grid grid-cols-4 gap-1 tabular-nums">
-                              {[-1000, -250, 250, 1000].map((delta) => (
-                                <button
-                                  key={delta}
-                                  type="button"
-                                  onClick={() => adjustOffer(delta)}
-                                  className="rounded-md border border-white/10 bg-[#1B2432] py-1 lg:py-1.5 text-[11px] lg:text-xs font-mono font-semibold text-slate-200 hover:bg-[#253244] transition-colors cursor-pointer whitespace-nowrap"
-                                >
-                                  {delta > 0 ? `+${delta}` : delta}
-                                </button>
-                              ))}
-                            </div>
-                          ) : encounter.type === 'TRADE_IN' ? (
-                            /* TRADE-IN Quick Cash Difference Controls */
-                            <div className="grid grid-cols-4 gap-1 tabular-nums">
-                              {[-1000, -250, 250, 1000].map((delta) => (
-                                <button
-                                  key={delta}
-                                  type="button"
-                                  onClick={() => adjustOffer(delta)}
-                                  className="rounded-md border border-white/10 bg-[#1B2432] py-1 lg:py-1.5 text-[11px] lg:text-xs font-mono font-semibold text-slate-200 hover:bg-[#253244] transition-colors cursor-pointer whitespace-nowrap"
-                                >
-                                  {delta > 0 ? `+${delta}` : delta}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            /* BUYER Quick Discount Controls — Only downwards from Sticker Price! */
-                            <div className="grid grid-cols-4 gap-1 tabular-nums">
-                              <button
-                                type="button"
-                                onClick={() => adjustOffer(-1000)}
-                                className="rounded-md border border-white/10 bg-[#1B2432] py-1 lg:py-1.5 text-[11px] lg:text-xs font-mono font-semibold text-slate-200 hover:bg-[#253244] transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                -1000
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => adjustOffer(-500)}
-                                className="rounded-md border border-white/10 bg-[#1B2432] py-1 lg:py-1.5 text-[11px] lg:text-xs font-mono font-semibold text-slate-200 hover:bg-[#253244] transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                -500
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => adjustOffer(-250)}
-                                className="rounded-md border border-white/10 bg-[#1B2432] py-1 lg:py-1.5 text-[11px] lg:text-xs font-mono font-semibold text-slate-200 hover:bg-[#253244] transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                -250
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setOfferPrice(sliderBounds.max)}
-                                className="rounded-md border border-amber-500/30 bg-amber-500/10 py-1 lg:py-1.5 text-[11px] lg:text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                Etiket
-                              </button>
-                            </div>
-                          )}
-
-                          <div className="mt-2.5 pt-2 border-t border-white/8 text-[11px] lg:text-xs tabular-nums space-y-1">
-                            {encounter.type === 'SELLER' ? (
-                              <>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">
-                                    Kusurlu (Mevcut) Değer
-                                  </span>
-                                  <span className="font-mono font-semibold text-slate-200">
-                                    {formatTRY(buyingValuation.asIsValue)}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-slate-400 truncate">
-                                    Tamir Sonrası Değer
-                                    {buyingValuation.estimatedRepairCost > 0 && (
-                                      <span className="text-rose-300/90 ml-1">
-                                        (-{formatTRY(buyingValuation.estimatedRepairCost)} tamir)
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-mono font-semibold text-amber-300 shrink-0">
-                                    {formatTRY(buyingValuation.postRepairValue)}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between pt-1 border-t border-white/6">
-                                  <span className="font-semibold text-slate-300">
-                                    Tahmini Net Kâr / Zarar
-                                  </span>
-                                  <span
-                                    className={`font-mono font-extrabold ${
-                                      buyingValuation.projectedNetProfit < 0
-                                        ? 'text-rose-400'
-                                        : buyingValuation.projectedNetProfit < 600
-                                        ? 'text-amber-300'
-                                        : 'text-emerald-400'
-                                    }`}
-                                  >
-                                    {buyingValuation.projectedNetProfit >= 0 ? '+' : ''}
-                                    {formatTRY(buyingValuation.projectedNetProfit)}
-                                    {buyingValuation.projectedNetProfit < 0
-                                      ? ' · ZARAR!'
-                                      : ''}
-                                  </span>
-                                </div>
-                                {buyingValuation.unrepairableDefects.length > 0 && (
-                                  <div className="text-[10px] text-rose-300/90 leading-tight">
-                                    Kayıtsız IMEI tamir edilemez — satış değeri kalıcı düşük kalır!
-                                  </div>
-                                )}
-                                {buyingValuation.uninspectedCount > 0 && (
-                                  <div className="text-[10px] text-amber-300/85 leading-tight">
-                                    ⚠ {buyingValuation.uninspectedCount} test yapılmadı · Gözden kaçan kusur çıkabilir!
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                {encounter.type === 'TRADE_IN' && encounter.tradeInDevice && (
-                                  <div className="space-y-0.5 pb-1 mb-1 border-b border-white/6">
-                                    <div className="flex items-center justify-between text-[10.5px]">
-                                      <span className="text-slate-400">
-                                        Takas Cihazı (Mevcut → Tamirli)
-                                      </span>
-                                      <span className="font-mono font-semibold text-sky-300">
-                                        {formatTRY(buyingValuation.asIsValue)} →{' '}
-                                        {formatTRY(buyingValuation.postRepairValue)}
-                                      </span>
-                                    </div>
-                                    {buyingValuation.estimatedRepairCost > 0 && (
-                                      <div className="flex items-center justify-between text-[10.5px]">
-                                        <span className="text-slate-400">
-                                          Takas Cihazı Tamir Masrafı
-                                        </span>
-                                        <span className="font-mono font-semibold text-rose-300">
-                                          -{formatTRY(buyingValuation.estimatedRepairCost)}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {buyingValuation.uninspectedCount > 0 && (
-                                      <div className="text-[10px] text-amber-300/85">
-                                        ⚠ Takasta {buyingValuation.uninspectedCount} test eksik · Gizli kusur riski!
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-slate-400 truncate">
-                                    {encounter.type === 'TRADE_IN'
-                                      ? 'Takas + Fark Net Kâr'
-                                      : 'Vergi Sonrası Net Kâr'}
-                                    {(encounter.crossSellAttachments?.length ?? 0) > 0
-                                      ? ` (+${encounter.crossSellAttachments!.length} Aks.)`
-                                      : encounter.crossSellAttached
-                                      ? ' (+Aks.)'
-                                      : ''}
-                                    {encounter.posAccepted
-                                      ? upgrades.includes('smart_pos_zero')
-                                        ? ' (-%1 POS)'
-                                        : ' (-%5 POS)'
-                                      : ''}{' '}
-                                    (-%{Math.round(salesTaxRate * 100)} Vergi)
-                                  </span>
-                                  {(() => {
-                                    const posRate = upgrades.includes('smart_pos_zero')
-                                      ? 0.01
-                                      : 0.05;
-                                    const posCut = encounter.posAccepted
-                                      ? Math.round(offerPrice * posRate)
-                                      : 0;
-                                    const attachedList =
-                                      encounter.crossSellAttachments &&
-                                      encounter.crossSellAttachments.length > 0
-                                        ? encounter.crossSellAttachments
-                                        : encounter.crossSellAttached
-                                        ? [encounter.crossSellAttached]
-                                        : [];
-                                    const accRev = attachedList.reduce(
-                                      (s, a) => s + a.retailPrice,
-                                      0
-                                    );
-                                    const accProf = attachedList.reduce(
-                                      (s, a) => s + a.profit,
-                                      0
-                                    );
-                                    const taxCut = Math.round(
-                                      (offerPrice + accRev) * salesTaxRate
-                                    );
-                                    const netVal =
-                                      projectedBuyerProfit + accProf - posCut - taxCut;
-                                    return (
-                                      <span
-                                        className={`font-mono font-extrabold shrink-0 ${
-                                          netVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                                        }`}
-                                      >
-                                        {netVal >= 0 ? '+' : ''}
-                                        {formatTRY(netVal)}
-                                        {netVal < 0 ? ' · ZARAR!' : ''}
-                                      </span>
-                                    );
-                                  })()}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {!canAffordOffer && (
-                          <p className="text-xs text-rose-400 mb-3 tabular-nums">
-                            Kasa yetersiz (Mevcut: {formatTRY(cash)}). Teklifi düşür veya stok sat.
-                          </p>
-                        )}
-                      </>
-                    )}
-
-                    {encounter.type === 'ACCESSORY_BUYER' && encounter.accessoryOrder && (
-                      <div className="rounded-xl border border-white/10 bg-[#121822] p-4 space-y-2 text-xs text-slate-300 tabular-nums">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Sepet Toplamı</span>
-                          <span className="font-mono font-bold text-slate-100">
-                            {formatTRY(encounter.customerPrice)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">
-                            Satış Vergisi (%{Math.round(salesTaxRate * 100)})
-                          </span>
-                          <span className="font-mono font-semibold text-rose-300">
-                            -{formatTRY(Math.round(encounter.customerPrice * salesTaxRate))}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Tahmini Net Kâr</span>
-                          <span className="font-mono font-bold text-emerald-400">
-                            +
-                            {formatTRY(
-                              encounter.accessoryOrder.reduce(
-                                (sum, l) =>
-                                  sum +
-                                  l.quantity *
-                                    (l.unitPrice - getAccessorySpec(l.id).wholesaleCost),
-                                0
-                              ) - Math.round(encounter.customerPrice * salesTaxRate)
-                            )}
-                          </span>
-                        </div>
-                        <p className="text-slate-400 leading-relaxed">
-                          Pazarlıksız peşin reyon satışı! Hemen kasadan geçirip hem nakit hem itibar kazan.
-                        </p>
-                      </div>
-                    )}
-
-                    {encounter.type === 'EXPRESS_REPAIR' && (
-                      <div className="rounded-xl border border-white/10 bg-[#121822] p-4 space-y-2 text-xs text-slate-300 tabular-nums">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">
-                            Tahmini Net Kâr (-%{Math.round(salesTaxRate * 100)} Vergi)
-                          </span>
-                          <span className="font-mono font-bold text-emerald-400">
-                            +
-                            {formatTRY(
-                              encounter.customerPrice -
-                                Math.round(encounter.customerPrice * salesTaxRate) -
-                                (encounter.expressPartCost ?? 0)
-                            )}
-                          </span>
-                        </div>
-                        <p className="text-slate-400 leading-relaxed">
-                          Tamir masasında kendin özenle yaparsan{' '}
-                          <strong className="text-amber-300">+1.000 ₺ Usta İşi bahşişi</strong>{' '}
-                          ve +55 XP kazanırsın!
-                          {hasMasterTech && (
-                            <>
-                              {' '}
-                              Veya <strong className="text-sky-300">Hasan Usta’ya</strong> aktarıp{' '}
-                              {masterSpecs.turnsPerJob} turda otomatik teslim ettirebilirsin.
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    )}
-
-                    {encounter.type === 'BULK_AUCTION' && (
-                      <div className="rounded-xl border border-white/10 bg-[#121822] p-4 space-y-2 text-xs text-slate-300 leading-relaxed">
-                        <p>
-                          İki cihazı test etmeden tek seferde satın alırsın. Kusurlu da çıkabilirler, temiz büyük kâr da bırakabilirler!
-                        </p>
-                        {cash < encounter.customerPrice && (
-                          <p className="text-rose-400 tabular-nums">
-                            Kasa yetersiz (Mevcut: {formatTRY(cash)}).
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {encounter.type === 'WARRANTY_CLAIM' && (
-                      <div className="rounded-xl border border-rose-500/25 bg-[#121822] p-4 space-y-2 text-xs text-slate-300 leading-relaxed">
-                        <p>
-                          Ücretsiz onarım yaparsan müşterinin gönlünü kazanır ve{' '}
-                          <strong className="text-emerald-400">+0.25★ itibar</strong> alırsın. Reddedersen pasajda adın çıkar!
-                        </p>
-                      </div>
-                    )}
-
-                    {encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob && (
-                      <div className="rounded-xl border border-sky-500/25 bg-[#121822] p-3 lg:p-4 space-y-2 text-xs text-slate-300 leading-relaxed tabular-nums">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Temiz Oda Net Kâr</span>
-                          <span className="font-mono font-bold text-emerald-400">
-                            +
-                            {formatTRY(
-                              encounter.dataRecoveryJob.cleanRoomPayout -
-                                encounter.dataRecoveryJob.cleanRoomCost
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Yazılım Kurtarma Net Kâr</span>
-                          <span className="font-mono font-bold text-amber-300">
-                            +
-                            {formatTRY(
-                              encounter.dataRecoveryJob.softwarePayout -
-                                encounter.dataRecoveryJob.softwareCost
-                            )}
-                          </span>
-                        </div>
-                        {(upgrades.includes('clean_room_lab') ||
-                          upgrades.includes('micro_soldering')) && (
-                          <div className="pt-1.5 border-t border-white/8 text-[11px] text-sky-300">
-                            {upgrades.includes('clean_room_lab') &&
-                              'ISO-5 Temiz Oda (+%35 Ödeme) aktif'}
-                            {upgrades.includes('clean_room_lab') &&
-                              upgrades.includes('micro_soldering') &&
-                              ' · '}
-                            {upgrades.includes('micro_soldering') &&
-                              'BGA Mikroskop (%95 Yazılım Başarısı) aktif'}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <motion.div
-                    initial={{ scale: 0.92, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 360, damping: 24 }}
-                    className="my-2 lg:my-4 rounded-xl lg:rounded-2xl border border-white/10 bg-[#121923] p-3 lg:p-5 text-center"
-                  >
-                    <div
-                      className={`inline-block rounded-lg border-2 px-3 py-1 lg:px-4 lg:py-1.5 font-display text-sm lg:text-lg font-extrabold tracking-wide mb-2 lg:mb-3 animate-stamp-pop ${
-                        encounter.outcome === 'DEAL_CLOSED'
-                          ? 'border-emerald-400 text-emerald-400'
-                          : 'border-rose-400 text-rose-400'
-                      }`}
-                    >
-                      {encounter.outcome === 'DEAL_CLOSED'
-                        ? encounter.type === 'EXPRESS_REPAIR'
-                          ? 'ONARIM TESLİM EDİLDİ'
-                          : encounter.type === 'BULK_AUCTION'
-                          ? 'İHALE ALINDI'
-                          : encounter.type === 'ACCESSORY_BUYER'
-                          ? 'AKSESUAR SATILDI'
-                          : encounter.type === 'TRADE_IN'
-                          ? 'TAKAS TAMAMLANDI'
-                          : encounter.type === 'WARRANTY_CLAIM'
-                          ? 'GARANTİ ÇÖZÜLDÜ'
-                          : encounter.type === 'DATA_RECOVERY'
-                          ? 'VERİLER KURTARILDI'
-                          : 'EL SIKIŞILDI'
-                        : encounter.outcome === 'WALKED_OUT'
-                        ? 'MÜŞTERİ KIZIP KALKTI'
-                        : 'ANLAŞMA OLMADI'}
-                    </div>
-
-                    {encounter.outcome === 'DEAL_CLOSED' &&
-                      encounter.finalPrice !== undefined && (
-                        <div className="space-y-1 lg:space-y-1.5 tabular-nums">
-                          <div className="font-mono text-xl lg:text-2xl font-extrabold text-slate-50">
-                            {formatTRY(encounter.finalPrice)}
-                          </div>
-                          {encounter.type === 'SELLER' &&
-                            encounter.initialCustomerPrice > encounter.finalPrice && (
-                              <div className="font-mono text-[11px] lg:text-xs font-bold text-emerald-400">
-                                Pazarlıkla{' '}
-                                {formatTRY(
-                                  encounter.initialCustomerPrice - encounter.finalPrice
-                                )}{' '}
-                                fiyat kırdın!
-                              </div>
-                            )}
-                          {(encounter.crossSellAttachments?.length ?? 0) > 0 ? (
-                            <div className="font-mono text-[11px] lg:text-xs font-bold text-emerald-400">
-                              + {encounter.crossSellAttachments!.map((a) => a.name).join(', ')} (
-                              {formatTRY(
-                                encounter.crossSellAttachments!.reduce(
-                                  (s, a) => s + a.retailPrice,
-                                  0
-                                )
-                              )}
-                              ) eklendi!
-                            </div>
-                          ) : (
-                            encounter.crossSellAttached && (
-                              <div className="font-mono text-[11px] lg:text-xs font-bold text-emerald-400">
-                                + {encounter.crossSellAttached.name} (
-                                {formatTRY(encounter.crossSellAttached.retailPrice)}) eklendi!
-                              </div>
-                            )
-                          )}
-                          {(encounter.streakBonus ?? 0) > 0 && (
-                            <div className="inline-flex items-center gap-1 font-mono text-[11px] lg:text-xs font-bold text-orange-300">
-                              <Flame className="w-3.5 h-3.5 text-orange-400" />
-                              <span>
-                                Seri Bonusu: +{formatTRY(encounter.streakBonus ?? 0)}
-                              </span>
-                            </div>
-                          )}
-                          {encounter.postBuySurpriseAlert && (
-                            <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-500/12 px-2.5 py-2 text-left text-[11px] text-rose-200 leading-snug">
-                              <strong className="text-rose-300">Atölye Kontrol Uyarısı: </strong>
-                              {encounter.postBuySurpriseAlert}
-                            </div>
-                          )}
-                          <p className="text-[11px] lg:text-xs text-slate-400">
-                            {encounter.type === 'SELLER'
-                              ? 'Cihaz atölyene eklendi. Tamir edip vitrine koyabilirsin.'
-                              : encounter.type === 'TRADE_IN'
-                              ? 'Vitrin cihazı satıldı, takas cihazı atölyene eklendi ve nakit fark kasaya işlendi!'
-                              : encounter.type === 'WARRANTY_CLAIM'
-                              ? 'Garanti dosyası kapatıldı ve müşteri kaydı güncellendi.'
-                              : encounter.type === 'DATA_RECOVERY'
-                              ? `Veri kurtarma tamamlandı! Net kâr: +${formatTRY(encounter.profitDelta ?? 0)}`
-                              : encounter.type === 'BULK_AUCTION'
-                              ? '2 gizemli cihaz atölyene taşındı! Hemen inceleyip hazırlayabilirsin.'
-                              : encounter.type === 'ACCESSORY_BUYER'
-                              ? `Aksesuar satışı kasaya işlendi! Net kâr: +${formatTRY(encounter.profitDelta ?? 0)}`
-                              : encounter.type === 'EXPRESS_REPAIR'
-                              ? `Acil servis tamamlandı! Net kazanç: +${formatTRY(encounter.profitDelta ?? 0)}`
-                              : `Satış tamamlandı! Net kâr: ${
-                                  (encounter.profitDelta ?? 0) >= 0 ? '+' : ''
-                                }${formatTRY(encounter.profitDelta ?? 0)}`}
-                          </p>
-                        </div>
-                      )}
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Pinned Action Footer (Always visible in Landscape!) */}
-              <div className="space-y-1.5 lg:space-y-2 border-t border-white/8 pt-2 mt-1.5 shrink-0">
-                {encounter.outcome === 'ACTIVE' ? (
-                  encounter.type === 'WARRANTY_CLAIM' ? (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        disabled={cash < (encounter.warrantyRepairCost ?? 1000)}
-                        onClick={() => onResolveWarranty('REPAIR')}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                      >
-                        <HeartHandshake className="w-4 h-4" />
-                        <span>
-                          Ücretsiz Onar & Gönül Al (-{formatTRY(encounter.warrantyRepairCost ?? 1000)} · +0.25★)
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={cash < (encounter.warrantyRefundCost ?? 1500)}
-                        onClick={() => onResolveWarranty('REFUND')}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/12 px-4 py-2.5 text-xs font-bold text-amber-200 hover:bg-amber-500/20 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                      >
-                        <RefreshCcw className="w-3.5 h-3.5" />
-                        <span>
-                          Kısmi İade Yap (-{formatTRY(encounter.warrantyRefundCost ?? 1500)} · +0.08★)
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onResolveWarranty('REJECT')}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-4 py-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 cursor-pointer whitespace-nowrap"
-                      >
-                        <UserX className="w-3.5 h-3.5" />
-                        <span>Kullanıcı Hatası De & Reddet (-0.35★)</span>
-                      </button>
-                    </div>
-                  ) : encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob ? (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        disabled={cash < encounter.dataRecoveryJob.cleanRoomCost}
-                        onClick={() => onResolveDataRecovery('CLEAN_ROOM')}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                      >
-                        <Database className="w-4 h-4" />
-                        <span>
-                          Temiz Oda (%100 · {formatTRY(encounter.dataRecoveryJob.cleanRoomCost)} → +{formatTRY(encounter.dataRecoveryJob.cleanRoomPayout)})
-                        </span>
-                      </button>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          disabled={cash < encounter.dataRecoveryJob.softwareCost}
-                          onClick={() => onResolveDataRecovery('SOFTWARE')}
-                          className="rounded-xl border border-sky-500/40 bg-sky-500/12 px-3 py-2.5 text-xs font-bold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                        >
-                          Yazılım (%{Math.round(encounter.dataRecoveryJob.softwareSuccessRate * 100)})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onDismiss}
-                          className="rounded-xl border border-white/10 bg-[#1D2735] px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-[#263345] cursor-pointer whitespace-nowrap"
-                        >
-                          Pas Geç
-                        </button>
-                      </div>
-                    </div>
-                  ) : encounter.type === 'ACCESSORY_BUYER' ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={onCompleteAccessoryOrder}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3.5 text-sm font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap tabular-nums"
-                      >
-                        <ShoppingBag className="w-4 h-4" />
-                        <span>Paketle & Satışı Onayla (+{formatTRY(encounter.customerPrice)})</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onDismiss}
-                        className="w-full rounded-xl border border-white/10 bg-[#1D2735] px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-[#263345] cursor-pointer whitespace-nowrap"
-                      >
-                        Şimdilik Pas Geç
-                      </button>
-                    </>
-                  ) : encounter.type === 'EXPRESS_REPAIR' ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={cash < (encounter.expressPartCost ?? 0)}
-                        onClick={onExpressRepairMini}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3.5 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer whitespace-nowrap"
-                      >
-                        <Wrench className="w-4 h-4" />
-                        <span>Kendin Onar (Tamir Masası +1.000 ₺ Bahşiş)</span>
-                      </button>
-                      {hasMasterTech && (
-                        <button
-                          type="button"
-                          disabled={
-                            cash < (encounter.expressPartCost ?? 0) ||
-                            staffRepairQueue.length >= masterSpecs.maxParallelJobs
-                          }
-                          onClick={onDelegateExpressRepair}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-sky-400/45 bg-sky-500/15 px-4 py-2.5 text-xs font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                        >
-                          <UserCog className="w-4 h-4 text-sky-300" />
-                          <span>
-                            {staffRepairQueue.length >= masterSpecs.maxParallelJobs
-                              ? `Hasan Usta Dolu (${staffRepairQueue.length}/${masterSpecs.maxParallelJobs})`
-                              : `Hasan Usta’ya Aktar (${masterSpecs.turnsPerJob} Tur · Otomatik Teslim)`}
-                          </span>
-                        </button>
-                      )}
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          disabled={cash < (encounter.expressPartCost ?? 0)}
-                          onClick={onExpressRepairQuick}
-                          className="rounded-xl border border-emerald-500/35 bg-emerald-500/12 px-3 py-2.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40 cursor-pointer whitespace-nowrap"
-                        >
-                          Hızlı Onar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onDismiss}
-                          className="rounded-xl border border-white/10 bg-[#1D2735] px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-[#263345] cursor-pointer whitespace-nowrap"
-                        >
-                          Vaktim Yok
-                        </button>
-                      </div>
-                    </>
-                  ) : encounter.type === 'BULK_AUCTION' ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={cash < encounter.customerPrice}
-                        onClick={onAcceptBulkAuction}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3.5 text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                      >
-                        <Package className="w-4 h-4" />
-                        <span>Koliyi Satın Al ({formatTRY(encounter.customerPrice)})</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onDismiss}
-                        className="w-full rounded-xl border border-white/10 bg-[#1D2735] px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-[#263345] cursor-pointer whitespace-nowrap"
-                      >
-                        Riske Girmeyeyim, Pas Geç
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        disabled={!canAffordOffer}
-                        onClick={triggerOfferSubmit}
-                        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2.5 lg:px-5 lg:py-3.5 text-xs lg:text-sm font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] transition-all duration-150 whitespace-nowrap cursor-pointer tabular-nums"
-                      >
-                        <Handshake className="w-4 h-4 shrink-0" />
-                        <span className="truncate">
-                          {encounter.type === 'BUYER'
-                            ? offerPrice >= encounter.device.askingPrice
-                              ? `Etikette Kal (${formatTRY(offerPrice)})`
-                              : `İndirim Sun (${formatTRY(offerPrice)})`
-                            : encounter.type === 'TRADE_IN'
-                            ? `Fark İste (${formatTRY(offerPrice)})`
-                            : `Teklif Ver (${formatTRY(offerPrice)})`}
-                        </span>
-                      </button>
-
-                      <div className="grid grid-cols-2 gap-1.5 lg:gap-2">
-                        <button
-                          type="button"
-                          disabled={!canAffordInstant}
-                          onClick={onAcceptCurrentPrice}
-                          className="inline-flex items-center justify-center gap-1 rounded-xl border border-emerald-500/35 bg-emerald-500/12 px-2 py-2 lg:px-3 lg:py-2.5 text-[11px] lg:text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap cursor-pointer tabular-nums"
-                        >
-                          <Check className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">
-                            {encounter.type === 'BUYER'
-                              ? `Kabul (${formatTRY(encounter.customerPrice)})`
-                              : encounter.type === 'TRADE_IN'
-                              ? `Onayla (+${formatTRY(encounter.customerPrice)})`
-                              : `Kabul (${formatTRY(encounter.customerPrice)})`}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={onDismiss}
-                          className="inline-flex items-center justify-center gap-1 rounded-xl border border-white/10 bg-[#1D2735] px-2 py-2 lg:px-3 lg:py-2.5 text-[11px] lg:text-xs font-semibold text-slate-300 hover:bg-[#263345] hover:text-slate-100 transition-colors whitespace-nowrap cursor-pointer"
-                        >
-                          <UserX className="w-3.5 h-3.5 shrink-0" />
-                          <span>Kalsın</span>
-                        </button>
-                      </div>
-                    </>
-                  )
-                ) : (
-                  <div className="space-y-1.5">
-                    <button
-                      type="button"
-                      onClick={onNextCustomer}
-                      className="w-full rounded-xl bg-amber-500 px-4 py-2.5 lg:px-5 lg:py-3.5 text-xs lg:text-sm font-bold text-slate-950 hover:bg-amber-400 active:scale-[0.99] transition-all duration-150 whitespace-nowrap cursor-pointer"
-                    >
-                      {isLastCustomer
-                        ? 'Günü Bitir & Raporu Gör'
-                        : 'Sonraki Müşteri →'}
-                    </button>
-                    {encounter.outcome === 'DEAL_CLOSED' &&
-                      (encounter.type === 'SELLER' ||
-                        encounter.type === 'TRADE_IN' ||
-                        encounter.type === 'BULK_AUCTION') && (
-                        <button
-                          type="button"
-                          onClick={onGoToWorkshop}
-                          className="w-full rounded-xl border border-white/12 bg-[#1D2735] px-4 py-2 lg:px-5 lg:py-2.5 text-[11px] lg:text-xs font-semibold text-slate-200 hover:bg-[#263345] transition-colors whitespace-nowrap cursor-pointer"
-                        >
-                          Atölyeye Git & Hazırla
-                        </button>
-                      )}
-                  </div>
-                )}
-              </div>
-            </section>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* PHYSICAL OPTICAL LOUPE INSPECTION WORKBENCH MODAL */}
+      {showLoupeModal &&
+        (encounter.type === 'SELLER' ||
+          (encounter.type === 'TRADE_IN' && Boolean(encounter.tradeInDevice))) && (
+          <PhysicalInspectModal
+            device={inspectedTarget}
+            onInspectZone={(cat) => onInspect(cat, true)}
+            onPhysicalCompleteBonus={onPhysicalInspectBonus}
+            onClose={() => setShowLoupeModal(false)}
+          />
+        )}
     </div>
   );
 };

@@ -1,96 +1,108 @@
-name: Build Android APK (GSM Simulator)
+name: Build Android APK & Play Store AAB
 
 on:
-  push:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
 
 jobs:
-  build-apk:
+  build-android:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '20'
 
-      - name: Setup Java 21 (for Android Gradle)
+      - name: Setup Java 21 (required by Capacitor 7 / Android Gradle)
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: 'temurin'
+          java-version: '21'
 
-      - name: Install web dependencies & build dist
-        run: |
-          npm install --legacy-peer-deps
-          npm run build
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
 
-      - name: Initialize Capacitor Android project & App Icons
+      - name: Build production web app
+        run: npm run build
+
+      - name: Install Capacitor CLI & Android platform
+        run: npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+
+      - name: Add Android native project & sync web assets
         run: |
-          npm install --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets
           if [ ! -d "android" ]; then
             npx cap add android
           fi
-          mkdir -p assets
-          if [ -f "public/pwa-512x512.png" ]; then
-            cp public/pwa-512x512.png assets/icon.png
-            cp public/pwa-512x512.png assets/icon-only.png
-            cp public/pwa-512x512.png assets/icon-foreground.png
-            cp public/pwa-512x512.png assets/splash.png
-            cp public/pwa-512x512.png assets/splash-dark.png
-          fi
           npx cap sync android
-          npx capacitor-assets generate --android --iconBackgroundColor '#0F141B' --iconBackgroundColorDark '#0F141B' --splashBackgroundColor '#0F141B' --splashBackgroundColorDark '#0F141B' || true
 
-      - name: Force Landscape Orientation & Fullscreen in Android Manifest
+      - name: Configure Landscape Fullscreen, Store Icons & Version Stamping
         run: |
-          python3 - <<'EOF'
-          from pathlib import Path
-          import re
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            sed -i 's/<activity/<activity android:screenOrientation="sensorLandscape"/' "$MANIFEST"
+            echo "Forced sensorLandscape in AndroidManifest.xml"
+          fi
+          # Stamp semantic versionName and auto-incrementing versionCode for Google Play Console
+          GRADLE_FILE="android/app/build.gradle"
+          if [ -f "$GRADLE_FILE" ]; then
+            VERSION_CODE="${{ github.run_number }}"
+            sed -i "s/versionCode [0-9]\+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
+            sed -i 's/versionName "[^"]*"/versionName "2.2.0"/' "$GRADLE_FILE"
+            echo "Stamped versionCode=${VERSION_CODE} versionName=2.2.0"
+          fi
+          # Copy custom GSM Simulator 512px icon into Android mipmap launcher resources
+          if [ -f "public/pwa-512x512.png" ]; then
+            for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+              DIR="android/app/src/main/res/mipmap-${density}"
+              mkdir -p "$DIR"
+              cp public/pwa-512x512.png "$DIR/ic_launcher.png"
+              cp public/pwa-512x512.png "$DIR/ic_launcher_round.png"
+              cp public/pwa-512x512.png "$DIR/ic_launcher_foreground.png"
+            done
+            echo "Copied custom GSM Simulator launcher icons"
+          fi
 
-          manifest_path = Path("android/app/src/main/AndroidManifest.xml")
-          manifest = manifest_path.read_text(encoding="utf-8")
-          if 'android:screenOrientation=' in manifest:
-              manifest = re.sub(
-                  r'android:screenOrientation="[^"]*"',
-                  'android:screenOrientation="sensorLandscape"',
-                  manifest,
-              )
-          else:
-              manifest = manifest.replace(
-                  'android:name=".MainActivity"',
-                  'android:name=".MainActivity"\n            android:screenOrientation="sensorLandscape"',
-              )
-          manifest_path.write_text(manifest, encoding="utf-8")
-
-          styles_path = Path("android/app/src/main/res/values/styles.xml")
-          if styles_path.exists():
-              styles = styles_path.read_text(encoding="utf-8")
-              if 'android:windowFullscreen' not in styles:
-                  styles = styles.replace(
-                      '<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">',
-                      '<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">\n        <item name="android:windowFullscreen">true</item>\n        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>',
-                  )
-                  styles_path.write_text(styles, encoding="utf-8")
-          print("Patched AndroidManifest.xml and styles.xml for sensorLandscape fullscreen.")
-          EOF
-
-      - name: Compile Debug APK
+      - name: Compile Debug APK (Instant Phone Testing)
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Rename APK for easy download
-        run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk GSM-Simulator-Android.apk
-
-      - name: Upload GSM-Simulator-Android.apk
+      - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GSM-Simulator-Android-APK
-          path: GSM-Simulator-Android.apk
+          name: GSM-Simulator-Test-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Build Signed Google Play Release AAB (when Keystore Secrets are configured)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/release-keystore.jks
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="$(pwd)/app/release-keystore.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+          rm -f app/release-keystore.jks
+
+      - name: Upload Signed Play Store AAB Artifact
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: GSM-Simulator-PlayStore-AAB
+          path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30

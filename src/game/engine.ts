@@ -21,6 +21,7 @@ import {
   RANDOM_NEWSPAPER_POOL,
   RANDOM_STORE_EVENTS,
   REGULAR_GREETING_NOTES,
+  SELLER_CLAIM_LINES,
   SELLER_OPENING_LINES,
   SEVERE_LEVERAGE_REACTIONS,
   SHOP_DECORATIONS,
@@ -69,6 +70,7 @@ import {
   RandomStoreEvent,
   ShippingOrder,
   ShopState,
+  ShopTab,
   ShopTier,
   StaffId,
   StaffRepairJob,
@@ -76,6 +78,10 @@ import {
   TimedProject,
   UpgradeId,
 } from './types';
+import { getCurrentLang } from './i18n';
+
+const bi = (tr: string, en: string): string =>
+  getCurrentLang() === 'en' ? en : tr;
 
 const STORAGE_KEY = 'gsm_simulator_save_v8';
 const LEGACY_KEYS = [
@@ -131,13 +137,13 @@ export function formatTRY(amount: number): string {
 export function getShopRank(
   state: Pick<ShopState, 'cash' | 'shopTier' | 'reputation' | 'totalPhonesSold' | 'level'>
 ): string {
-  if (state.shopTier >= 6) return 'GSM Plaza İmparatoru';
-  if (state.shopTier === 5) return 'Flagship Patronu';
-  if (state.shopTier === 4) return 'Bölge Showroom Lideri';
-  if (state.shopTier === 3 || state.level >= 7) return 'Cadde Merkezi Patronu';
-  if (state.shopTier === 2 || state.level >= 4) return 'Köşe Mağaza Bayisi';
-  if (state.totalPhonesSold >= 4 || state.level >= 3) return 'Usta Eksper';
-  return 'Genç Esnaf (23)';
+  if (state.shopTier >= 6) return bi('GSM Plaza İmparatoru', 'GSM Plaza Emperor');
+  if (state.shopTier === 5) return bi('Flagship Patronu', 'Flagship Boss');
+  if (state.shopTier === 4) return bi('Bölge Showroom Lideri', 'Regional Showroom Leader');
+  if (state.shopTier === 3 || state.level >= 7) return bi('Cadde Merkezi Patronu', 'Main Street Hub Boss');
+  if (state.shopTier === 2 || state.level >= 4) return bi('Köşe Mağaza Bayisi', 'Corner Store Dealer');
+  if (state.totalPhonesSold >= 4 || state.level >= 3) return bi('Usta Eksper', 'Master Appraiser');
+  return bi('Genç Esnaf (23)', 'Young Dealer (23)');
 }
 
 export function pickDailyNewspaper(
@@ -214,8 +220,8 @@ export function tickRivalFlashSnatch(
   };
 }
 
-// Balanced long-term 10-level progression curve (not too fast, not too slow)
-const LEVEL_XP_THRESHOLDS = [0, 180, 440, 820, 1320, 1980, 2800, 3800, 5000, 6500];
+// Responsive 10-level progression curve — Level 2 unlocks smoothly during Day 1-2
+const LEVEL_XP_THRESHOLDS = [0, 110, 260, 480, 780, 1180, 1700, 2350, 3200, 4300];
 
 export function getLevelFromXp(xp: number): number {
   let lvl = 1;
@@ -236,7 +242,7 @@ export function getLevelProgress(xp: number): {
   const level = getLevelFromXp(xp);
   const currentThreshold = LEVEL_XP_THRESHOLDS[level - 1] ?? 0;
   const nextThreshold =
-    LEVEL_XP_THRESHOLDS[level] ?? currentThreshold + 1800;
+    LEVEL_XP_THRESHOLDS[level] ?? currentThreshold + 1200;
   const span = Math.max(1, nextThreshold - currentThreshold);
   const currentInLevel = Math.max(0, xp - currentThreshold);
   return {
@@ -256,17 +262,9 @@ export function getStreakBonusCash(streak: number, level: number): number {
 export function createInitialAccessories(): Record<AccessoryId, AccessoryStockItem> {
   const map = {} as Record<AccessoryId, AccessoryStockItem>;
   for (const spec of ACCESSORY_CATALOG) {
-    const starterQty =
-      spec.id === 'tempered_glass'
-        ? 4
-        : spec.id === 'magsafe_case'
-        ? 2
-        : spec.id === 'gan_charger'
-        ? 1
-        : 0;
     map[spec.id] = {
       id: spec.id,
-      quantity: starterQty,
+      quantity: 0,
       retailPrice: spec.recommendedPrice,
       totalSold: 0,
     };
@@ -276,6 +274,11 @@ export function createInitialAccessories(): Record<AccessoryId, AccessoryStockIt
 
 export function getAccessorySpec(id: AccessoryId) {
   return ACCESSORY_CATALOG.find((a) => a.id === id) ?? ACCESSORY_CATALOG[0];
+}
+
+export function isAccessoryUnlocked(id: AccessoryId, level: number): boolean {
+  const spec = getAccessorySpec(id);
+  return level >= (spec.minLevel ?? 1);
 }
 
 export function getTotalAccessoryStock(
@@ -311,47 +314,191 @@ export function deriveMoodFromScore(score: number): CustomerMood {
 
 export function getMoodDisplay(mood: CustomerMood): {
   label: string;
+  simpleLabel: string;
+  emoji: string;
   shortNote: string;
   tone: 'positive' | 'neutral' | 'warning' | 'danger';
 } {
   switch (mood) {
     case 'excited':
       return {
-        label: 'Çok Keyifli',
-        shortNote: 'Fiyatta esnemeye ve ek ürün almaya çok açık',
+        label: bi('Çok Keyifli', 'Thrilled'),
+        simpleLabel: bi('Mutlu', 'Happy'),
+        emoji: '😄',
+        shortNote: bi(
+          'Fiyatta esnemeye ve ek ürün almaya çok açık',
+          'Very open to flexible pricing and add-ons'
+        ),
         tone: 'positive',
       };
     case 'happy':
       return {
-        label: 'Güler Yüzlü',
-        shortNote: 'Sohbetten memnun, orta yolu bulmaya sıcak',
+        label: bi('Güler Yüzlü', 'Pleased'),
+        simpleLabel: bi('Mutlu', 'Happy'),
+        emoji: '😊',
+        shortNote: bi(
+          'Sohbetten memnun, orta yolu bulmaya sıcak',
+          'Happy with the chat, warm to meeting halfway'
+        ),
         tone: 'positive',
       };
     case 'calm':
       return {
-        label: 'Sakin & Ölçülü',
-        shortNote: 'Pazarlığı tartıyor, üslubun belirleyici olacak',
+        label: bi('Sakin & Ölçülü', 'Calm & Measured'),
+        simpleLabel: bi('Kararsız', 'Undecided'),
+        emoji: '🙂',
+        shortNote: bi(
+          'Pazarlığı tartıyor, üslubun belirleyici olacak',
+          'Weighing the deal — your tone will decide'
+        ),
         tone: 'neutral',
       };
     case 'thinking':
       return {
-        label: 'Tereddütlü',
-        shortNote: 'Kararsız — doğru argüman veya samimi üslup lazım',
+        label: bi('Tereddütlü', 'Hesitant'),
+        simpleLabel: bi('Kararsız', 'Undecided'),
+        emoji: '🤔',
+        shortNote: bi(
+          'Kararsız — doğru argüman veya samimi üslup lazım',
+          'Undecided — needs a solid argument or friendly tone'
+        ),
         tone: 'warning',
       };
     case 'annoyed':
       return {
-        label: 'Gergin',
-        shortNote: 'Sert veya yavaş pazarlık canını sıktı, dikkat!',
+        label: bi('Gergin', 'Annoyed'),
+        simpleLabel: bi('Sinirli', 'Angry'),
+        emoji: '😠',
+        shortNote: bi(
+          'Sert veya yavaş pazarlık canını sıktı, dikkat!',
+          'Harsh or slow haggling annoyed them — be careful!'
+        ),
         tone: 'danger',
       };
     case 'angry':
       return {
-        label: 'Öfkeli',
-        shortNote: 'Anlaşmadan kalkmak üzere!',
+        label: bi('Öfkeli', 'Furious'),
+        simpleLabel: bi('Sinirli', 'Angry'),
+        emoji: '😡',
+        shortNote: bi('Anlaşmadan kalkmak üzere!', 'About to walk out!'),
         tone: 'danger',
       };
   }
+}
+
+export interface NegotiationResistanceInfo {
+  resistancePct: number;
+  moodEmoji: string;
+  moodSimpleLabel: string;
+  moodLabel: string;
+  moodTone: 'positive' | 'neutral' | 'warning' | 'danger';
+  resistanceLabel: string;
+  resistanceTone: 'positive' | 'neutral' | 'warning' | 'danger';
+  minRounds: number;
+  roundsDone: number;
+}
+
+/**
+ * Computes a live visual customer resistance meter (0-100%) based on mood,
+ * stubbornness, remaining negotiation rounds, used Koz leverage, selected tone,
+ * and how aggressive the player's currently selected offer price is.
+ */
+export function getNegotiationResistance(
+  encounter: CustomerEncounter,
+  offerPrice: number,
+  tone: NegotiationTone
+): NegotiationResistanceInfo {
+  const moodInfo = getMoodDisplay(encounter.mood);
+  const baseRequired =
+    encounter.requiredRounds ??
+    (encounter.archetypeId === 'uncle' || encounter.archetypeId === 'hustler' ? 3 : 2);
+  const leverageSoften = encounter.usedLeverageDefects.length > 0 ? 1 : 0;
+  const moodRoundPenalty = encounter.moodScore < 42 ? 1 : 0;
+  const minRounds = Math.max(
+    2,
+    Math.min(3, baseRequired + moodRoundPenalty - leverageSoften)
+  );
+  const roundsLeft = Math.max(0, minRounds - encounter.rounds);
+
+  // Base resistance inversely linked to customer mood + stubbornness
+  let resistance = Math.round((100 - encounter.moodScore) * 0.58);
+  if (encounter.archetypeId === 'uncle' || encounter.archetypeId === 'hustler') {
+    resistance += 10;
+  }
+  resistance += roundsLeft * 11;
+  resistance -= encounter.usedLeverageDefects.length * 14;
+  if (encounter.teaServed) resistance -= 8;
+
+  // Live offer aggressiveness sensitivity
+  if (encounter.type === 'SELLER') {
+    const ratio = offerPrice / Math.max(1, encounter.customerPrice);
+    if (offerPrice >= encounter.customerPrice) {
+      resistance = Math.min(resistance, 12);
+    } else if (ratio < 0.68) {
+      resistance += 28;
+    } else if (ratio < 0.82) {
+      resistance += 15;
+    } else if (ratio >= 0.94) {
+      resistance -= 14;
+    }
+  } else {
+    const span = Math.max(1, encounter.device.askingPrice - encounter.customerPrice);
+    const firmness = (offerPrice - encounter.customerPrice) / span;
+    if (offerPrice <= encounter.customerPrice) {
+      resistance = Math.min(resistance, 12);
+    } else if (firmness > 0.85) {
+      resistance += 22;
+    } else if (firmness > 0.5) {
+      resistance += 10;
+    } else {
+      resistance -= 10;
+    }
+  }
+
+  // Tone impact on perceived resistance
+  if (tone === 'firm') resistance += 9;
+  if (tone === 'friendly') resistance -= 5;
+  if (tone === 'analytical' && encounter.usedLeverageDefects.length > 0) {
+    resistance -= 6;
+  }
+
+  const resistancePct = Math.max(8, Math.min(100, Math.round(resistance)));
+
+  const resistanceMeta: {
+    resistanceLabel: string;
+    resistanceTone: 'positive' | 'neutral' | 'warning' | 'danger';
+  } =
+    resistancePct <= 32
+      ? {
+          resistanceLabel: bi('Düşük Direnç · El Sıkışmaya Yakın', 'Low Resistance · Ready to Shake'),
+          resistanceTone: 'positive',
+        }
+      : resistancePct <= 62
+      ? {
+          resistanceLabel: bi('Orta Direnç · Karşı Teklif Gelir', 'Medium Resistance · Counter-Offer'),
+          resistanceTone: 'neutral',
+        }
+      : resistancePct <= 82
+      ? {
+          resistanceLabel: bi('Yüksek Direnç · Koz veya İkna Şart', 'High Resistance · Use Leverage'),
+          resistanceTone: 'warning',
+        }
+      : {
+          resistanceLabel: bi('Sert Duvar · Kızıp Kalkabilir!', 'Hard Wall · May Walk Out!'),
+          resistanceTone: 'danger',
+        };
+
+  return {
+    resistancePct,
+    moodEmoji: moodInfo.emoji,
+    moodSimpleLabel: moodInfo.simpleLabel,
+    moodLabel: moodInfo.label,
+    moodTone: moodInfo.tone,
+    resistanceLabel: resistanceMeta.resistanceLabel,
+    resistanceTone: resistanceMeta.resistanceTone,
+    minRounds,
+    roundsDone: encounter.rounds,
+  };
 }
 
 export function getAccessoryWholesaleCost(
@@ -520,78 +667,106 @@ export function countClaimableRewards(state: ShopState): number {
 
 export function generateDailyQuests(
   day: number,
-  upgrades: UpgradeId[]
+  upgrades: UpgradeId[],
+  level = 1
 ): DailyQuest[] {
   const pool: Omit<DailyQuest, 'id' | 'progress' | 'claimed'>[] = [
     {
       kind: 'INSPECT_FULL',
-      title: 'Detaylı Ekspertiz Uzmanı',
-      description: 'Tezgaha konulan 2 telefonun tüm 4 donanım testini eksiksiz tamamla.',
+      title: bi('Detaylı Ekspertiz Uzmanı', 'Full Inspection Specialist'),
+      description: bi(
+        'Tezgaha konulan 2 telefonun tüm 4 donanım testini eksiksiz tamamla.',
+        'Complete all 4 hardware tests on 2 phones placed on the counter.'
+      ),
       target: 2,
       reward: 1200 + day * 180,
-      xpReward: 40,
-    },
-    {
-      kind: 'USE_LEVERAGE',
-      title: 'Kartal Gözlü Pazarlıkçı',
-      description: 'Ekspertizde yakaladığın 2 gizli kusuru satıcıya karşı koz olarak kullan.',
-      target: 2,
-      reward: 1450 + day * 200,
-      xpReward: 50,
-    },
-    {
-      kind: 'SELL_PHONE',
-      title: 'Sıcak Vitrin Satışı',
-      description: 'Bugün vitrininden en az 1 cihazı alıcıyla el sıkışarak sat.',
-      target: 1,
-      reward: 1350 + day * 200,
       xpReward: 45,
     },
     {
-      kind: 'SELL_ACCESSORY',
-      title: 'Aksesuar Reyon Hareketi',
-      description: 'Tezgahta, telefon yanında çapraz satışta veya gün sonunda toplam 3 aksesuar sat.',
-      target: 3,
-      reward: 1100 + day * 160,
-      xpReward: 42,
+      kind: 'USE_LEVERAGE',
+      title: bi('Kartal Gözlü Pazarlıkçı', 'Eagle-Eyed Negotiator'),
+      description: bi(
+        'Ekspertizde yakaladığın 2 gizli kusuru satıcıya karşı koz olarak kullan.',
+        'Expose 2 hidden defects during inspection and use them as leverage.'
+      ),
+      target: 2,
+      reward: 1450 + day * 200,
+      xpReward: 55,
+    },
+    {
+      kind: 'SELL_PHONE',
+      title: bi('Sıcak Vitrin Satışı', 'Hot Showcase Sale'),
+      description: bi(
+        'Bugün vitrininden en az 1 cihazı alıcıyla el sıkışarak sat.',
+        'Close at least 1 phone sale from your showcase today.'
+      ),
+      target: 1,
+      reward: 1350 + day * 200,
+      xpReward: 50,
     },
     {
       kind: 'SERVE_TEA',
-      title: 'Pasaj Misafirperverliği',
-      description: '2 müşteriye ince belli bardakta çay ikram ederek pazarlığı yumuşat.',
+      title: bi('Pasaj Misafirperverliği', 'Arcade Hospitality'),
+      description: bi(
+        '2 müşteriye ince belli bardakta çay ikram ederek pazarlığı yumuşat.',
+        'Serve Turkish tea to 2 customers to soften negotiations.'
+      ),
       target: 2,
       reward: 1000 + day * 140,
-      xpReward: 35,
+      xpReward: 40,
     },
     {
       kind: 'BUY_BARGAIN',
-      title: 'Kelepir Avcısı',
-      description: '1 cihazı gerçek piyasa değerinin altında kapatarak kâr marjı aç.',
+      title: bi('Kelepir Avcısı', 'Bargain Hunter'),
+      description: bi(
+        '1 cihazı gerçek piyasa değerinin altında kapatarak kâr marjı aç.',
+        'Buy 1 device below its true market value for solid profit margin.'
+      ),
       target: 1,
       reward: 1600 + day * 200,
-      xpReward: 55,
+      xpReward: 60,
     },
   ];
 
-  if (upgrades.includes('repair_bench') || day >= 2) {
+  if (level >= 2) {
+    pool.push({
+      kind: 'SELL_ACCESSORY',
+      title: bi('Aksesuar Reyon Hareketi', 'Accessory Shelf Action'),
+      description: bi(
+        'Tezgahta, telefon yanında çapraz satışta veya gün sonunda toplam 3 aksesuar sat.',
+        'Sell 3 accessories via counter, phone cross-sell, or end-of-day shelf.'
+      ),
+      target: 3,
+      reward: 1100 + day * 160,
+      xpReward: 48,
+    });
+  }
+
+  if (upgrades.includes('repair_bench') || level >= 2 || day >= 2) {
     pool.push({
       kind: 'REPAIR_PHONE',
-      title: 'Mikro Tamir Mesaisi',
-      description: 'Atölye tezgahında veya acil serviste en az 1 cihaz arızasını onar.',
+      title: bi('Mikro Tamir Mesaisi', 'Micro Repair Shift'),
+      description: bi(
+        'Atölye tezgahında veya acil serviste en az 1 cihaz arızasını onar.',
+        'Repair at least 1 device defect at the workshop or express service.'
+      ),
       target: 1,
       reward: 1800 + day * 220,
       xpReward: 60,
     });
   }
 
-  if (day >= 2) {
+  if (level >= 2) {
     pool.push({
       kind: 'SELL_BRAND_NEW',
-      title: 'Sıfır Kutu Satışı',
-      description: 'Toptancıdan getirdiğin 1 adet Sıfır Kapalı Kutu telefonu müşteriye sat.',
+      title: bi('Sıfır Kutu Satışı', 'Sealed Box Sale'),
+      description: bi(
+        'Toptancıdan getirdiğin 1 adet Sıfır Kapalı Kutu telefonu müşteriye sat.',
+        'Sell 1 brand-new factory-sealed phone ordered from a distributor.'
+      ),
       target: 1,
       reward: 2100 + day * 250,
-      xpReward: 70,
+      xpReward: 75,
     });
   }
 
@@ -837,11 +1012,110 @@ export function getMultiRepairCost(
   return raw;
 }
 
+export function getTabUnlockLevel(tab: ShopTab): number {
+  switch (tab) {
+    case 'COUNTER':
+    case 'WORKSHOP':
+    case 'MISSIONS':
+      return 1;
+    case 'WHOLESALE':
+    case 'UPGRADES':
+      return 2;
+    case 'EMPIRE':
+      return 4;
+  }
+}
+
+export function getTabUnlockDay(tab: ShopTab): number {
+  return getTabUnlockLevel(tab);
+}
+
+export function isTabUnlocked(state: ShopState, tab: ShopTab): boolean {
+  if (state.allTabsUnlockedEarly) return true;
+  return state.level >= getTabUnlockLevel(tab);
+}
+
+export interface StockAgingInfo {
+  ageDays: number;
+  depreciationRatio: number;
+  label: string | null;
+  tone: 'none' | 'warning' | 'danger';
+}
+
+export function getStockAgingInfo(
+  device: PhoneDevice,
+  currentDay?: number
+): StockAgingInfo {
+  if (!currentDay || !device.dayAcquired || device.dayAcquired <= 0) {
+    return { ageDays: 0, depreciationRatio: 0, label: null, tone: 'none' };
+  }
+  const ageDays = Math.max(0, currentDay - device.dayAcquired);
+  const dUnit = bi('g', 'd');
+  // Sealed brand-new boxes hold value longer before aging
+  if (device.isBrandNew) {
+    if (ageDays >= 12) {
+      return {
+        ageDays,
+        depreciationRatio: 0.12,
+        label: bi(`Eski Seri (${ageDays}${dUnit} · -%12)`, `Old Batch (${ageDays}${dUnit} · -12%)`),
+        tone: 'danger',
+      };
+    }
+    if (ageDays >= 7) {
+      return {
+        ageDays,
+        depreciationRatio: 0.05,
+        label: bi(`Bekleyen Stok (${ageDays}${dUnit} · -%5)`, `Aging Stock (${ageDays}${dUnit} · -5%)`),
+        tone: 'warning',
+      };
+    }
+    return { ageDays, depreciationRatio: 0, label: null, tone: 'none' };
+  }
+
+  if (ageDays >= 11) {
+    return {
+      ageDays,
+      depreciationRatio: 0.2,
+      label: bi(`Eski Stok (${ageDays}${dUnit} · -%20)`, `Old Stock (${ageDays}${dUnit} · -20%)`),
+      tone: 'danger',
+    };
+  }
+  if (ageDays >= 7) {
+    return {
+      ageDays,
+      depreciationRatio: 0.12,
+      label: bi(`Eski Stok (${ageDays}${dUnit} · -%12)`, `Old Stock (${ageDays}${dUnit} · -12%)`),
+      tone: 'warning',
+    };
+  }
+  if (ageDays >= 4) {
+    return {
+      ageDays,
+      depreciationRatio: 0.05,
+      label: bi(`Bekleyen Stok (${ageDays}${dUnit} · -%5)`, `Aging Stock (${ageDays}${dUnit} · -5%)`),
+      tone: 'warning',
+    };
+  }
+  return { ageDays, depreciationRatio: 0, label: null, tone: 'none' };
+}
+
+export function getScrapSaleValue(
+  device: PhoneDevice,
+  dailyNews?: DailyMarketEvent,
+  upgrades?: UpgradeId[],
+  currentDay?: number
+): number {
+  const currentMarket = calculateMarketValue(device, false, dailyNews, upgrades, currentDay);
+  // Parts/wholesale liquidator buys immediately at 68% of current as-is value (minimum 900 TL)
+  return roundPrice(Math.max(900, currentMarket * 0.68));
+}
+
 export function calculateMarketValue(
   device: PhoneDevice,
   onlyInspected = false,
   dailyNews?: DailyMarketEvent,
-  upgrades?: UpgradeId[]
+  upgrades?: UpgradeId[],
+  currentDay?: number
 ): number {
   let penalty = 0;
   let visibleDefectCount = 0;
@@ -902,6 +1176,14 @@ export function calculateMarketValue(
       ) {
         val *= dailyNews.overseasImeiMultiplier;
       }
+    }
+  }
+
+  // Stock aging depreciation when sitting unsold for 4+ days
+  if (currentDay) {
+    const aging = getStockAgingInfo(device, currentDay);
+    if (aging.depreciationRatio > 0) {
+      val *= 1 - aging.depreciationRatio;
     }
   }
 
@@ -1022,16 +1304,23 @@ export function evaluatePostPurchaseSurprise(
     };
   }
 
-  // 2. Subtle, realistic micro-scam / overlooked shop-floor surprise (fair & rare!)
+  // 2. Skill-rewarding post-purchase risk:
+  // Full 4/4 inspection drastically cuts surprise risk (~3-6%), whereas rushing with skipped tests raises exposure.
+  const allInspected =
+    device.inspected.screen &&
+    device.inspected.battery &&
+    device.inspected.imei &&
+    device.inspected.hardware;
+
   const baseRisk =
     archetypeId === 'hustler'
-      ? 0.13
+      ? allInspected ? 0.06 : 0.28
       : archetypeId === 'uncle'
-      ? 0.06
+      ? allInspected ? 0.03 : 0.14
       : archetypeId === 'vip'
-      ? 0.02
-      : 0.045;
-  const diagFactor = upgrades.includes('pro_diagnostic') ? 0.5 : 1.0;
+      ? 0.015
+      : allInspected ? 0.025 : 0.12;
+  const diagFactor = upgrades.includes('pro_diagnostic') ? 0.45 : 1.0;
   const legacyFactor = legacyPath === 'EX_APPRENTICE' ? 0.65 : 1.0;
   const finalRisk = baseRisk * diagFactor * legacyFactor;
 
@@ -1112,7 +1401,7 @@ export function evaluatePostPurchaseSurprise(
 }
 
 export interface ConditionInfo {
-  label: 'Hurda' | 'Hasarlı' | 'İdare Eder' | 'Temiz' | 'Sıfır Ayarında' | 'Sıfır · Kapalı Kutu';
+  label: string;
   score: number;
   tone: 'danger' | 'warning' | 'neutral' | 'positive';
 }
@@ -1126,7 +1415,7 @@ export function getConditionInfo(
     : device.defects;
 
   if (device.isBrandNew && relevantDefects.length === 0) {
-    return { label: 'Sıfır · Kapalı Kutu', score: 100, tone: 'positive' };
+    return { label: bi('Sıfır · Kapalı Kutu', 'Brand New · Sealed'), score: 100, tone: 'positive' };
   }
   const totalPenalty = relevantDefects.reduce(
     (sum, d) => sum + DEFECT_CATALOG[d].valuePenaltyRatio,
@@ -1135,18 +1424,18 @@ export function getConditionInfo(
   const score = Math.max(15, Math.min(100, Math.round((1 - totalPenalty) * 100)));
 
   if (relevantDefects.length === 0 && device.hasBoxAndCharger) {
-    return { label: 'Sıfır Ayarında', score: 98, tone: 'positive' };
+    return { label: bi('Sıfır Ayarında', 'Mint Condition'), score: 98, tone: 'positive' };
   }
   if (relevantDefects.length === 0) {
-    return { label: 'Temiz', score: 90, tone: 'positive' };
+    return { label: bi('Temiz', 'Clean'), score: 90, tone: 'positive' };
   }
   if (score >= 76) {
-    return { label: 'İdare Eder', score, tone: 'neutral' };
+    return { label: bi('İdare Eder', 'Fair'), score, tone: 'neutral' };
   }
   if (score >= 54) {
-    return { label: 'Hasarlı', score, tone: 'warning' };
+    return { label: bi('Hasarlı', 'Damaged'), score, tone: 'warning' };
   }
-  return { label: 'Hurda', score, tone: 'danger' };
+  return { label: bi('Hurda', 'Scrap'), score, tone: 'danger' };
 }
 
 export function getDiscoveredDefects(device: PhoneDevice): DefectId[] {
@@ -1157,10 +1446,10 @@ export function getPatienceLabel(patience: number): {
   text: string;
   tone: 'positive' | 'warning' | 'danger';
 } {
-  if (patience >= 65) return { text: 'Rahat', tone: 'positive' };
-  if (patience >= 35) return { text: 'Tereddütlü', tone: 'warning' };
-  if (patience > 0) return { text: 'Kalkmak Üzere', tone: 'danger' };
-  return { text: 'Masadan Kalktı', tone: 'danger' };
+  if (patience >= 65) return { text: bi('Rahat', 'Relaxed'), tone: 'positive' };
+  if (patience >= 35) return { text: bi('Tereddütlü', 'Hesitant'), tone: 'warning' };
+  if (patience > 0) return { text: bi('Kalkmak Üzere', 'Losing Patience'), tone: 'danger' };
+  return { text: bi('Masadan Kalktı', 'Walked Out'), tone: 'danger' };
 }
 
 export function getListingDemand(
@@ -1176,22 +1465,31 @@ export function getListingDemand(
   const ratio = device.askingPrice / fair;
   if (ratio <= 1.04) {
     return {
-      label: 'Hızlı Satış',
+      label: bi('Hızlı Satış', 'Fast Sale'),
       tone: 'positive',
-      hint: 'Müşteriler kapışır, etikete yakın fiyattan kolay el sıkışır.',
+      hint: bi(
+        'Müşteriler kapışır, etikete yakın fiyattan kolay el sıkışır.',
+        'High demand — buyers shake hands near asking price.'
+      ),
     };
   }
   if (ratio <= 1.2) {
     return {
-      label: 'İdeal Kâr',
+      label: bi('İdeal Kâr', 'Sweet Spot'),
       tone: 'warning',
-      hint: 'Tatlı bir esnaf kârı, dengeli indirim pazarlığı yapılır.',
+      hint: bi(
+        'Tatlı bir esnaf kârı, dengeli indirim pazarlığı yapılır.',
+        'Healthy retail margin with balanced haggling.'
+      ),
     };
   }
   return {
-    label: 'Yüksek Etiket',
+    label: bi('Yüksek Etiket', 'High Tag'),
     tone: 'danger',
-    hint: 'Alıcılar fiyatı pahalı bulup sert indirim isteyebilir.',
+    hint: bi(
+      'Alıcılar fiyatı pahalı bulup sert indirim isteyebilir.',
+      'Buyers may find it steep and demand heavy discounts.'
+    ),
   };
 }
 
@@ -1292,6 +1590,33 @@ export function generatePhoneDevice(
       ? 4 + Math.floor(Math.random() * 16)
       : 0;
 
+  // Generate seller's verbal claim (detective inspection hook!):
+  // If defects exist, sneaky sellers often lie directly about one of the defective categories.
+  let sellerClaim: string | undefined;
+  let sellerClaimCategory: InspectionCategory | undefined;
+  const allCategories: InspectionCategory[] = ['screen', 'battery', 'imei', 'hardware'];
+  const defectiveCategories = Array.from(
+    new Set(chosen.map((d) => DEFECT_CATALOG[d].category))
+  );
+  const cleanCategories = allCategories.filter((c) => !defectiveCategories.includes(c));
+
+  const lieProbability =
+    archetypeId === 'hustler'
+      ? 0.88
+      : archetypeId === 'uncle'
+      ? 0.68
+      : archetypeId === 'student'
+      ? 0.55
+      : 0.45;
+
+  if (defectiveCategories.length > 0 && Math.random() < lieProbability) {
+    sellerClaimCategory = pick(defectiveCategories);
+    sellerClaim = pick(SELLER_CLAIM_LINES[sellerClaimCategory].lie);
+  } else if (cleanCategories.length > 0) {
+    sellerClaimCategory = pick(cleanCategories);
+    sellerClaim = pick(SELLER_CLAIM_LINES[sellerClaimCategory].truth);
+  }
+
   return {
     uid: makeId('phone'),
     specId: spec.id,
@@ -1324,6 +1649,9 @@ export function generatePhoneDevice(
     hasBoxAndCharger: !chosen.includes('cosmetic_worn') && Math.random() < 0.55,
     masterCrafted: false,
     isBrandNew: false,
+    sellerClaim,
+    sellerClaimCategory,
+    dayAcquired: day,
   };
 }
 
@@ -1907,7 +2235,9 @@ export function createDataRecoveryEncounter(state: ShopState): CustomerEncounter
 export function createAccessoryBuyerEncounter(
   state: ShopState
 ): CustomerEncounter | null {
-  const available = Object.values(state.accessories).filter((a) => a.quantity > 0);
+  const available = Object.values(state.accessories).filter(
+    (a) => a.quantity > 0 && isAccessoryUnlocked(a.id, state.level)
+  );
   if (available.length === 0) return null;
 
   const archetypeId = pick([
@@ -2105,7 +2435,9 @@ export function createBulkAuctionEncounter(state: ShopState): CustomerEncounter 
 
 export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
   const extraByLevel = (state.level >= 6 ? 1 : 0) + (state.level >= 10 ? 1 : 0);
-  const queueSize = SHOP_TIERS[state.shopTier].dailyCustomers + extraByLevel; // 12 to 22 daily customers!
+  const isDay1Guided = state.day === 1 && !state.allTabsUnlockedEarly;
+  const baseQueueSize = SHOP_TIERS[state.shopTier].dailyCustomers + extraByLevel; // 12 to 22 daily customers!
+  const queueSize = isDay1Guided ? Math.min(8, baseQueueSize) : baseQueueSize;
   const listedPhones = state.inventory.filter((d) => d.listedForSale && !d.assignedToStaff);
   const usedBuyerPhoneIds = new Set<string>();
   const queue: CustomerEncounter[] = [];
@@ -2113,8 +2445,30 @@ export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
   const hasRepairBench = state.upgrades.includes('repair_bench');
   const hasAccessoryStock = getTotalAccessoryStock(state.accessories) > 0;
 
-  // 1. Optional Warranty Claim (1 max per day if applicable)
-  if (state.day >= 2) {
+  if (isDay1Guided) {
+    // Focused Day 1 onboarding pace: core Buy/Inspect + Sell + 1 easy Accessory retail customer
+    // First customer is always a Seller so the player immediately practices detective inspection & haggling!
+    const firstSeller = createSellerEncounter(state);
+    if (listedPhones.length > 0) {
+      usedBuyerPhoneIds.add(listedPhones[0].uid);
+      queue.push(createBuyerEncounter(state, listedPhones[0]));
+    }
+    if (hasAccessoryStock) {
+      const accEnc = createAccessoryBuyerEncounter(state);
+      if (accEnc) queue.push(accEnc);
+    }
+    while (queue.length < queueSize - 1) {
+      if (listedPhones.length > 0 && Math.random() < 0.35) {
+        queue.push(createBuyerEncounter(state, pick(listedPhones)));
+      } else {
+        queue.push(createSellerEncounter(state));
+      }
+    }
+    return [firstSeller, ...shuffleArray(queue)].slice(0, queueSize);
+  }
+
+  // 1. Optional Warranty Claim (1 max per day from Day 3+)
+  if (state.day >= 3) {
     const warEnc = createWarrantyClaimEncounter(state);
     if (warEnc) queue.push(warEnc);
   }
@@ -2128,17 +2482,17 @@ export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
     }
   }
 
-  // 3. Express Repairs & Data Recovery & Bulk Auctions (2-3 varied service/special encounters)
-  if (hasRepairBench || state.staff.includes('master_tech')) {
+  // 3. Express Repairs & Data Recovery & Bulk Auctions (progressive from Day 2-3+)
+  if (state.day >= 2 && (hasRepairBench || state.staff.includes('master_tech'))) {
     const repairCount = state.shopTier >= 3 ? 2 : 1;
     for (let r = 0; r < repairCount; r++) {
       queue.push(createExpressRepairEncounter(state));
     }
   }
-  if (state.day >= 2 || Math.random() < 0.65) {
+  if (state.day >= 2 && Math.random() < 0.7) {
     queue.push(createDataRecoveryEncounter(state));
   }
-  if (state.day >= 2 && state.cash >= 6500 && Math.random() < 0.65) {
+  if (state.day >= 3 && state.cash >= 6500 && Math.random() < 0.65) {
     queue.push(createBulkAuctionEncounter(state));
   }
 
@@ -2154,7 +2508,7 @@ export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
     if (availableListed.length > 0 && Math.random() < buyerChance) {
       const target = pick(availableListed);
       usedBuyerPhoneIds.add(target.uid);
-      if (tradeInCount < maxTradeIns && target.baseValue >= 9000 && Math.random() < 0.35) {
+      if (state.day >= 2 && tradeInCount < maxTradeIns && target.baseValue >= 9000 && Math.random() < 0.35) {
         tradeInCount += 1;
         queue.push(createTradeInEncounter(state, target));
       } else {
@@ -2868,6 +3222,7 @@ export function simulateEndOfDayAccessorySales(state: ShopState): {
     (state.level >= 4 ? 1.2 : 1.0);
 
   for (const spec of ACCESSORY_CATALOG) {
+    if (!isAccessoryUnlocked(spec.id, state.level)) continue;
     const stock = updated[spec.id];
     if (!stock || stock.quantity <= 0) continue;
 
@@ -2904,7 +3259,10 @@ export function simulateEndOfDayAccessorySales(state: ShopState): {
     profit,
     note:
       unitsSold > 0
-        ? `Gün boyunca reyon vitrininden ${unitsSold} aksesuar satıldı (+${formatTRY(revenue)}).`
+        ? bi(
+            `Gün boyunca reyon vitrininden ${unitsSold} aksesuar satıldı (+${formatTRY(revenue)}).`,
+            `${unitsSold} accessories sold from the display shelf today (+${formatTRY(revenue)}).`
+          )
         : undefined,
   };
 }
@@ -3007,6 +3365,7 @@ export function createInitialShopState(): ShopState {
     hasBoxAndCharger: true,
     masterCrafted: false,
     isBrandNew: false,
+    dayAcquired: 1,
   };
 
   const day1News = pickDailyNewspaper(1);
@@ -3069,7 +3428,7 @@ export function createInitialShopState(): ShopState {
     lastSavedAt: Date.now(),
     dailyNews: day1News,
     dailyWholesaleDiscountBrand: pickDailyWholesaleDiscountBrand(1),
-    dailyQuests: generateDailyQuests(1, []),
+    dailyQuests: generateDailyQuests(1, [], 1),
     claimedMilestoneIds: [],
     claimedChapterIds: [],
     discoveredSpecIds: [starterSpec.id],
@@ -3088,6 +3447,11 @@ export function createInitialShopState(): ShopState {
     totalTradeInsDone: 0,
     totalAuctionsWon: 0,
     bestSingleDealProfit: 0,
+    unlockedAchievementIds: [],
+    unlockedEarningsBadges: [],
+    tutorialDismissed: false,
+    allTabsUnlockedEarly: false,
+    ambientSoundEnabled: false,
     storyIntroSeen: false,
     endlessMode: false,
   };
@@ -3940,30 +4304,48 @@ export function applyDefectLeverage(
   }
 
   const def = DEFECT_CATALOG[defectId];
+  const targetDevice =
+    encounter.type === 'TRADE_IN' && encounter.tradeInDevice
+      ? encounter.tradeInDevice
+      : encounter.device;
+  // Detective lie-catch bonus: defect directly contradicts seller's verbal claim!
+  const caughtLying =
+    Boolean(targetDevice.sellerClaim) &&
+    targetDevice.sellerClaimCategory === def.category;
+
   const isSevereCatch =
+    caughtLying ||
     defectId === 'imei_unregistered' ||
     defectId === 'battery_fake_chip' ||
     defectId === 'liquid_damage' ||
     defectId === 'screen_aftermarket';
 
-  const moodHit = isSevereCatch ? 11 : 7;
-  const rawPatienceHit = isSevereCatch ? 8 : 5;
+  const moodHit = caughtLying ? 12 : isSevereCatch ? 11 : 7;
+  const rawPatienceHit = caughtLying ? 0 : isSevereCatch ? 8 : 5;
   const patienceHit =
-    equippedOutfit === 'tech_esd_coat' ? Math.max(2, Math.round(rawPatienceHit * 0.5)) : rawPatienceHit;
+    caughtLying
+      ? 0
+      : equippedOutfit === 'tech_esd_coat'
+      ? Math.max(2, Math.round(rawPatienceHit * 0.5))
+      : rawPatienceHit;
   const nextMoodScore = Math.max(18, encounter.moodScore - moodHit);
-  const nextHeat = Math.min(100, (encounter.negotiationHeat ?? 15) + (isSevereCatch ? 24 : 15));
-  const reactionText = pick(
-    (isSevereCatch ? SEVERE_LEVERAGE_REACTIONS : LEVERAGE_REACTIONS)[encounter.archetypeId]
+  const nextHeat = Math.min(100, (encounter.negotiationHeat ?? 15) + (caughtLying ? 30 : isSevereCatch ? 24 : 15));
+  const reactionText = caughtLying
+    ? 'Eyvah... tamam usta yakaladın, lafımı geri alıyorum! Bu cihazda senin dediğin çıktı.'
+    : pick(
+        (isSevereCatch ? SEVERE_LEVERAGE_REACTIONS : LEVERAGE_REACTIONS)[encounter.archetypeId]
+      );
+
+  // Strong Koz breaks stubbornness — softens requiredRounds down to minimum 1 if caught lying, else 2
+  const softenedRequiredRounds = Math.max(
+    caughtLying ? 1 : 2,
+    (encounter.requiredRounds ?? 2) - 1
   );
 
-  // Strong Koz breaks stubbornness — softens requiredRounds down to minimum 2
-  const softenedRequiredRounds = Math.max(2, (encounter.requiredRounds ?? 2) - 1);
-
   if (encounter.type === 'TRADE_IN') {
-    // Exposing a defect on their trade-in phone SHARPLY raises the cash difference they must pay you!
     const cap = Math.max(encounter.customerPrice, encounter.device.askingPrice - 500);
-    const tradeBoostMult = isSevereCatch ? 1.4 : 1.22;
-    const minJump = isSevereCatch ? 1000 : 500;
+    const tradeBoostMult = caughtLying ? 1.75 : isSevereCatch ? 1.4 : 1.22;
+    const minJump = caughtLying ? 1500 : isSevereCatch ? 1000 : 500;
     const rawNextCash = Math.max(
       encounter.customerPrice + minJump,
       encounter.customerPrice * (1 + def.leverageDropRatio * tradeBoostMult)
@@ -3974,7 +4356,7 @@ export function applyDefectLeverage(
       roundPrice(
         Math.max(
           nextCashOffer + 500,
-          encounter.secretLimit * (1 + def.leverageDropRatio * (isSevereCatch ? 1.05 : 0.85))
+          encounter.secretLimit * (1 + def.leverageDropRatio * (caughtLying ? 1.25 : isSevereCatch ? 1.05 : 0.85))
         )
       )
     );
@@ -3990,13 +4372,17 @@ export function applyDefectLeverage(
       patience: Math.max(12, encounter.patience - patienceHit),
       moodScore: nextMoodScore,
       mood: deriveMoodFromScore(nextMoodScore),
-      lastMoodReason: `Güçlü Takas Kozu: ${def.shortLabel} (+${formatTRY(gainedDiff)} fark)`,
+      lastMoodReason: caughtLying
+        ? `YALAN YAKALANDI: ${def.shortLabel} (+${formatTRY(gainedDiff)} · 0 Sabır Kaybı!)`
+        : `Güçlü Takas Kozu: ${def.shortLabel} (+${formatTRY(gainedDiff)} fark)`,
       messages: [
         ...encounter.messages,
         {
           id: makeId('msg'),
           speaker: 'player',
-          text: `Takasa getirdiğin cihazda ciddi sorun yakaladım: ${def.leverageLine}`,
+          text: caughtLying
+            ? `Az önce "${targetDevice.sellerClaim}" demiştin ama testte ${def.shortLabel} çıktı! ${def.leverageLine}`
+            : `Takasa getirdiğin cihazda ciddi sorun yakaladım: ${def.leverageLine}`,
         },
         {
           id: makeId('msg'),
@@ -4008,15 +4394,18 @@ export function applyDefectLeverage(
     };
   }
 
-  // SELLER: Dramatic Koz price drop + meaningful secretLimit drop!
-  const dropMult = isSevereCatch ? 1.42 : 1.25;
-  const minDrop = isSevereCatch ? 1000 : 500;
+  // SELLER: Dramatic Koz price drop + extra-heavy penalty when catching a verbal lie!
+  const dropMult = caughtLying ? 1.8 : isSevereCatch ? 1.42 : 1.25;
+  const minDrop = caughtLying ? 1500 : isSevereCatch ? 1000 : 500;
   const rawNextAsk = Math.min(
     encounter.customerPrice - minDrop,
     encounter.customerPrice * (1 - def.leverageDropRatio * dropMult)
   );
   const nextAsk = roundPrice(Math.max(1000, rawNextAsk));
-  const limitDropRatio = Math.min(0.45, def.leverageDropRatio * (isSevereCatch ? 1.0 : 0.82));
+  const limitDropRatio = Math.min(
+    0.55,
+    def.leverageDropRatio * (caughtLying ? 1.28 : isSevereCatch ? 1.0 : 0.82)
+  );
   const nextLimit = roundPrice(
     Math.max(
       900,
@@ -4035,10 +4424,18 @@ export function applyDefectLeverage(
     patience: Math.max(12, encounter.patience - patienceHit),
     moodScore: nextMoodScore,
     mood: deriveMoodFromScore(nextMoodScore),
-    lastMoodReason: `${isSevereCatch ? 'Ağır Koz' : 'Kusur Kozu'}: ${def.shortLabel} (-${formatTRY(droppedAmount)})`,
+    lastMoodReason: caughtLying
+      ? `YALAN YAKALANDI: ${def.shortLabel} (-${formatTRY(droppedAmount)} · 0 Sabır Kaybı!)`
+      : `${isSevereCatch ? 'Ağır Koz' : 'Kusur Kozu'}: ${def.shortLabel} (-${formatTRY(droppedAmount)})`,
     messages: [
       ...encounter.messages,
-      { id: makeId('msg'), speaker: 'player', text: def.leverageLine },
+      {
+        id: makeId('msg'),
+        speaker: 'player',
+        text: caughtLying
+          ? `Hani "${targetDevice.sellerClaim}" demiştin? Testte ${def.shortLabel} çıktı! ${def.leverageLine}`
+          : def.leverageLine,
+      },
       {
         id: makeId('msg'),
         speaker: 'customer',
@@ -4525,7 +4922,7 @@ export function loadShopState(): ShopState | null {
       parsed.dailyQuests.length > 0 &&
       'description' in parsed.dailyQuests[0]
         ? parsed.dailyQuests
-        : generateDailyQuests(day, upgrades);
+        : generateDailyQuests(day, upgrades, level);
 
     const todayStr = getTodayDateString();
     const prevDateStr = parsed.lastLoginDateStr ?? todayStr;
@@ -4675,6 +5072,15 @@ export function loadShopState(): ShopState | null {
       totalTradeInsDone: parsed.totalTradeInsDone ?? 0,
       totalAuctionsWon: parsed.totalAuctionsWon ?? 0,
       bestSingleDealProfit: parsed.bestSingleDealProfit ?? 0,
+      unlockedAchievementIds: Array.isArray(parsed.unlockedAchievementIds)
+        ? parsed.unlockedAchievementIds
+        : undefined,
+      unlockedEarningsBadges: Array.isArray(parsed.unlockedEarningsBadges)
+        ? parsed.unlockedEarningsBadges
+        : undefined,
+      tutorialDismissed: parsed.tutorialDismissed ?? day > 1,
+      allTabsUnlockedEarly: parsed.allTabsUnlockedEarly ?? day >= 4,
+      ambientSoundEnabled: parsed.ambientSoundEnabled ?? false,
       storyIntroSeen: parsed.storyIntroSeen ?? true,
       endlessMode: parsed.endlessMode ?? false,
     };

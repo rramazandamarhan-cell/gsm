@@ -212,6 +212,48 @@ input[type="range"].pasaj-slider::-moz-range-thumb {
   body,
   #root {
     height: 100dvh;
+    overflow: hidden;
     overscroll-behavior: none;
   }
 }
+
+/* Native Mobile Landscape Viewport Scaling:
+   Phones in landscape are wide (~740-940px) but very short (~340-430px).
+   Tightening root rem cleanly fits every workbench, card, grid & control on screen with zero vertical scroll! */
+@media (max-height: 540px) and (orientation: landscape) {
+  html {
+    font-size: 11px;
+  }
+}
+
+@media (max-height: 430px) and (orientation: landscape) {
+  html {
+    font-size: 9.8px;
+  }
+
+  input[type="range"].pasaj-slider::-webkit-slider-runnable-track {
+    height: 6px;
+  }
+
+  input[type="range"].pasaj-slider::-webkit-slider-thumb {
+    height: 16px;
+    width: 16px;
+    margin-top: -5px;
+  }
+
+  input[type="range"].pasaj-slider::-moz-range-track {
+    height: 6px;
+  }
+
+  input[type="range"].pasaj-slider::-moz-range-thumb {
+    height: 16px;
+    width: 16px;
+  }
+}
+
+@media (max-height: 370px) and (orientation: landscape) {
+  html {
+    font-size: 9px;
+  }
+}
+

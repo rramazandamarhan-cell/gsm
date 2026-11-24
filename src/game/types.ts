@@ -105,6 +105,12 @@ export interface PhoneDevice {
   assignedToStaff?: boolean;
   /** Subtle overlooked defect or micro-scam note revealed after purchasing */
   surpriseNote?: string;
+  /** Seller's verbal claim about the phone (can be truthful or a catchable lie!) */
+  sellerClaim?: string;
+  /** Which inspection category verifies or exposes the seller's verbal claim */
+  sellerClaimCategory?: InspectionCategory;
+  /** In-game day this phone entered the shop inventory (used for stock aging depreciation) */
+  dayAcquired?: number;
 }
 
 export type AccessoryId =
@@ -122,6 +128,7 @@ export interface AccessorySpec {
   name: string;
   category: string;
   shelfGroup: AccessoryShelfGroup;
+  minLevel: number;
   wholesaleCost: number;
   recommendedPrice: number;
   minPrice: number;
@@ -851,6 +858,13 @@ export interface ShopState {
   totalTradeInsDone: number;
   totalAuctionsWon: number;
   bestSingleDealProfit: number;
+  unlockedAchievementIds?: string[];
+  unlockedEarningsBadges?: string[];
+  /** Onboarding & progressive unlock flags */
+  tutorialDismissed?: boolean;
+  allTabsUnlockedEarly?: boolean;
+  /** Optional subtle warm shop background ambience audio */
+  ambientSoundEnabled?: boolean;
   storyIntroSeen: boolean;
   endlessMode: boolean;
 }
@@ -859,4 +873,13 @@ export interface FloatingFeedback {
   id: string;
   text: string;
   tone: 'positive' | 'negative' | 'amber';
+}
+
+export interface AchievementBadgeNotification {
+  id: string;
+  kicker: string;
+  title: string;
+  subtitle: string;
+  accent: 'gold' | 'emerald' | 'amber' | 'sky';
+  icon: 'trophy' | 'coins' | 'flame' | 'gavel';
 }
