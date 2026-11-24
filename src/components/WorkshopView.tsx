@@ -1,47 +1,68 @@
 import React, { useEffect, useState } from 'react';
 import {
   Award,
+  Check,
+  Clock,
+  Layers,
   Lock,
   PackagePlus,
-  Palette,
   ShieldCheck,
+  ShoppingBag,
   Store,
+  UserCog,
   Wrench,
   Zap,
 } from 'lucide-react';
-import { CUSTOM_MODS, CUSTOM_MOD_LIST, DEFECT_CATALOG } from '../game/catalog';
+import {
+  ACCESSORY_CATALOG,
+  DEFECT_CATALOG,
+  SHOWCASE_UPGRADE_MAX_LEVEL,
+} from '../game/catalog';
 import {
   calculateMarketValue,
+  calculateMasterDelegateCost,
   formatTRY,
   getConditionInfo,
   getListingDemand,
+  getMasterTechSpecs,
+  getMultiRepairCost,
   getRepairCost,
   getShowcaseCapacity,
   roundPrice,
 } from '../game/engine';
 import {
-  CustomModId,
+  AccessoryId,
+  AccessoryStockItem,
   DailyMarketEvent,
   DefectId,
   LegacyPathId,
   PhoneDevice,
   ShopTier,
+  StaffId,
+  StaffRepairJob,
   UpgradeId,
 } from '../game/types';
 import { PhoneInspectSVG } from './PhoneInspectSVG';
+import { AccessoryProductArt } from './VisualShowcaseArt';
 
 interface WorkshopViewProps {
   inventory: PhoneDevice[];
+  accessories: Record<AccessoryId, AccessoryStockItem>;
   cash: number;
   shopTier: ShopTier;
+  showcaseUpgradeLevel: number;
   shopLevel: number;
   legacyPath: LegacyPathId;
   upgrades: UpgradeId[];
+  hiredStaff: StaffId[];
+  staffLevels: Record<StaffId, number>;
+  staffRepairQueue: StaffRepairJob[];
   dailyNews: DailyMarketEvent;
-  onQuickRepairDefect: (phoneUid: string, defectId: DefectId, external: boolean) => void;
-  onStartMiniRepair: (phone: PhoneDevice, defectId: DefectId, cost: number) => void;
+  onQuickRepairDefects: (phoneUid: string, defectIds: DefectId[], external: boolean) => void;
+  onStartMiniRepair: (phone: PhoneDevice, defectIds: DefectId[], cost: number) => void;
+  onDelegateRepairToMaster: (phoneUid: string, defectIds: DefectId[]) => void;
   onAddBoxKit: (phoneUid: string) => void;
-  onApplyCustomMod: (phoneUid: string, modId: CustomModId) => void;
+  onAttachAccessoryBundle: (phoneUid: string, accessoryId: AccessoryId) => void;
   onUpdateListing: (phoneUid: string, listed: boolean, askingPrice: number) => void;
   onBackToCounter: () => void;
   onGoToUpgrades: () => void;
@@ -51,16 +72,22 @@ export const BOX_KIT_COST = 600;
 
 export const WorkshopView: React.FC<WorkshopViewProps> = ({
   inventory,
+  accessories,
   cash,
   shopTier,
+  showcaseUpgradeLevel,
   shopLevel,
   legacyPath,
   upgrades,
+  hiredStaff,
+  staffLevels,
+  staffRepairQueue,
   dailyNews,
-  onQuickRepairDefect,
+  onQuickRepairDefects,
   onStartMiniRepair,
+  onDelegateRepairToMaster,
   onAddBoxKit,
-  onApplyCustomMod,
+  onAttachAccessoryBundle,
   onUpdateListing,
   onBackToCounter,
   onGoToUpgrades,
@@ -82,9 +109,14 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
 
   const selectedPhone = inventory.find((p) => p.uid === selectedUid) ?? null;
   const listedCount = inventory.filter((p) => p.listedForSale).length;
-  const showcaseCap = getShowcaseCapacity(shopTier, upgrades);
+  const showcaseCap = getShowcaseCapacity(shopTier, upgrades, showcaseUpgradeLevel);
   const hasOwnBench = upgrades.includes('repair_bench');
   const hasWholesale = upgrades.includes('parts_wholesale');
+  const hasMasterTech = hiredStaff.includes('master_tech');
+  const masterLevel = staffLevels?.master_tech ?? 1;
+  const masterSpecs = getMasterTechSpecs(masterLevel, upgrades);
+  const canDelegateSlot =
+    hasMasterTech && staffRepairQueue.length < masterSpecs.maxParallelJobs;
 
   if (inventory.length === 0) {
     return (
@@ -94,7 +126,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           Atölye ve Vitrin Şu An Boş
         </h2>
         <p className="text-sm text-slate-400 max-w-md mb-6">
-          Tezgaha dönüp satıcılardan kelepir telefonlar satın al; burada tamir edip vitrine çıkardığında alıcılar sıraya girecek.
+          Tezgaha dönüp satıcılardan kelepir telefonlar satın al; burada tüm arızaları tek seferde onarıp aksesuar kombiniyle vitrine çıkardığında alıcılar sıraya girecek.
         </p>
         <button
           type="button"
@@ -108,7 +140,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   }
 
   const fairValue = selectedPhone
-    ? calculateMarketValue(selectedPhone, false, dailyNews)
+    ? calculateMarketValue(selectedPhone, false, dailyNews, upgrades)
     : 0;
   const condition = selectedPhone ? getConditionInfo(selectedPhone) : null;
   const currentAsk =
@@ -117,7 +149,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
       : roundPrice(fairValue * 1.15);
 
   const demand = selectedPhone
-    ? getListingDemand({ ...selectedPhone, askingPrice: currentAsk }, dailyNews)
+    ? getListingDemand({ ...selectedPhone, askingPrice: currentAsk }, dailyNews, upgrades)
     : null;
   const totalCost = selectedPhone
     ? selectedPhone.purchasePrice + selectedPhone.repairSpend
@@ -126,10 +158,43 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   const canListMore = selectedPhone?.listedForSale || listedCount < showcaseCap;
   const boxKitPrice = hasWholesale ? 420 : BOX_KIT_COST;
 
-  const handleQuickRepair = (defectId: DefectId) => {
-    if (!selectedPhone) return;
+  const repairableDefects = selectedPhone
+    ? selectedPhone.defects.filter((d) => DEFECT_CATALOG[d].repairable)
+    : [];
+  const backZoneDefects = repairableDefects.filter(
+    (d) => DEFECT_CATALOG[d].zone === 'back'
+  );
+  const allRepairCost =
+    repairableDefects.length > 0
+      ? getMultiRepairCost(
+          repairableDefects,
+          upgrades,
+          dailyNews,
+          !hasOwnBench,
+          shopLevel,
+          legacyPath
+        )
+      : 0;
+  const backZoneCost =
+    backZoneDefects.length > 1
+      ? getMultiRepairCost(
+          backZoneDefects,
+          upgrades,
+          dailyNews,
+          !hasOwnBench,
+          shopLevel,
+          legacyPath
+        )
+      : 0;
+  const masterDelegateCost =
+    repairableDefects.length > 0
+      ? calculateMasterDelegateCost(allRepairCost, masterLevel, upgrades)
+      : 0;
+
+  const handleQuickMulti = (ids: DefectId[]) => {
+    if (!selectedPhone || ids.length === 0) return;
     setFlashKey((k) => k + 1);
-    onQuickRepairDefect(selectedPhone.uid, defectId, !hasOwnBench);
+    onQuickRepairDefects(selectedPhone.uid, ids, !hasOwnBench);
   };
 
   const handleBoxClick = () => {
@@ -139,23 +204,76 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-y-auto lg:overflow-hidden">
-      {/* LEFT: INVENTORY & SHOWCASE LIST */}
-      <aside className="lg:col-span-4 flex flex-col min-h-0 rounded-2xl border border-white/10 bg-[#161E29] overflow-hidden">
-        <div className="px-4 py-3.5 border-b border-white/8 flex items-center justify-between shrink-0">
-          <h2 className="font-display text-base font-bold text-slate-100">
-            Stok & Vitrin ({inventory.length})
-          </h2>
-          <span className="text-xs text-slate-400 tabular-nums">
-            Vitrin <strong className="text-amber-400">{listedCount}/{showcaseCap}</strong>
-          </span>
+    <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-12 gap-2.5 lg:gap-4 safe-px py-2 lg:p-4 overflow-y-auto sm:overflow-hidden pasaj-scroll">
+      {/* LEFT: INVENTORY, SHOWCASE & HASAN USTA QUEUE */}
+      <aside className="sm:col-span-4 flex flex-col sm:min-h-0 sm:h-full rounded-xl lg:rounded-2xl border border-white/10 bg-[#161E29] sm:overflow-hidden">
+        <div className="px-3 py-2 lg:px-4 lg:py-3 border-b border-white/8 flex items-center justify-between gap-2 shrink-0">
+          <div>
+            <h2 className="font-display text-base font-bold text-slate-100">
+              Stok & Vitrin ({inventory.length})
+            </h2>
+            <div className="text-[11px] text-slate-400 tabular-nums">
+              Vitrin Rafı:{' '}
+              <strong className="text-amber-400">
+                {listedCount}/{showcaseCap}
+              </strong>{' '}
+              (Raf Sv.{showcaseUpgradeLevel}/{SHOWCASE_UPGRADE_MAX_LEVEL})
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onGoToUpgrades}
+            className="rounded-lg border border-amber-500/35 bg-amber-500/12 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 hover:bg-amber-500/20 cursor-pointer whitespace-nowrap"
+          >
+            Raf Yükselt +
+          </button>
         </div>
+
+        {/* Hasan Usta Active Repair Queue */}
+        {hasMasterTech && (
+          <div className="px-3.5 py-2.5 border-b border-white/8 bg-[#121B26] shrink-0">
+            <div className="flex items-center justify-between text-[11px] font-bold text-sky-300 mb-1.5">
+              <span className="inline-flex items-center gap-1.5">
+                <UserCog className="w-3.5 h-3.5" />
+                <span>Hasan Usta (Sv.{masterLevel}) Tezgahı</span>
+              </span>
+              <span className="font-mono text-slate-400">
+                {staffRepairQueue.length}/{masterSpecs.maxParallelJobs} iş
+              </span>
+            </div>
+            {staffRepairQueue.length === 0 ? (
+              <div className="text-[11px] text-slate-400">
+                Usta boşta! Arızalı cihazları sağdan ustaya aktarabilirsin ({masterSpecs.turnsPerJob} turda bitirir).
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {staffRepairQueue.map((job) => (
+                  <div
+                    key={job.id}
+                    className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-1.5 flex items-center justify-between text-[11px]"
+                  >
+                    <div className="truncate text-sky-100 font-medium">
+                      {job.mode === 'EXPRESS_CUSTOMER' ? 'Acil: ' : ''}
+                      {job.deviceName}
+                    </div>
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-amber-300 shrink-0 ml-2">
+                      <Clock className="w-3 h-3" />
+                      {job.turnsRemaining} tur
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll divide-y divide-white/6">
           {inventory.map((phone) => {
             const cond = getConditionInfo(phone);
             const active = phone.uid === selectedUid;
-            const market = calculateMarketValue(phone, false, dailyNews);
+            const market = calculateMarketValue(phone, false, dailyNews, upgrades);
+            const bundleCount = phone.bundledAccessories?.length ?? 0;
+
             return (
               <button
                 key={phone.uid}
@@ -169,24 +287,32 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   <span className="font-semibold text-sm text-slate-100 truncate">
                     {phone.brand} {phone.model}
                     {phone.isBrandNew && (
-                      <span className="text-emerald-400 text-xs font-bold"> · Sıfır Kutu</span>
+                      <span className="text-emerald-400 text-xs font-bold"> · Sıfır</span>
                     )}
                     {phone.masterCrafted && (
                       <span className="text-amber-400 text-xs font-bold"> · Usta İşi</span>
                     )}
-                    {phone.customMod && (
+                    {bundleCount > 0 && (
                       <span className="text-sky-300 text-xs font-bold">
                         {' '}
-                        · {CUSTOM_MODS[phone.customMod].badgeText}
+                        · +{bundleCount} Aksesuar
                       </span>
                     )}
                   </span>
                   <span
                     className={`text-xs font-semibold whitespace-nowrap shrink-0 ${
-                      phone.listedForSale ? 'text-emerald-400' : 'text-slate-400'
+                      phone.assignedToStaff
+                        ? 'text-sky-400'
+                        : phone.listedForSale
+                        ? 'text-emerald-400'
+                        : 'text-slate-400'
                     }`}
                   >
-                    {phone.listedForSale ? 'Vitrinde' : 'Atölyede'}
+                    {phone.assignedToStaff
+                      ? 'Ustada'
+                      : phone.listedForSale
+                      ? 'Vitrinde'
+                      : 'Atölyede'}
                   </span>
                 </div>
 
@@ -206,16 +332,15 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
         </div>
       </aside>
 
-      {/* RIGHT: REPAIR BENCH & LISTING CONTROLS */}
+      {/* RIGHT: MULTI-DEFECT REPAIR BENCH, MULTI-ACCESSORY BUNDLES & LISTING */}
       {selectedPhone && condition && demand && (
-        <section className="lg:col-span-8 flex flex-col min-h-0 rounded-2xl border border-white/10 bg-[#161E29] p-5 overflow-y-auto pasaj-scroll">
-          {/* Locked Repair Bench Banner */}
+        <section className="sm:col-span-8 flex flex-col sm:min-h-0 sm:h-full rounded-xl lg:rounded-2xl border border-white/10 bg-[#161E29] p-3 lg:p-5 sm:overflow-y-auto pasaj-scroll">
           {!hasOwnBench && (
-            <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
               <div className="flex items-start gap-2.5">
                 <Lock className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                 <div className="text-xs text-amber-100 leading-relaxed">
-                  <strong>Kendi Tamir Tezgahın Kilitli:</strong> Şu an dış tamirciye +%45 fazla ödüyorsun ve 5 Aşamalı Mikro Tamir (+%12 Usta İşi) kapalı.
+                  <strong>Kendi ESD Tamir Tezgahın Kilitli:</strong> Dış servis +%45 pahalı çalışır. Kendi tezgahını kurduğunda tek seferde tüm arızaları onarıp +%12 Usta İşi primi kazanırsın!
                 </div>
               </div>
               <button
@@ -223,7 +348,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 onClick={onGoToUpgrades}
                 className="rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                Tezgahı Aç (5.500 ₺)
+                Tezgahı Kur (5.500 ₺)
               </button>
             </div>
           )}
@@ -256,9 +381,20 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   <div className="flex justify-between text-amber-300">
                     <span className="inline-flex items-center gap-1">
                       <Award className="w-3.5 h-3.5" />
-                      <span>Usta İşi Bonusu</span>
+                      <span>Usta İşi Mührü</span>
                     </span>
                     <span className="font-semibold">+%12 Değer</span>
+                  </div>
+                )}
+                {(selectedPhone.bundledAccessories?.length ?? 0) > 0 && (
+                  <div className="flex justify-between text-sky-300">
+                    <span className="inline-flex items-center gap-1">
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Aksesuar Paketi</span>
+                    </span>
+                    <span className="font-semibold">
+                      {selectedPhone.bundledAccessories?.length} parça dahil
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -268,7 +404,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Tamir Harcaması</span>
+                  <span className="text-slate-400">Tamir & Paket Masrafı</span>
                   <span className="font-mono text-slate-200">
                     {formatTRY(selectedPhone.repairSpend)}
                   </span>
@@ -279,10 +415,16 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                     {formatTRY(fairValue)}
                   </span>
                 </div>
+                {selectedPhone.surpriseNote && (
+                  <div className="mt-2 rounded-lg border border-rose-500/35 bg-rose-500/10 px-2.5 py-2 text-[11px] text-rose-200 leading-snug">
+                    <strong className="text-rose-300">Atölye Notu: </strong>
+                    {selectedPhone.surpriseNote}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Repair Actions & Showcase Pricing */}
+            {/* Right Column: Single-Session Multi-Repair + Multi-Accessory Bundle + Showcase */}
             <div className="md:col-span-7 flex flex-col gap-5">
               <div>
                 <h3 className="font-display text-2xl font-bold text-slate-50">
@@ -297,113 +439,226 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 </p>
               </div>
 
-              {/* Repair Section */}
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-semibold text-slate-300">
-                    {hasOwnBench ? 'Kendi Tamir Tezgahın (Açık)' : 'Dış Tamirci Servisi'}
-                  </span>
-                  {(legacyPath === 'EX_APPRENTICE' ||
-                    (hasOwnBench && (hasWholesale || dailyNews.repairDiscount))) && (
-                    <span className="text-xs text-emerald-400">
-                      {legacyPath === 'EX_APPRENTICE'
-                        ? 'Eski Çırak -%20 Tamir Avantajı Aktif'
-                        : 'Parça İndirimi Aktif'}
-                    </span>
-                  )}
+              {/* STAFF ASSIGNED LOCK NOTICE */}
+              {selectedPhone.assignedToStaff ? (
+                <div className="rounded-xl border border-sky-500/35 bg-sky-500/12 p-4 text-xs text-sky-100 space-y-1">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                    <UserCog className="w-4 h-4" />
+                    <span>Hasan Usta Şu An Bu Cihazı Tamir Ediyor!</span>
+                  </div>
+                  <p>
+                    Tezgahta müşterilerle ilgilenmeye devam et; süre dolunca tüm arızalar giderilmiş ve Usta İşi mühürlü şekilde hazır olacak.
+                  </p>
                 </div>
+              ) : (
+                /* REPAIR BENCH SECTION */
+                <div>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-xs font-semibold text-slate-300">
+                      {hasOwnBench
+                        ? 'Tek Oturumda Çoklu Tamir Masası'
+                        : 'Dış Tamirci Servisi'}
+                    </span>
+                    {(legacyPath === 'EX_APPRENTICE' ||
+                      (hasOwnBench && (hasWholesale || dailyNews.repairDiscount))) && (
+                      <span className="text-xs text-emerald-400">
+                        {legacyPath === 'EX_APPRENTICE'
+                          ? 'Eski Çırak -%20 Aktif'
+                          : 'Parça İndirimi Aktif'}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
                   {selectedPhone.defects.length === 0 ? (
                     <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-3.5 py-3 text-xs text-emerald-200">
                       <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>Cihazın donanım kusuru kalmadı, vitrinde yüksek fiyata hazır!</span>
                     </div>
                   ) : (
-                    selectedPhone.defects.map((defectId) => {
-                      const def = DEFECT_CATALOG[defectId];
-                      const cost = getRepairCost(
-                        defectId,
-                        upgrades,
-                        dailyNews,
-                        !hasOwnBench,
-                        shopLevel,
-                        legacyPath
-                      );
-                      const canAfford = cash >= cost;
-                      const valueGain = roundPrice(
-                        selectedPhone.baseValue * def.valuePenaltyRatio
-                      );
-                      return (
-                        <div
-                          key={defectId}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B2533] px-3.5 py-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-100">
-                              {def.name}
-                            </div>
-                            <div className="text-xs text-slate-400 tabular-nums">
-                              {def.repairable
-                                ? `Onarım sonrası +${formatTRY(valueGain)} değer artışı`
-                                : 'BTK kaydı atölyede yapılamaz.'}
-                            </div>
+                    <div className="space-y-2.5">
+                      {/* ONE-SESSION ALL DEFECTS ACTION BAR */}
+                      {repairableDefects.length >= 1 && (
+                        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="inline-flex items-center gap-1.5 font-bold text-amber-200">
+                              <Layers className="w-4 h-4 text-amber-400" />
+                              <span>
+                                {repairableDefects.length > 1
+                                  ? `Tüm ${repairableDefects.length} Arızayı Tek Seferde Onar (-%10 Paket İşçilik)`
+                                  : `Tek Oturumda Tamir: ${DEFECT_CATALOG[repairableDefects[0]].shortLabel}`}
+                              </span>
+                            </span>
+                            <span className="font-mono font-extrabold text-amber-300 tabular-nums">
+                              {formatTRY(allRepairCost)}
+                            </span>
                           </div>
 
-                          {def.repairable ? (
-                            hasOwnBench ? (
-                              <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex flex-wrap gap-2">
+                            {hasOwnBench ? (
+                              <>
                                 <button
                                   type="button"
-                                  disabled={!canAfford}
+                                  disabled={cash < allRepairCost}
                                   onClick={() =>
-                                    onStartMiniRepair(selectedPhone, defectId, cost)
+                                    onStartMiniRepair(
+                                      selectedPhone,
+                                      repairableDefects,
+                                      allRepairCost
+                                    )
                                   }
-                                  className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
-                                  title="5 aşamalı mikro tamir masasıyla +%12 Usta İşi değeri kazan"
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer whitespace-nowrap"
                                 >
                                   <Wrench className="w-3.5 h-3.5" />
-                                  <span>Tamir Masası ({formatTRY(cost)})</span>
+                                  <span>
+                                    Tamir Masasına Otur ({repairableDefects.length} Arıza)
+                                  </span>
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={!canAfford}
-                                  onClick={() => handleQuickRepair(defectId)}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-white/12 bg-[#233042] px-2.5 py-2 text-xs font-semibold text-slate-200 hover:bg-[#2C3C52] disabled:opacity-40 cursor-pointer whitespace-nowrap"
-                                  title="Tek tıkla standart hızlı tamir"
+                                  disabled={cash < allRepairCost}
+                                  onClick={() => handleQuickMulti(repairableDefects)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-[#1F2B3B] px-3 py-2 text-xs font-bold text-slate-200 hover:bg-[#29384D] disabled:opacity-40 cursor-pointer whitespace-nowrap"
                                 >
                                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                                  <span>Hızlı</span>
+                                  <span>Hızlı Bitir</span>
                                 </button>
-                              </div>
+                              </>
                             ) : (
                               <button
                                 type="button"
-                                disabled={!canAfford}
-                                onClick={() => handleQuickRepair(defectId)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#243144] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-[#2E3F57] disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
+                                disabled={cash < allRepairCost}
+                                onClick={() => handleQuickMulti(repairableDefects)}
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
                               >
-                                <Wrench className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Dış Servis ({formatTRY(cost)})</span>
+                                <Wrench className="w-3.5 h-3.5" />
+                                <span>Dış Servise Ver ({formatTRY(allRepairCost)})</span>
                               </button>
-                            )
-                          ) : (
-                            <span className="text-xs font-medium text-rose-400 whitespace-nowrap shrink-0">
-                              Kalıcı Kusur
-                            </span>
+                            )}
+                          </div>
+
+                          {/* Back-side grouped repair option when phone has both front & multiple back defects */}
+                          {backZoneDefects.length >= 2 &&
+                            backZoneDefects.length < repairableDefects.length &&
+                            hasOwnBench && (
+                              <button
+                                type="button"
+                                disabled={cash < backZoneCost}
+                                onClick={() =>
+                                  onStartMiniRepair(
+                                    selectedPhone,
+                                    backZoneDefects,
+                                    backZoneCost
+                                  )
+                                }
+                                className="w-full rounded-lg border border-sky-400/35 bg-sky-500/12 px-3 py-1.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40 cursor-pointer tabular-nums"
+                              >
+                                Sadece Arka Taraf Arızalarını Birlikte Onar ({backZoneDefects.length} Parça ·{' '}
+                                {formatTRY(backZoneCost)})
+                              </button>
+                            )}
+
+                          {/* Delegate to Hasan Usta (Timed Repair) */}
+                          {hasMasterTech && (
+                            <button
+                              type="button"
+                              disabled={!canDelegateSlot || cash < masterDelegateCost}
+                              onClick={() =>
+                                onDelegateRepairToMaster(
+                                  selectedPhone.uid,
+                                  repairableDefects
+                                )
+                              }
+                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-40 cursor-pointer tabular-nums"
+                            >
+                              <UserCog className="w-3.5 h-3.5" />
+                              <span>
+                                {canDelegateSlot
+                                  ? `Hasan Usta’ya Aktar (${formatTRY(masterDelegateCost)} · ${masterSpecs.turnsPerJob} Turda Biter)`
+                                  : `Hasan Usta Dolu (${staffRepairQueue.length}/${masterSpecs.maxParallelJobs})`}
+                              </span>
+                            </button>
                           )}
                         </div>
-                      );
-                    })
+                      )}
+
+                      {/* Individual Defect List */}
+                      {selectedPhone.defects.map((defectId) => {
+                        const def = DEFECT_CATALOG[defectId];
+                        const cost = getRepairCost(
+                          defectId,
+                          upgrades,
+                          dailyNews,
+                          !hasOwnBench,
+                          shopLevel,
+                          legacyPath
+                        );
+                        const valueGain = roundPrice(
+                          selectedPhone.baseValue * def.valuePenaltyRatio
+                        );
+                        return (
+                          <div
+                            key={defectId}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-white/10 bg-[#1B2533] px-3.5 py-2.5"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-100">
+                                  {def.name}
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-400">
+                                  ({def.zone === 'front' ? 'Ön Ekran' : 'Arka / İç'})
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-400 tabular-nums">
+                                {def.repairable
+                                  ? `Onarım sonrası +${formatTRY(valueGain)} değer artışı`
+                                  : 'BTK kaydı atölyede yapılamaz.'}
+                              </div>
+                            </div>
+
+                            {def.repairable ? (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {hasOwnBench && (
+                                  <button
+                                    type="button"
+                                    disabled={cash < cost}
+                                    onClick={() =>
+                                      onStartMiniRepair(selectedPhone, [defectId], cost)
+                                    }
+                                    className="rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25 disabled:opacity-40 cursor-pointer tabular-nums"
+                                  >
+                                    Tek Onar ({formatTRY(cost)})
+                                  </button>
+                                )}
+                                {!hasOwnBench && (
+                                  <button
+                                    type="button"
+                                    disabled={cash < cost}
+                                    onClick={() => handleQuickMulti([defectId])}
+                                    className="rounded-lg border border-white/15 bg-[#243144] px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-[#2E3F57] disabled:opacity-40 cursor-pointer tabular-nums"
+                                  >
+                                    Dış Servis ({formatTRY(cost)})
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs font-medium text-rose-400 whitespace-nowrap shrink-0">
+                                Kalıcı Kusur
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
 
                   {!selectedPhone.hasBoxAndCharger && (
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B2533] px-3.5 py-2.5">
+                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B2533] px-3.5 py-2.5">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-100">
+                        <div className="text-xs font-bold text-slate-100">
                           Kutu + Orijinal Şarj Seti Tamamla
                         </div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-[11px] text-slate-400">
                           Cihaz kusursuzsa değerini “Sıfır Ayarında” seviyesine çıkarır.
                         </div>
                       </div>
@@ -411,7 +666,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                         type="button"
                         disabled={cash < boxKitPrice}
                         onClick={handleBoxClick}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/12 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/12 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
                       >
                         <PackagePlus className="w-3.5 h-3.5" />
                         <span>Ekle ({formatTRY(boxKitPrice)})</span>
@@ -419,62 +674,69 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Custom Phone Modding Studio */}
-              {!selectedPhone.isBrandNew && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300">
-                      <Palette className="w-3.5 h-3.5" />
-                      <span>Kişiselleştirme & Custom Mod Atölyesi</span>
-                    </span>
-                    {selectedPhone.customMod && (
-                      <span className="text-xs font-bold text-emerald-400">
-                        Aktif: {CUSTOM_MODS[selectedPhone.customMod].badgeText} (+%
-                        {Math.round(CUSTOM_MODS[selectedPhone.customMod].valueBoostRatio * 100)} Değer)
-                      </span>
-                    )}
-                  </div>
-
-                  {selectedPhone.customMod ? (
-                    <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2.5 text-xs text-sky-100">
-                      Bu cihaza <strong>{CUSTOM_MODS[selectedPhone.customMod].name}</strong> uygulandı! VIP ve içerik üreticisi alıcılar vitrinde ekstra yüksek bütçeyle gelir.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {CUSTOM_MOD_LIST.map((mod) => {
-                        const canAffordMod = cash >= mod.cost;
-                        return (
-                          <button
-                            key={mod.id}
-                            type="button"
-                            disabled={!canAffordMod}
-                            onClick={() => {
-                              setFlashKey((k) => k + 1);
-                              onApplyCustomMod(selectedPhone.uid, mod.id);
-                            }}
-                            className="text-left rounded-xl border border-white/10 bg-[#1B2533] hover:border-sky-400/50 hover:bg-[#212F42] p-2.5 transition-colors disabled:opacity-40 cursor-pointer"
-                          >
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-100">
-                              <span className="truncate">{mod.badgeText}</span>
-                              <span className="text-emerald-400 font-mono">
-                                +%{Math.round(mod.valueBoostRatio * 100)}
-                              </span>
-                            </div>
-                            <div className="text-[10.5px] text-slate-400 mt-1 line-clamp-2">
-                              {mod.description}
-                            </div>
-                            <div className="mt-2 font-mono text-xs font-bold text-amber-300 tabular-nums">
-                              Uygula ({formatTRY(mod.cost)})
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
               )}
+
+              {/* MULTI-ACCESSORY SHOWCASE BUNDLE (Replaces Custom Modding!) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300">
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Vitrin Aksesuar Kombini (Birden Fazla Ürün Tak & Sat)</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Takılı: {(selectedPhone.bundledAccessories ?? []).length}/{ACCESSORY_CATALOG.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-2.5">
+                  Reyon stoğundaki kırılmaz cam, kılıf, şarj seti, powerbank veya kulaklıkları tek tek değil <strong>hepsini birden</strong> bu cihaza kombine edip vitrin değerini yükseltebilirsin!
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {ACCESSORY_CATALOG.map((acc) => {
+                    const attached = (selectedPhone.bundledAccessories ?? []).includes(
+                      acc.id
+                    );
+                    const stockQty = accessories[acc.id]?.quantity ?? 0;
+                    const valueBoost = Math.round(acc.recommendedPrice * 1.1);
+
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        disabled={attached || stockQty <= 0 || selectedPhone.assignedToStaff}
+                        onClick={() => {
+                          setFlashKey((k) => k + 1);
+                          onAttachAccessoryBundle(selectedPhone.uid, acc.id);
+                        }}
+                        className={`text-left rounded-xl border p-2.5 transition-colors flex items-center gap-2 ${
+                          attached
+                            ? 'border-emerald-500/40 bg-emerald-500/12 cursor-default'
+                            : stockQty > 0
+                            ? 'border-white/10 bg-[#1B2533] hover:border-sky-400/50 hover:bg-[#223044] cursor-pointer'
+                            : 'border-white/6 bg-[#131922] opacity-45 cursor-not-allowed'
+                        }`}
+                      >
+                        <AccessoryProductArt id={acc.id} className="w-9 h-9 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-bold text-slate-100 truncate">
+                            {acc.name.split(' ').slice(0, 2).join(' ')}
+                          </div>
+                          {attached ? (
+                            <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400">
+                              <Check className="w-3 h-3" />
+                              <span>Pakete Eklendi</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400 tabular-nums">
+                              +{formatTRY(valueBoost)} · Stok {stockQty}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Showcase Pricing & Publish */}
               <div className="rounded-xl border border-white/10 bg-[#121822] p-4">
@@ -504,7 +766,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                       projectedProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
-                    Beklenen Kâr: {projectedProfit >= 0 ? '+' : ''}
+                    Brüt Kâr: {projectedProfit >= 0 ? '+' : ''}
                     {formatTRY(projectedProfit)}
                   </span>
                 </div>
@@ -553,7 +815,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
 
                 <button
                   type="button"
-                  disabled={!canListMore}
+                  disabled={!canListMore || selectedPhone.assignedToStaff}
                   onClick={() =>
                     onUpdateListing(
                       selectedPhone.uid,
@@ -569,10 +831,12 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 >
                   <Store className="w-4 h-4" />
                   <span>
-                    {selectedPhone.listedForSale
+                    {selectedPhone.assignedToStaff
+                      ? 'Hasan Usta Onarımı Bitirince Vitrine Koyabilirsin'
+                      : selectedPhone.listedForSale
                       ? 'Vitrinden Çek (Atölyeye Al)'
                       : !canListMore
-                      ? `Vitrin Dolu (${listedCount}/${showcaseCap}) — Dükkanı Büyüt`
+                      ? `Vitrin Dolu (${listedCount}/${showcaseCap}) — Raf Yükselt`
                       : 'Vitrine Koy & Satışa Aç'}
                   </span>
                 </button>

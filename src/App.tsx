@@ -5,6 +5,8 @@ import {
   Newspaper,
   Package,
   Pause,
+  RotateCw,
+  ShieldCheck,
   Sparkles,
   Star,
   Store,
@@ -13,10 +15,15 @@ import {
   Volume2,
   VolumeX,
   Wrench,
+  X,
 } from 'lucide-react';
 import { BrandLogo } from './components/BrandLogo';
 import { CounterView } from './components/CounterView';
-import { EmpireView } from './components/EmpireView';
+import {
+  CLASSIFIED_COD_FEE,
+  CLASSIFIED_ONSITE_FEE,
+  EmpireView,
+} from './components/EmpireView';
 import { InspectionOverlay } from './components/InspectionOverlay';
 import { MiniRepairModal } from './components/MiniRepairModal';
 import { MissionsView } from './components/MissionsView';
@@ -30,81 +37,107 @@ import { MorningNewspaperModal } from './components/MorningNewspaperModal';
 import { OfflineEarningsModal } from './components/OfflineEarningsModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { StoreComplianceModal } from './components/StoreComplianceModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { TitleScreen } from './components/TitleScreen';
 import { UpgradesView } from './components/UpgradesView';
-import { WholesaleView } from './components/WholesaleView';
+import {
+  EXPRESS_ACCESSORY_FEE,
+  EXPRESS_PHONE_FEE,
+  WholesaleView,
+} from './components/WholesaleView';
 import { BOX_KIT_COST, WorkshopView } from './components/WorkshopView';
 import {
   BRAND_DISTRIBUTORS,
   CAREER_MILESTONES,
   CITY_BRANCHES,
-  CUSTOM_MODS,
   DAILY_STREAK_REWARDS,
   DEAL_ACCEPTED_LINES,
   DEFECT_CATALOG,
   LEGACY_PATHS,
   MUSEUM_ITEMS,
+  PLAYER_OUTFITS,
   SHOP_DECORATIONS,
   SHOP_STAFF,
   SHOP_TIERS,
   SHOP_UPGRADES,
-  STAFF_TRAINING_COSTS,
+  SHOWCASE_UPGRADE_MAX_LEVEL,
+  STAFF_MAX_LEVEL,
   STORY_CHAPTERS,
   VICTORY_CASH_GOAL,
+  getShowcaseUpgradeCost,
+  getStaffTrainingCost,
+  getStaffTrainingDays,
 } from './game/catalog';
 import {
   advanceDailyQuests,
+  advanceDayTimers,
+  advanceStaffRepairsOnTurn,
   applyBluffOrPitchTactic,
   applyDefectLeverage,
+  applyEventEffectToEncounter,
   applyLegacyDialogueTactic,
   applyMasterTechEndOfDay,
   applyPosInstallmentTactic,
   applyTeaTactic,
   buildDayHistoryEntry,
   calculateMarketValue,
+  calculateMasterDelegateCost,
   calculatePrestige,
+  calculateSaleTax,
   checkVictoryCondition,
   clearSavedShopState,
   computeOfflineEarnings,
   countClaimableRewards,
+  createAccessoryBuyerEncounter,
+  createBuyerEncounter,
   createEmptyDayStats,
   createInitialShopState,
+  createSellerEncounter,
+  createTradeInEncounter,
+  evaluateClassifiedHaggle,
   evaluateCrossSellPitch,
   evaluatePlayerOffer,
+  evaluatePostPurchaseSurprise,
   formatTRY,
   generateBrandNewPhone,
   generateCustomerReview,
-  generateDailyAuctionLot,
+  generateDailyAuctionLots,
   generateDailyQueue,
   generateDailyQuests,
+  generateFlashWholesaleDeal,
   generateOnlineClassifieds,
   generateShippingOrders,
   getAccessorySpec,
   getAccessoryWholesaleCost,
+  getCrossSellBonusChance,
   getDailyRent,
   getDailyStaffWages,
+  getEffectiveLoanTerms,
   getLevelFromXp,
+  getMasterCraftBonusPercent,
+  getMasterTechSpecs,
   getMilestoneCurrentValue,
-  getRepairCost,
+  getMultiRepairCost,
   getShopRank,
   getStoryChapterCurrentValue,
   getStreakBonusCash,
   inspectPhoneCategory,
   loadShopState,
+  maybeTriggerRandomStoreEvent,
   pickDailyNewspaper,
   pickDailyWholesaleDiscountBrand,
   processEmpireEndOfDay,
   roundPrice,
   saveShopState,
   simulateEndOfDayAccessorySales,
+  tickRivalFlashSnatch,
 } from './game/engine';
 import { soundFX } from './game/sound';
 import {
   AccessoryId,
   BankLoanOffer,
   BranchId,
-  CustomModId,
   DailyQuestKind,
   DecorationId,
   DefectId,
@@ -116,6 +149,8 @@ import {
   MuseumItemId,
   NegotiationTone,
   OfflineEarningsSummary,
+  OutfitId,
+  PendingWholesaleOrder,
   PhoneDevice,
   PhoneModelSpec,
   ShopState,
@@ -123,13 +158,15 @@ import {
   ShopTier,
   SoldPhoneRecord,
   StaffId,
+  StaffRepairJob,
+  TimedProject,
   UpgradeId,
 } from './game/types';
 
 interface ActiveMiniRepairJob {
   mode: 'INVENTORY' | 'EXPRESS';
   phone: PhoneDevice;
-  defectId: DefectId;
+  defectIds: DefectId[];
   cost: number;
 }
 
@@ -155,16 +192,61 @@ export default function App() {
   const [inspectionOverlay, setInspectionOverlay] =
     useState<InspectionOverlayData | null>(null);
 
-  // Interactive 3-Step Mini-Repair Modal state
+  // Interactive Multi-Defect Mini-Repair Modal state
   const [miniRepairJob, setMiniRepairJob] = useState<ActiveMiniRepairJob | null>(
     null
   );
 
-  // Mid-day overlays for re-reading Morning Newspaper, live D3 Analytics & Offline Idle Earnings
+  // Mid-day overlays for re-reading Morning Newspaper, live D3 Analytics, Store Compliance & Offline Idle Earnings
   const [showNewspaperReview, setShowNewspaperReview] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showComplianceModal, setShowComplianceModal] = useState(false);
   const [offlineSummary, setOfflineSummary] =
     useState<OfflineEarningsSummary | null>(null);
+  const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(() =>
+    typeof window !== 'undefined'
+      ? window.innerWidth < 640 && window.innerHeight > window.innerWidth
+      : false
+  );
+  const [portraitHintDismissed, setPortraitHintDismissed] = useState(false);
+
+  const attemptLandscapeLock = useCallback(async (withFullscreen = false) => {
+    try {
+      if (withFullscreen && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+      }
+      const orientation = window.screen.orientation as unknown as {
+        lock?: (mode: string) => Promise<void>;
+      };
+      if (orientation?.lock) {
+        await orientation.lock('landscape').catch(() => {});
+      }
+    } catch {
+      // Some mobile browsers require native APK/PWA context to lock orientation
+    }
+  }, []);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      const portrait = window.innerWidth < 640 && window.innerHeight > window.innerWidth;
+      setIsPortraitMobile(portrait);
+      if (!portrait) setPortraitHintDismissed(false);
+    };
+    checkOrientation();
+    void attemptLandscapeLock(false);
+
+    const onFirstGesture = () => {
+      void attemptLandscapeLock(false);
+    };
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    window.addEventListener('pointerdown', onFirstGesture, { once: true });
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+      window.removeEventListener('pointerdown', onFirstGesture);
+    };
+  }, [attemptLandscapeLock]);
 
   const pushFeedback = useCallback(
     (text: string, tone: FloatingFeedback['tone'] = 'amber') => {
@@ -275,14 +357,40 @@ export default function App() {
         return;
       }
 
+      const targetEl = e.target as HTMLElement | null;
+      const isTypingTarget =
+        targetEl instanceof HTMLInputElement ||
+        targetEl instanceof HTMLTextAreaElement ||
+        targetEl instanceof HTMLSelectElement ||
+        Boolean(targetEl?.isContentEditable);
+
       if (e.key === 'Escape') {
-        if (screen === 'PLAYING') {
+        if (showComplianceModal) {
+          soundFX.playClick();
+          setShowComplianceModal(false);
+        } else if (showAnalyticsModal) {
+          soundFX.playClick();
+          setShowAnalyticsModal(false);
+        } else if (showNewspaperReview) {
+          soundFX.playClick();
+          setShowNewspaperReview(false);
+        } else if (screen === 'PLAYING') {
           soundFX.playClick();
           setScreen('PAUSED');
         } else if (screen === 'PAUSED') {
           soundFX.playClick();
           setScreen('PLAYING');
         }
+        return;
+      }
+
+      if (
+        isTypingTarget ||
+        showComplianceModal ||
+        showAnalyticsModal ||
+        showNewspaperReview ||
+        miniRepairJob
+      ) {
         return;
       }
 
@@ -318,6 +426,7 @@ export default function App() {
     inspectionOverlay,
     showNewspaperReview,
     showAnalyticsModal,
+    showComplianceModal,
   ]);
 
   const handleStartNew = () => {
@@ -514,14 +623,25 @@ export default function App() {
 
   const handleUseLeverage = (defectId: DefectId) => {
     if (!currentEncounter || currentEncounter.outcome !== 'ACTIVE') return;
+    const prevPrice = currentEncounter.customerPrice;
+    const updatedEnc = applyDefectLeverage(
+      currentEncounter,
+      defectId,
+      shop.equippedOutfit
+    );
+    const delta = Math.abs(updatedEnc.customerPrice - prevPrice);
+
     soundFX.playLeverage();
     setShakeTrigger((n) => n + 1);
-    pushFeedback('Koz Masaya Kondu! Fiyat Düştü', 'amber');
+    pushFeedback(
+      currentEncounter.type === 'TRADE_IN'
+        ? `Takas Kozu Vuruldu! Nakit Fark +${formatTRY(delta)} Arttı!`
+        : `Koz Masaya Kondu! Fiyat -${formatTRY(delta)} Kırıldı!`,
+      'amber'
+    );
     setShop((prev) => {
-      const enc = prev.dailyQueue[prev.currentQueueIndex];
-      if (!enc) return prev;
       const nextQueue = [...prev.dailyQueue];
-      nextQueue[prev.currentQueueIndex] = applyDefectLeverage(enc, defectId);
+      nextQueue[prev.currentQueueIndex] = updatedEnc;
       const updated: ShopState = {
         ...prev,
         dailyQueue: nextQueue,
@@ -757,17 +877,23 @@ export default function App() {
 
     const succeeded =
       mode === 'CLEAN_ROOM' ? true : Math.random() < job.softwareSuccessRate;
-    const payout = succeeded
+    const grossPayout = succeeded
       ? mode === 'CLEAN_ROOM'
         ? job.cleanRoomPayout
         : job.softwarePayout
       : 0;
-    const netProfit = payout - cost;
+    const { taxAmount: saleTax, netAmount: netPayout } = succeeded
+      ? calculateSaleTax(grossPayout, shop.staff, shop.staffLevels)
+      : { taxAmount: 0, netAmount: 0 };
+    const netProfit = netPayout - cost;
     const repDelta = succeeded ? (mode === 'CLEAN_ROOM' ? 0.18 : 0.1) : -0.08;
 
     if (succeeded) {
       soundFX.playCashRegister();
-      pushFeedback(`+${formatTRY(netProfit)} · Veriler Kurtarıldı!`, 'positive');
+      pushFeedback(
+        `+${formatTRY(netProfit)} · Veriler Kurtarıldı (-${formatTRY(saleTax)} vergi)!`,
+        'positive'
+      );
     } else {
       soundFX.playScanDefect();
       setShakeTrigger((n) => n + 1);
@@ -779,7 +905,7 @@ export default function App() {
       nextQueue[prev.currentQueueIndex] = {
         ...currentEncounter,
         outcome: succeeded ? 'DEAL_CLOSED' : 'WALKED_OUT',
-        finalPrice: payout,
+        finalPrice: grossPayout,
         profitDelta: netProfit,
         moodScore: succeeded ? 94 : 18,
         mood: succeeded ? 'excited' : 'annoyed',
@@ -797,7 +923,7 @@ export default function App() {
             id: `drc_${Date.now()}`,
             speaker: 'customer',
             text: succeeded
-              ? `Hayatımı kurtardın usta! Bütün dosyalar tek parça geri geldi, ${formatTRY(payout)} helali hoş olsun!`
+              ? `Hayatımı kurtardın usta! Bütün dosyalar tek parça geri geldi, ${formatTRY(grossPayout)} helali hoş olsun!`
               : 'Ah be usta yazılım yetmedi, veriler gelmedi... Neyse uğraştığın için sağ ol ama üzgünüm.',
             tone: succeeded ? 'positive' : 'danger',
           },
@@ -807,7 +933,7 @@ export default function App() {
       const nextStreak = succeeded ? prev.dealStreak + 1 : 0;
       let nextState: ShopState = {
         ...prev,
-        cash: prev.cash - cost + payout,
+        cash: prev.cash - cost + netPayout,
         reputation: Math.max(1, Math.min(5, prev.reputation + repDelta)),
         dealStreak: nextStreak,
         bestDealStreak: Math.max(prev.bestDealStreak, nextStreak),
@@ -817,7 +943,8 @@ export default function App() {
         todayStats: {
           ...prev.todayStats,
           repairSpend: prev.todayStats.repairSpend + cost,
-          serviceRevenue: prev.todayStats.serviceRevenue + payout,
+          serviceRevenue: prev.todayStats.serviceRevenue + grossPayout,
+          salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
           reputationDelta: prev.todayStats.reputationDelta + repDelta,
           dealsLost: prev.todayStats.dealsLost + (succeeded ? 0 : 1),
         },
@@ -839,6 +966,28 @@ export default function App() {
     const repBonus =
       reputationDelta > 0 && hasNeon ? reputationDelta * 1.45 : reputationDelta;
 
+    // Evaluate post-purchase realistic surprises (overlooked uninspected flaws / subtle shop traps) ONCE outside setShop!
+    const sellerSurprise =
+      updatedEncounter.type === 'SELLER'
+        ? evaluatePostPurchaseSurprise(
+            updatedEncounter.device,
+            updatedEncounter.archetypeId,
+            shop.upgrades,
+            shop.legacyPath,
+            shop.dailyNews
+          )
+        : null;
+    const tradeInSurprise =
+      updatedEncounter.type === 'TRADE_IN' && updatedEncounter.tradeInDevice
+        ? evaluatePostPurchaseSurprise(
+            updatedEncounter.tradeInDevice,
+            updatedEncounter.archetypeId,
+            shop.upgrades,
+            shop.legacyPath,
+            shop.dailyNews
+          )
+        : null;
+
     setShop((prev) => {
       const nextQueue = [...prev.dailyQueue];
       const nextRep = Math.max(1, Math.min(5, prev.reputation + repBonus));
@@ -857,26 +1006,36 @@ export default function App() {
       const nextReviews = [newReview, ...prev.reviews].slice(0, 12);
 
       if (updatedEncounter.type === 'SELLER') {
+        const postSurprisePhone = sellerSurprise
+          ? sellerSurprise.updatedDevice
+          : updatedEncounter.device;
         const fairVal = calculateMarketValue(
-          updatedEncounter.device,
+          postSurprisePhone,
           false,
-          prev.dailyNews
+          prev.dailyNews,
+          prev.upgrades
         );
-        const boughtPhone = {
-          ...updatedEncounter.device,
+        const boughtPhone: PhoneDevice = {
+          ...postSurprisePhone,
           purchasePrice: finalPrice,
           inspected: { screen: true, battery: true, imei: true, hardware: true },
           listedForSale: false,
           askingPrice: roundPrice(fairVal * 1.15),
         };
+        const extraBenchCost = sellerSurprise?.extraBenchCost ?? 0;
+        const cashDeductExtra = Math.min(
+          Math.max(0, prev.cash - finalPrice + streakBonus),
+          extraBenchCost
+        );
         nextQueue[prev.currentQueueIndex] = {
           ...updatedEncounter,
           streakBonus,
+          postBuySurpriseAlert: sellerSurprise?.surpriseAlert,
         };
 
         let nextState: ShopState = {
           ...prev,
-          cash: prev.cash - finalPrice + streakBonus,
+          cash: prev.cash - finalPrice + streakBonus - cashDeductExtra,
           reputation: nextRep,
           dealStreak: nextStreak,
           bestDealStreak: nextBestStreak,
@@ -888,6 +1047,7 @@ export default function App() {
             ...prev.todayStats,
             phonesBought: prev.todayStats.phonesBought + 1,
             buySpend: prev.todayStats.buySpend + finalPrice,
+            repairSpend: prev.todayStats.repairSpend + cashDeductExtra,
             questRewards: prev.todayStats.questRewards + streakBonus,
             reputationDelta: prev.todayStats.reputationDelta + repBonus,
           },
@@ -900,30 +1060,47 @@ export default function App() {
         const costBasis =
           updatedEncounter.device.purchasePrice +
           updatedEncounter.device.repairSpend;
-        const crossSell = updatedEncounter.crossSellAttached;
-        const crossSellRev = crossSell ? crossSell.retailPrice : 0;
-        const crossSellProfit = crossSell ? crossSell.profit : 0;
+        const crossSellList =
+          updatedEncounter.crossSellAttachments &&
+          updatedEncounter.crossSellAttachments.length > 0
+            ? updatedEncounter.crossSellAttachments
+            : updatedEncounter.crossSellAttached
+            ? [updatedEncounter.crossSellAttached]
+            : [];
+        const crossSellRev = crossSellList.reduce((s, a) => s + a.retailPrice, 0);
+        const crossSellProfit = crossSellList.reduce((s, a) => s + a.profit, 0);
+        const posRate = prev.upgrades.includes('smart_pos_zero') ? 0.01 : 0.05;
         const posCommission = updatedEncounter.posAccepted
-          ? Math.round(finalPrice * 0.05)
+          ? Math.round(finalPrice * posRate)
           : 0;
+        const { taxAmount: saleTax } = calculateSaleTax(
+          finalPrice + crossSellRev,
+          prev.staff,
+          prev.staffLevels
+        );
         const isTradeIn =
           updatedEncounter.type === 'TRADE_IN' &&
           Boolean(updatedEncounter.tradeInDevice);
 
         let tradeInPhone: PhoneDevice | null = null;
-        let tradeInEstimatedVal = 0;
+        let tradeInBookValue = 0;
+        const tradeBenchCost = tradeInSurprise?.extraBenchCost ?? 0;
         if (isTradeIn && updatedEncounter.tradeInDevice) {
-          tradeInEstimatedVal = calculateMarketValue(
-            updatedEncounter.tradeInDevice,
+          const postTradeDev = tradeInSurprise
+            ? tradeInSurprise.updatedDevice
+            : updatedEncounter.tradeInDevice;
+          const tradeInEstimatedVal = calculateMarketValue(
+            postTradeDev,
             false,
-            prev.dailyNews
+            prev.dailyNews,
+            prev.upgrades
           );
+          // Book value of trade-in phone is 85% of current as-is value;
+          // setting purchasePrice = tradeInBookValue prevents double-counting profit when resold later!
+          tradeInBookValue = Math.max(500, roundPrice(tradeInEstimatedVal * 0.85));
           tradeInPhone = {
-            ...updatedEncounter.tradeInDevice,
-            purchasePrice: Math.max(
-              500,
-              roundPrice(updatedEncounter.device.askingPrice - finalPrice)
-            ),
+            ...postTradeDev,
+            purchasePrice: tradeInBookValue,
             inspected: { screen: true, battery: true, imei: true, hardware: true },
             listedForSale: false,
             askingPrice: roundPrice(tradeInEstimatedVal * 1.15),
@@ -932,39 +1109,68 @@ export default function App() {
 
         const profit =
           finalPrice -
-          posCommission +
-          (tradeInPhone ? tradeInEstimatedVal : 0) -
+          posCommission -
+          saleTax -
+          tradeBenchCost +
+          (tradeInPhone ? tradeInBookValue : 0) -
           costBasis +
           crossSellProfit;
         const encWithProfit = {
           ...updatedEncounter,
           profitDelta: profit,
           streakBonus,
+          postBuySurpriseAlert: tradeInSurprise?.surpriseAlert,
         };
         nextQueue[prev.currentQueueIndex] = encWithProfit;
 
-        const cleanedQueue = nextQueue.filter(
-          (q, idx) =>
+        const remainingInv = prev.inventory.filter(
+          (p) => p.uid !== updatedEncounter.device.uid
+        );
+        const nextInv = tradeInPhone
+          ? [tradeInPhone, ...remainingInv]
+          : remainingInv;
+        const nextStateForQueue: ShopState = { ...prev, inventory: nextInv };
+        // Instead of shrinking the daily queue when another buyer wanted the same phone,
+        // replace that slot with a fresh buyer (for another listed phone), accessory buyer, or seller!
+        const cleanedQueue = nextQueue.map((q, idx) => {
+          if (
             idx <= prev.currentQueueIndex ||
             !(
               (q.type === 'BUYER' || q.type === 'TRADE_IN') &&
               q.device.uid === updatedEncounter.device.uid
             )
-        );
+          ) {
+            return q;
+          }
+          const otherListed = nextInv.filter((p) => p.listedForSale && !p.assignedToStaff);
+          if (otherListed.length > 0) {
+            const pickAlt = otherListed[Math.floor(Math.random() * otherListed.length)];
+            return q.type === 'TRADE_IN'
+              ? createTradeInEncounter(nextStateForQueue, pickAlt)
+              : createBuyerEncounter(nextStateForQueue, pickAlt);
+          }
+          const accFallback = createAccessoryBuyerEncounter(nextStateForQueue);
+          return accFallback ?? createSellerEncounter(nextStateForQueue);
+        });
 
-        let nextAccessories = prev.accessories;
-        if (crossSell && prev.accessories[crossSell.id]?.quantity > 0) {
-          nextAccessories = {
-            ...prev.accessories,
-            [crossSell.id]: {
-              ...prev.accessories[crossSell.id],
-              quantity: prev.accessories[crossSell.id].quantity - 1,
-              totalSold: prev.accessories[crossSell.id].totalSold + 1,
-            },
-          };
+        const nextAccessories = { ...prev.accessories };
+        for (const cs of crossSellList) {
+          const cur = nextAccessories[cs.id];
+          if (cur && cur.quantity > 0) {
+            nextAccessories[cs.id] = {
+              ...cur,
+              quantity: cur.quantity - 1,
+              totalSold: cur.totalSold + 1,
+            };
+          }
         }
 
         const isBrandNewSale = Boolean(updatedEncounter.device.isBrandNew);
+        const salesRepHighRepBonus =
+          prev.staff.includes('sales_rep') && (prev.staffLevels?.sales_rep ?? 1) >= 8
+            ? 0.04
+            : 0;
+        const finalRepWithStaff = Math.max(1, Math.min(5, nextRep + salesRepHighRepBonus));
         const soldRecord: SoldPhoneRecord = {
           id: `sold_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
           daySold: prev.day,
@@ -977,20 +1183,21 @@ export default function App() {
           warrantyResolved: false,
         };
 
-        const remainingInv = prev.inventory.filter(
-          (p) => p.uid !== updatedEncounter.device.uid
-        );
-        const nextInv = tradeInPhone
-          ? [tradeInPhone, ...remainingInv]
-          : remainingInv;
         const finalDiscovered = tradeInPhone
           ? discoverSpec(nextDiscovered, tradeInPhone.specId)
           : nextDiscovered;
 
         let nextState: ShopState = {
           ...prev,
-          cash: prev.cash + finalPrice - posCommission + crossSellRev + streakBonus,
-          reputation: nextRep,
+          cash:
+            prev.cash +
+            finalPrice -
+            posCommission -
+            saleTax -
+            tradeBenchCost +
+            crossSellRev +
+            streakBonus,
+          reputation: finalRepWithStaff,
           dealStreak: nextStreak,
           bestDealStreak: nextBestStreak,
           discoveredSpecIds: finalDiscovered,
@@ -1002,17 +1209,19 @@ export default function App() {
           totalProfitEarned: prev.totalProfitEarned + profit,
           totalPhonesSold: prev.totalPhonesSold + 1,
           totalBrandNewSold: prev.totalBrandNewSold + (isBrandNewSale ? 1 : 0),
-          totalAccessoriesSold: prev.totalAccessoriesSold + (crossSell ? 1 : 0),
+          totalAccessoriesSold: prev.totalAccessoriesSold + crossSellList.length,
           totalTradeInsDone: (prev.totalTradeInsDone ?? 0) + (isTradeIn ? 1 : 0),
           bestSingleDealProfit: Math.max(prev.bestSingleDealProfit, profit),
           todayStats: {
             ...prev.todayStats,
             phonesSold: prev.todayStats.phonesSold + 1,
             phonesBought: prev.todayStats.phonesBought + (tradeInPhone ? 1 : 0),
-            accessoriesSold: prev.todayStats.accessoriesSold + (crossSell ? 1 : 0),
+            accessoriesSold: prev.todayStats.accessoriesSold + crossSellList.length,
             salesRevenue: prev.todayStats.salesRevenue + finalPrice,
             accessoryRevenue: prev.todayStats.accessoryRevenue + crossSellRev,
+            repairSpend: prev.todayStats.repairSpend + tradeBenchCost,
             posCommission: (prev.todayStats.posCommission ?? 0) + posCommission,
+            salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
             questRewards: prev.todayStats.questRewards + streakBonus,
             reputationDelta: prev.todayStats.reputationDelta + repBonus,
           },
@@ -1022,14 +1231,18 @@ export default function App() {
           (profit > 0 ? 42 : 22) +
             (isBrandNewSale ? 15 : 0) +
             (isTradeIn ? 18 : 0) +
-            (crossSell ? 10 : 0)
+            crossSellList.length * 10
         );
         nextState = applyQuestProgress(nextState, 'SELL_PHONE', 1);
         if (isBrandNewSale) {
           nextState = applyQuestProgress(nextState, 'SELL_BRAND_NEW', 1);
         }
-        if (crossSell) {
-          nextState = applyQuestProgress(nextState, 'SELL_ACCESSORY', 1);
+        if (crossSellList.length > 0) {
+          nextState = applyQuestProgress(
+            nextState,
+            'SELL_ACCESSORY',
+            crossSellList.length
+          );
         }
 
         if (checkVictoryCondition(nextState)) {
@@ -1044,13 +1257,24 @@ export default function App() {
     });
 
     if (updatedEncounter.type === 'SELLER') {
-      pushFeedback(`-${formatTRY(finalPrice)} · Cihaz Alındı`, 'amber');
+      if (sellerSurprise?.surpriseAlert) {
+        soundFX.playScanDefect();
+        pushFeedback(`Dikkat! Atölye kontrolünde sürpriz çıktı!`, 'negative');
+      } else {
+        pushFeedback(`-${formatTRY(finalPrice)} · Cihaz Alındı`, 'amber');
+      }
     } else if (updatedEncounter.type === 'TRADE_IN') {
-      pushFeedback(`+${formatTRY(finalPrice)} Fark + Takas Cihazı Alındı!`, 'positive');
+      if (tradeInSurprise?.surpriseAlert) {
+        soundFX.playScanDefect();
+        pushFeedback(`Takas Tamam · Ama Takas Cihazında Sürpriz Çıktı!`, 'negative');
+      } else {
+        pushFeedback(`+${formatTRY(finalPrice)} Fark + Takas Cihazı Alındı!`, 'positive');
+      }
     } else {
-      const extra = updatedEncounter.crossSellAttached
-        ? ` + ${updatedEncounter.crossSellAttached.name}`
-        : '';
+      const csCount =
+        updatedEncounter.crossSellAttachments?.length ??
+        (updatedEncounter.crossSellAttached ? 1 : 0);
+      const extra = csCount > 0 ? ` (+${csCount} Aksesuar)` : '';
       pushFeedback(`+${formatTRY(finalPrice)} · Satış Tamam${extra}!`, 'positive');
     }
   };
@@ -1069,6 +1293,8 @@ export default function App() {
       elapsedSec,
       legacyPath: shop.legacyPath,
       instantAcceptRequested,
+      dailyNews: shop.dailyNews,
+      upgrades: shop.upgrades,
     });
 
     if (result.accepted) {
@@ -1131,10 +1357,18 @@ export default function App() {
     if (!currentEncounter || currentEncounter.type !== 'EXPRESS_REPAIR') return;
     const partCost = currentEncounter.expressPartCost ?? 0;
     const totalPayout = currentEncounter.customerPrice + bonusTip;
-    const netProfit = totalPayout - partCost;
+    const { taxAmount: saleTax, netAmount: netPayout } = calculateSaleTax(
+      totalPayout,
+      shop.staff,
+      shop.staffLevels
+    );
+    const netProfit = netPayout - partCost;
 
     soundFX.playCashRegister();
-    pushFeedback(`+${formatTRY(netProfit)} · Acil Servis Tamam!`, 'positive');
+    pushFeedback(
+      `+${formatTRY(netProfit)} · Acil Servis Tamam (-${formatTRY(saleTax)} vergi)!`,
+      'positive'
+    );
 
     setShop((prev) => {
       const nextQueue = [...prev.dailyQueue];
@@ -1162,7 +1396,7 @@ export default function App() {
       const nextStreak = prev.dealStreak + 1;
       let nextState: ShopState = {
         ...prev,
-        cash: prev.cash - partCost + totalPayout,
+        cash: prev.cash - partCost + netPayout,
         reputation: Math.min(5, prev.reputation + repGain),
         dealStreak: nextStreak,
         bestDealStreak: Math.max(prev.bestDealStreak, nextStreak),
@@ -1178,6 +1412,7 @@ export default function App() {
           ...prev.todayStats,
           repairSpend: prev.todayStats.repairSpend + partCost,
           serviceRevenue: prev.todayStats.serviceRevenue + totalPayout,
+          salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
           reputationDelta: prev.todayStats.reputationDelta + repGain,
         },
       };
@@ -1214,8 +1449,89 @@ export default function App() {
     setMiniRepairJob({
       mode: 'EXPRESS',
       phone: currentEncounter.device,
-      defectId: currentEncounter.expressDefectId,
+      defectIds: [currentEncounter.expressDefectId],
       cost: partCost,
+    });
+  };
+
+  const handleDelegateExpressRepair = () => {
+    if (
+      !currentEncounter ||
+      currentEncounter.type !== 'EXPRESS_REPAIR' ||
+      !currentEncounter.expressDefectId ||
+      currentEncounter.outcome !== 'ACTIVE' ||
+      !shop.staff.includes('master_tech')
+    ) {
+      return;
+    }
+    const masterSpecs = getMasterTechSpecs(
+      shop.staffLevels?.master_tech ?? 1,
+      shop.upgrades
+    );
+    if ((shop.staffRepairQueue?.length ?? 0) >= masterSpecs.maxParallelJobs) return;
+    const partCost = currentEncounter.expressPartCost ?? 0;
+    if (shop.cash < partCost) return;
+
+    const job: StaffRepairJob = {
+      id: `srep_${Date.now()}`,
+      mode: 'EXPRESS_CUSTOMER',
+      customerName: currentEncounter.customerName,
+      deviceName: `${currentEncounter.device.brand} ${currentEncounter.device.model}`,
+      defectIds: [currentEncounter.expressDefectId],
+      turnsRemaining: masterSpecs.turnsPerJob,
+      totalTurns: masterSpecs.turnsPerJob,
+      payout: currentEncounter.customerPrice,
+    };
+
+    soundFX.playRepair();
+    pushFeedback(
+      `Hasan Usta’ya Aktarıldı (${masterSpecs.turnsPerJob} turda otomatik teslim)!`,
+      'positive'
+    );
+
+    const { taxAmount: estTax } = calculateSaleTax(
+      currentEncounter.customerPrice,
+      shop.staff,
+      shop.staffLevels
+    );
+    const estNetProfit = currentEncounter.customerPrice - estTax - partCost;
+
+    setShop((prev) => {
+      const nextQueue = [...prev.dailyQueue];
+      const nextStreak = prev.dealStreak + 1;
+      nextQueue[prev.currentQueueIndex] = {
+        ...currentEncounter,
+        outcome: 'DEAL_CLOSED',
+        finalPrice: currentEncounter.customerPrice,
+        profitDelta: estNetProfit,
+        mood: 'happy',
+        messages: [
+          ...currentEncounter.messages,
+          {
+            id: `del_${Date.now()}`,
+            speaker: 'player',
+            text: `Cihazı hemen Baş Ustam Hasan’a teslim ediyorum, ${masterSpecs.turnsPerJob} tur içinde bitirip sana ulaştıracak!`,
+          },
+          {
+            id: `delc_${Date.now()}`,
+            speaker: 'customer',
+            text: 'Süper usta, Hasan Usta’nın eline güveniyorum. Bitince ödemeyi hemen geçerim!',
+            tone: 'positive',
+          },
+        ],
+      };
+      return {
+        ...prev,
+        cash: prev.cash - partCost,
+        dealStreak: nextStreak,
+        bestDealStreak: Math.max(prev.bestDealStreak, nextStreak),
+        dailyQueue: nextQueue,
+        staffRepairQueue: [...(prev.staffRepairQueue ?? []), job],
+        todayStats: {
+          ...prev.todayStats,
+          repairSpend: prev.todayStats.repairSpend + partCost,
+        },
+      };
     });
   };
 
@@ -1238,7 +1554,9 @@ export default function App() {
       purchasePrice: perPhoneCost,
       inspected: { screen: true, battery: true, imei: true, hardware: true },
       listedForSale: false,
-      askingPrice: roundPrice(calculateMarketValue(d, false, shop.dailyNews) * 1.15),
+      askingPrice: roundPrice(
+        calculateMarketValue(d, false, shop.dailyNews, shop.upgrades) * 1.15
+      ),
     }));
 
     setShop((prev) => {
@@ -1320,27 +1638,33 @@ export default function App() {
       !currentEncounter ||
       currentEncounter.type !== 'BUYER' ||
       currentEncounter.outcome !== 'ACTIVE' ||
-      currentEncounter.crossSellAttempted
+      (currentEncounter.crossSellTriedIds ?? []).includes(accessoryId)
     ) {
       return;
     }
     const stock = shop.accessories[accessoryId];
     if (!stock || stock.quantity <= 0) return;
 
+    const crossSellBonus = getCrossSellBonusChance(
+      shop.upgrades,
+      shop.staff,
+      shop.staffLevels
+    );
     const result = evaluateCrossSellPitch(
       currentEncounter,
       accessoryId,
       stock,
       shop.level,
-      shop.legacyPath
+      shop.legacyPath,
+      crossSellBonus
     );
 
     if (result.accepted) {
       soundFX.playScanOk();
-      pushFeedback(`Çapraz Satış Eklendi (+${formatTRY(result.retailPrice)})!`, 'positive');
+      pushFeedback(`Aksesuar Sepete Eklendi (+${formatTRY(result.retailPrice)})!`, 'positive');
     } else {
       soundFX.playClick();
-      pushFeedback('Müşteri Sadece Telefonu İstedi', 'amber');
+      pushFeedback('Bu Aksesuarı İstemedi · Başka Ürün Öner!', 'amber');
     }
 
     updateCurrentEncounter(() => result.updatedEncounter);
@@ -1378,8 +1702,18 @@ export default function App() {
       return;
     }
 
+    const { taxAmount: saleTax, netAmount: netRev } = calculateSaleTax(
+      totalRev,
+      shop.staff,
+      shop.staffLevels
+    );
+    const netProfit = totalProfit - saleTax;
+
     soundFX.playCashRegister();
-    pushFeedback(`+${formatTRY(totalRev)} · ${totalUnits} Aksesuar Satıldı!`, 'positive');
+    pushFeedback(
+      `+${formatTRY(netRev)} · ${totalUnits} Aksesuar Satıldı (-${formatTRY(saleTax)} vergi)!`,
+      'positive'
+    );
 
     setShop((prev) => {
       const nextAccessories = { ...prev.accessories };
@@ -1399,7 +1733,7 @@ export default function App() {
         ...currentEncounter,
         outcome: 'DEAL_CLOSED',
         finalPrice: totalRev,
-        profitDelta: totalProfit,
+        profitDelta: netProfit,
         mood: 'happy',
         messages: [
           ...currentEncounter.messages,
@@ -1416,18 +1750,19 @@ export default function App() {
       const nextStreak = prev.dealStreak + 1;
       let nextState: ShopState = {
         ...prev,
-        cash: prev.cash + totalRev,
+        cash: prev.cash + netRev,
         reputation: Math.min(5, prev.reputation + repGain),
         dealStreak: nextStreak,
         bestDealStreak: Math.max(prev.bestDealStreak, nextStreak),
         accessories: nextAccessories,
         dailyQueue: nextQueue,
         totalAccessoriesSold: prev.totalAccessoriesSold + totalUnits,
-        totalProfitEarned: prev.totalProfitEarned + totalProfit,
+        totalProfitEarned: prev.totalProfitEarned + netProfit,
         todayStats: {
           ...prev.todayStats,
           accessoriesSold: prev.todayStats.accessoriesSold + totalUnits,
           accessoryRevenue: prev.todayStats.accessoryRevenue + totalRev,
+          salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
           reputationDelta: prev.todayStats.reputationDelta + repGain,
         },
       };
@@ -1436,29 +1771,57 @@ export default function App() {
     });
   };
 
-  const handleBuyAccessoryStock = (accessoryId: AccessoryId, quantity: number) => {
+  const handleBuyAccessoryStock = (
+    accessoryId: AccessoryId,
+    quantity: number,
+    expressDelivery: boolean
+  ) => {
     const spec = getAccessorySpec(accessoryId);
     const unitCost = getAccessoryWholesaleCost(accessoryId, shop.legacyPath);
-    const totalCost = unitCost * quantity;
+    const shippingFee = expressDelivery ? EXPRESS_ACCESSORY_FEE : 0;
+    const totalCost = unitCost * quantity + shippingFee;
     if (shop.cash < totalCost) return;
     soundFX.playCashRegister();
-    pushFeedback(`-${formatTRY(totalCost)} · +${quantity} ${spec.name}`, 'amber');
 
-    setShop((prev) => ({
-      ...prev,
-      cash: prev.cash - totalCost,
-      accessories: {
-        ...prev.accessories,
-        [accessoryId]: {
-          ...prev.accessories[accessoryId],
-          quantity: prev.accessories[accessoryId].quantity + quantity,
+    if (expressDelivery) {
+      pushFeedback(`-${formatTRY(totalCost)} · +${quantity} ${spec.name} (Hemen Geldi!)`, 'amber');
+      setShop((prev) => ({
+        ...prev,
+        cash: prev.cash - totalCost,
+        accessories: {
+          ...prev.accessories,
+          [accessoryId]: {
+            ...prev.accessories[accessoryId],
+            quantity: prev.accessories[accessoryId].quantity + quantity,
+          },
         },
-      },
-      todayStats: {
-        ...prev.todayStats,
-        wholesaleSpend: prev.todayStats.wholesaleSpend + totalCost,
-      },
-    }));
+        todayStats: {
+          ...prev.todayStats,
+          wholesaleSpend: prev.todayStats.wholesaleSpend + totalCost,
+        },
+      }));
+    } else {
+      pushFeedback(`-${formatTRY(totalCost)} · ${quantity}x ${spec.name} Kargoya Verildi (1 Gün)`, 'amber');
+      const order: PendingWholesaleOrder = {
+        id: `wh_acc_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        kind: 'ACCESSORY',
+        label: `${quantity}x ${spec.name}`,
+        daysRemaining: 1,
+        totalDays: 1,
+        accessoryId,
+        quantity,
+        wholesaleCost: totalCost,
+      };
+      setShop((prev) => ({
+        ...prev,
+        cash: prev.cash - totalCost,
+        pendingWholesaleOrders: [...(prev.pendingWholesaleOrders ?? []), order],
+        todayStats: {
+          ...prev.todayStats,
+          wholesaleSpend: prev.todayStats.wholesaleSpend + totalCost,
+        },
+      }));
+    }
   };
 
   const handleUpdateAccessoryPrice = (accessoryId: AccessoryId, newPrice: number) => {
@@ -1476,37 +1839,87 @@ export default function App() {
 
   const handleOrderBrandNewPhone = (
     spec: PhoneModelSpec,
-    wholesaleCost: number
+    wholesaleCost: number,
+    expressDelivery: boolean
   ) => {
-    if (shop.cash < wholesaleCost) return;
+    const shippingFee = expressDelivery ? EXPRESS_PHONE_FEE : 0;
+    const totalCost = wholesaleCost + shippingFee;
+    if (shop.cash < totalCost) return;
     soundFX.playCashRegister();
-    pushFeedback(
-      `-${formatTRY(wholesaleCost)} · Sıfır Kutu ${spec.brand} ${spec.model} Geldi!`,
-      'positive'
-    );
 
-    const newPhone = generateBrandNewPhone(spec, wholesaleCost, shop.dailyNews);
     const matchingDist = BRAND_DISTRIBUTORS.find((d) =>
       d.brands.includes(spec.brand)
     );
+
     setShop((prev) => {
       const nextLoyalty = { ...(prev.distributorLoyalty ?? {}) };
       if (matchingDist) {
         nextLoyalty[matchingDist.id] = (nextLoyalty[matchingDist.id] ?? 0) + 1;
       }
-      const nextState: ShopState = {
-        ...prev,
-        cash: prev.cash - wholesaleCost,
-        inventory: [newPhone, ...prev.inventory],
-        distributorLoyalty: nextLoyalty,
-        discoveredSpecIds: discoverSpec(prev.discoveredSpecIds, spec.id),
-        todayStats: {
-          ...prev.todayStats,
-          wholesaleSpend: prev.todayStats.wholesaleSpend + wholesaleCost,
-        },
-      };
-      return applyXpGain(nextState, 18);
+
+      // If buying from an active Flash Wholesale Deal, decrement remaining stock!
+      let nextFlash = prev.flashWholesaleDeal;
+      if (
+        nextFlash &&
+        !nextFlash.expired &&
+        nextFlash.brand === spec.brand &&
+        nextFlash.remainingStock > 0
+      ) {
+        const rem = nextFlash.remainingStock - 1;
+        nextFlash = {
+          ...nextFlash,
+          remainingStock: rem,
+          expired: rem <= 0,
+        };
+      }
+
+      if (expressDelivery) {
+        const newPhone = generateBrandNewPhone(spec, wholesaleCost, prev.dailyNews);
+        const nextState: ShopState = {
+          ...prev,
+          cash: prev.cash - totalCost,
+          inventory: [newPhone, ...prev.inventory],
+          distributorLoyalty: nextLoyalty,
+          flashWholesaleDeal: nextFlash,
+          discoveredSpecIds: discoverSpec(prev.discoveredSpecIds, spec.id),
+          todayStats: {
+            ...prev.todayStats,
+            wholesaleSpend: prev.todayStats.wholesaleSpend + totalCost,
+          },
+        };
+        return applyXpGain(nextState, 18);
+      } else {
+        const cargoOrder: PendingWholesaleOrder = {
+          id: `wh_ph_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+          kind: 'PHONE',
+          label: `Sıfır ${spec.brand} ${spec.model}`,
+          daysRemaining: 1,
+          totalDays: 1,
+          specId: spec.id,
+          wholesaleCost,
+        };
+        const nextState: ShopState = {
+          ...prev,
+          cash: prev.cash - totalCost,
+          pendingWholesaleOrders: [...(prev.pendingWholesaleOrders ?? []), cargoOrder],
+          distributorLoyalty: nextLoyalty,
+          flashWholesaleDeal: nextFlash,
+          discoveredSpecIds: discoverSpec(prev.discoveredSpecIds, spec.id),
+          todayStats: {
+            ...prev.todayStats,
+            wholesaleSpend: prev.todayStats.wholesaleSpend + totalCost,
+          },
+        };
+        return applyXpGain(nextState, 18);
+      }
     });
+
+    pushFeedback(
+      expressDelivery
+        ? `-${formatTRY(totalCost)} · Sıfır ${spec.brand} ${spec.model} Hemen Geldi!`
+        : `-${formatTRY(totalCost)} · Sıfır ${spec.brand} ${spec.model} Kargoya Verildi (1 Gün)!`,
+      'positive'
+    );
   };
 
   const handleClaimStoryChapter = (chapterId: string) => {
@@ -1540,19 +1953,144 @@ export default function App() {
   const handleNextCustomer = () => {
     soundFX.playClick();
     if (shop.currentQueueIndex + 1 < shop.dailyQueue.length) {
-      setShop((prev) => ({
-        ...prev,
-        currentQueueIndex: prev.currentQueueIndex + 1,
-      }));
+      // Compute turn ticks ONCE (prevents double-random desync between toast and state!)
+      const staffTick = advanceStaffRepairsOnTurn(shop);
+      const rivalTick = tickRivalFlashSnatch(shop.flashWholesaleDeal);
+
+      if (staffTick.notifications.length > 0) {
+        pushFeedback(staffTick.notifications[0], 'positive');
+      }
+      if (rivalTick.justSoldOut && shop.flashWholesaleDeal) {
+        pushFeedback(
+          `Rakipler ${shop.flashWholesaleDeal.brand} indirim stoğunu tüketti!`,
+          'negative'
+        );
+      }
+
+      setShop((prev) => {
+        const nextIdx = prev.currentQueueIndex + 1;
+        const nextQueue = [...prev.dailyQueue];
+
+        // Guard against ghost/unlisted/staff-assigned phone buyers in the queue!
+        const incoming = nextQueue[nextIdx];
+        if (incoming && (incoming.type === 'BUYER' || incoming.type === 'TRADE_IN')) {
+          const liveDevice = staffTick.updatedInventory.find(
+            (p) => p.uid === incoming.device.uid && p.listedForSale && !p.assignedToStaff
+          );
+          if (liveDevice) {
+            // Sync live askingPrice if player updated it in Workshop
+            if (liveDevice.askingPrice !== incoming.device.askingPrice) {
+              nextQueue[nextIdx] =
+                incoming.type === 'TRADE_IN'
+                  ? createTradeInEncounter(
+                      { ...prev, inventory: staffTick.updatedInventory },
+                      liveDevice
+                    )
+                  : createBuyerEncounter(
+                      { ...prev, inventory: staffTick.updatedInventory },
+                      liveDevice
+                    );
+            }
+          } else {
+            const fallbackListed = staffTick.updatedInventory.find(
+              (p) => p.listedForSale && !p.assignedToStaff
+            );
+            nextQueue[nextIdx] = fallbackListed
+              ? incoming.type === 'TRADE_IN'
+                ? createTradeInEncounter(
+                    { ...prev, inventory: staffTick.updatedInventory },
+                    fallbackListed
+                  )
+                : createBuyerEncounter(
+                    { ...prev, inventory: staffTick.updatedInventory },
+                    fallbackListed
+                  )
+              : createSellerEncounter({ ...prev, inventory: staffTick.updatedInventory });
+          }
+        }
+
+        // Apply any queued store-event modifier to the incoming customer
+        if (prev.nextCustomerEventEffect && nextQueue[nextIdx]) {
+          nextQueue[nextIdx] = applyEventEffectToEncounter(
+            nextQueue[nextIdx],
+            prev.nextCustomerEventEffect
+          );
+        }
+
+        // Possibly trigger a fresh mid-day Random Store Event for the following customer
+        const newEvent = maybeTriggerRandomStoreEvent(prev);
+        const queuedEffect = newEvent
+          ? {
+              title: newEvent.title,
+              moodDelta: newEvent.moodDelta,
+              patienceDelta: newEvent.patienceDelta,
+              budgetMultiplier: newEvent.budgetMultiplier,
+              visualKind: newEvent.visualKind,
+            }
+          : null;
+
+        const netStaffPayout =
+          staffTick.completedPayoutGross - staffTick.completedTax;
+
+        let nextState: ShopState = {
+          ...prev,
+          cash: prev.cash + netStaffPayout,
+          inventory: staffTick.updatedInventory,
+          staffRepairQueue: staffTick.updatedQueue,
+          flashWholesaleDeal: rivalTick.updatedDeal,
+          dailyQueue: nextQueue,
+          currentQueueIndex: nextIdx,
+          activeStoreEvent: newEvent ?? null,
+          nextCustomerEventEffect: queuedEffect,
+          storeEventsTriggeredToday:
+            (prev.storeEventsTriggeredToday ?? 0) + (newEvent ? 1 : 0),
+          totalPhonesRepaired: prev.totalPhonesRepaired + staffTick.completedCount,
+          totalProfitEarned: prev.totalProfitEarned + netStaffPayout,
+          todayStats: {
+            ...prev.todayStats,
+            serviceRevenue:
+              prev.todayStats.serviceRevenue + staffTick.completedPayoutGross,
+            salesTaxPaid:
+              (prev.todayStats.salesTaxPaid ?? 0) + staffTick.completedTax,
+          },
+        };
+        if (staffTick.xpEarned > 0) {
+          nextState = applyXpGain(nextState, staffTick.xpEarned);
+        }
+        if (staffTick.completedCount > 0) {
+          nextState = applyQuestProgress(nextState, 'REPAIR_PHONE', staffTick.completedCount);
+        }
+        return nextState;
+      });
     } else {
-      const rent = getDailyRent(shop.day, shop.shopTier);
-      const wages = getDailyStaffWages(shop.staff);
-      const techWork = applyMasterTechEndOfDay(shop);
-      const passiveAcc = simulateEndOfDayAccessorySales(shop);
-      const empireEod = processEmpireEndOfDay(shop);
+      // Also advance Hasan Usta's queue on the final customer turn of the day!
+      const finalStaffTick = advanceStaffRepairsOnTurn(shop);
+      for (const note of finalStaffTick.notifications) {
+        pushFeedback(note, 'positive');
+      }
+      const netFinalStaffPayout =
+        finalStaffTick.completedPayoutGross - finalStaffTick.completedTax;
+      const stateAfterFinalStaff: ShopState = {
+        ...shop,
+        cash: shop.cash + netFinalStaffPayout,
+        inventory: finalStaffTick.updatedInventory,
+        staffRepairQueue: finalStaffTick.updatedQueue,
+      };
+
+      const rent = getDailyRent(stateAfterFinalStaff.day, stateAfterFinalStaff.shopTier);
+      const wages = getDailyStaffWages(stateAfterFinalStaff.staff);
+      const techWork = applyMasterTechEndOfDay(stateAfterFinalStaff);
+      const passiveAcc = simulateEndOfDayAccessorySales(stateAfterFinalStaff);
+      const { taxAmount: passiveAccTax } = calculateSaleTax(
+        passiveAcc.revenue,
+        stateAfterFinalStaff.staff,
+        stateAfterFinalStaff.staffLevels
+      );
+      const empireEod = processEmpireEndOfDay(stateAfterFinalStaff);
       const nextCash =
-        shop.cash +
-        passiveAcc.revenue +
+        stateAfterFinalStaff.cash +
+        passiveAcc.revenue -
+        passiveAccTax +
         empireEod.branchIncome -
         rent -
         wages -
@@ -1560,23 +2098,45 @@ export default function App() {
         empireEod.loanPayments;
       soundFX.playDayComplete();
 
+      if (empireEod.overdueTaxNotice) {
+        pushFeedback('Maliye Gecikme Cezası Uygulandı (-0.15★)!', 'negative');
+      }
+
+      const remainingAccessoryUnits = Object.values(passiveAcc.updatedAccessories).reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+      const hasPendingOrders = (shop.pendingWholesaleOrders?.length ?? 0) > 0;
+
       setShop((prev) => {
+        const nextRepAfterTax = Math.max(
+          1,
+          Math.min(5, prev.reputation + empireEod.overdueTaxRepDelta)
+        );
         const finalStats = {
           ...prev.todayStats,
           rentCost: rent,
           staffWages: wages,
+          serviceRevenue:
+            prev.todayStats.serviceRevenue + finalStaffTick.completedPayoutGross,
           repairSpend: prev.todayStats.repairSpend + techWork.cost,
           accessoriesSold: prev.todayStats.accessoriesSold + passiveAcc.unitsSold,
           accessoryRevenue: prev.todayStats.accessoryRevenue + passiveAcc.revenue,
+          salesTaxPaid:
+            (prev.todayStats.salesTaxPaid ?? 0) +
+            finalStaffTick.completedTax +
+            passiveAccTax,
           branchIncome: (prev.todayStats.branchIncome ?? 0) + empireEod.branchIncome,
           loanPayments: (prev.todayStats.loanPayments ?? 0) + empireEod.loanPayments,
+          reputationDelta:
+            prev.todayStats.reputationDelta + empireEod.overdueTaxRepDelta,
           autoRepairedNote: techWork.note,
           passiveAccessoryNote: passiveAcc.note,
         };
         const historyEntry = buildDayHistoryEntry(
           finalStats,
           prev.dailyNews.headline,
-          prev.reputation,
+          nextRepAfterTax,
           nextCash
         );
         const filteredHistory = prev.history.filter(
@@ -1585,19 +2145,38 @@ export default function App() {
         let nextState: ShopState = {
           ...prev,
           cash: nextCash,
+          reputation: nextRepAfterTax,
           inventory: techWork.updatedInventory,
+          staffRepairQueue: finalStaffTick.updatedQueue,
           accessories: passiveAcc.updatedAccessories,
           activeLoans: empireEod.updatedLoans,
           weeklyTaxDue: empireEod.newWeeklyTaxDue,
           rival: empireEod.updatedRival,
-          totalPhonesRepaired: prev.totalPhonesRepaired + techWork.fixedCount,
+          morningNotifications: empireEod.overdueTaxNotice
+            ? [empireEod.overdueTaxNotice, ...(prev.morningNotifications ?? [])]
+            : prev.morningNotifications,
+          totalPhonesRepaired:
+            prev.totalPhonesRepaired + finalStaffTick.completedCount + techWork.fixedCount,
           totalAccessoriesSold:
             prev.totalAccessoriesSold + passiveAcc.unitsSold,
           totalProfitEarned:
-            prev.totalProfitEarned + passiveAcc.profit + empireEod.branchIncome,
+            prev.totalProfitEarned +
+            netFinalStaffPayout +
+            (passiveAcc.profit - passiveAccTax) +
+            empireEod.branchIncome,
           todayStats: finalStats,
           history: [...filteredHistory, historyEntry],
         };
+        if (finalStaffTick.xpEarned > 0) {
+          nextState = applyXpGain(nextState, finalStaffTick.xpEarned);
+        }
+        if (finalStaffTick.completedCount > 0) {
+          nextState = applyQuestProgress(
+            nextState,
+            'REPAIR_PHONE',
+            finalStaffTick.completedCount
+          );
+        }
         if (passiveAcc.unitsSold > 0) {
           nextState = applyXpGain(nextState, passiveAcc.unitsSold * 4);
           nextState = applyQuestProgress(
@@ -1609,7 +2188,12 @@ export default function App() {
         return nextState;
       });
 
-      if (nextCash < 0 && shop.inventory.length === 0) {
+      if (
+        nextCash < 0 &&
+        techWork.updatedInventory.length === 0 &&
+        remainingAccessoryUnits === 0 &&
+        !hasPendingOrders
+      ) {
         setScreen('GAME_OVER');
       } else {
         setScreen('DAY_SUMMARY');
@@ -1622,19 +2206,47 @@ export default function App() {
     setShop((prev) => {
       const nextDay = prev.day + 1;
       const nextNews = pickDailyNewspaper(nextDay, prev.dailyNews.id);
+      const timers = advanceDayTimers(prev, nextNews);
+      let nextDiscovered = prev.discoveredSpecIds;
+      for (const specId of timers.arrivedSpecIds) {
+        nextDiscovered = discoverSpec(nextDiscovered, specId);
+      }
+      const carriedTaxAlerts = (prev.morningNotifications ?? []).filter((n) =>
+        n.startsWith('Maliye Gecikme İhbarı')
+      );
       const nextBase: ShopState = {
         ...prev,
         day: nextDay,
+        shopTier: timers.shopTier,
+        showcaseUpgradeLevel: timers.showcaseUpgradeLevel,
+        upgrades: timers.upgrades,
+        branches: timers.branches,
+        staffLevels: timers.staffLevels,
+        pendingProjects: timers.pendingProjects,
+        pendingWholesaleOrders: timers.pendingWholesaleOrders,
+        accessories: timers.accessories,
+        inventory: timers.inventory,
+        discoveredSpecIds: nextDiscovered,
+        morningNotifications: [...carriedTaxAlerts, ...timers.notifications],
         dailyNews: nextNews,
         dailyWholesaleDiscountBrand: pickDailyWholesaleDiscountBrand(nextDay),
-        dailyQuests: generateDailyQuests(nextDay, prev.upgrades),
+        flashWholesaleDeal: generateFlashWholesaleDeal(nextDay, prev.level),
+        activeStoreEvent: null,
+        nextCustomerEventEffect: null,
+        storeEventsTriggeredToday: 0,
+        dailyQuests: generateDailyQuests(nextDay, timers.upgrades),
         currentQueueIndex: 0,
-        todayStats: createEmptyDayStats(nextDay, prev.shopTier, prev.staff),
+        todayStats: createEmptyDayStats(nextDay, timers.shopTier, prev.staff),
       };
       nextBase.dailyQueue = generateDailyQueue(nextBase);
-      nextBase.onlineListings = generateOnlineClassifieds(nextBase);
+      nextBase.onlineListings = [
+        ...timers.onlineListings,
+        ...generateOnlineClassifieds(nextBase),
+      ];
       nextBase.shippingOrders = generateShippingOrders(nextBase);
-      nextBase.dailyAuctionLot = generateDailyAuctionLot(nextBase);
+      const lots = generateDailyAuctionLots(nextBase);
+      nextBase.dailyAuctionLots = lots;
+      nextBase.dailyAuctionLot = lots[0] ?? null;
       return nextBase;
     });
     setActiveTab('COUNTER');
@@ -1643,38 +2255,44 @@ export default function App() {
 
   const applyInventoryRepair = (
     phoneUid: string,
-    defectId: DefectId,
+    defectIds: DefectId[],
     cost: number,
     masterCrafted: boolean
   ) => {
+    if (defectIds.length === 0) return;
+    const effectiveMaster = masterCrafted || shop.upgrades.includes('clean_room_lab');
+    const craftPct = getMasterCraftBonusPercent(shop.upgrades);
     soundFX.playRepair();
     pushFeedback(
-      masterCrafted
-        ? `-${formatTRY(cost)} · Usta İşi (+%8 Değer)!`
-        : `-${formatTRY(cost)} · ${DEFECT_CATALOG[defectId].shortLabel} Onarıldı`,
+      effectiveMaster
+        ? `-${formatTRY(cost)} · ${defectIds.length} Arıza Usta İşi (+%${craftPct} Değer)!`
+        : `-${formatTRY(cost)} · ${defectIds.length} Arıza Tek Seferde Onarıldı`,
       'positive'
     );
 
     setShop((prev) => {
+      const fixedBattery =
+        defectIds.includes('battery_degraded') ||
+        defectIds.includes('battery_fake_chip');
       const nextInv = prev.inventory.map((phone) => {
         if (phone.uid !== phoneUid) return phone;
-        const nextDefects = phone.defects.filter((d) => d !== defectId);
+        const nextDefects = phone.defects.filter((d) => !defectIds.includes(d));
         const updatedPhone: PhoneDevice = {
           ...phone,
           defects: nextDefects,
-          repairedDefects: [...phone.repairedDefects, defectId],
+          repairedDefects: [...phone.repairedDefects, ...defectIds],
           repairSpend: phone.repairSpend + cost,
-          masterCrafted: phone.masterCrafted || masterCrafted,
-          batteryHealth:
-            defectId === 'battery_degraded' || defectId === 'battery_fake_chip'
-              ? 100
-              : phone.batteryHealth,
-          reportedBatteryHealth:
-            defectId === 'battery_degraded' || defectId === 'battery_fake_chip'
-              ? 100
-              : phone.reportedBatteryHealth,
+          masterCrafted: phone.masterCrafted || effectiveMaster,
+          batteryHealth: fixedBattery ? 100 : phone.batteryHealth,
+          reportedBatteryHealth: fixedBattery ? 100 : phone.reportedBatteryHealth,
+          batteryCycles: fixedBattery ? 1 : phone.batteryCycles,
         };
-        const newFair = calculateMarketValue(updatedPhone, false, prev.dailyNews);
+        const newFair = calculateMarketValue(
+          updatedPhone,
+          false,
+          prev.dailyNews,
+          prev.upgrades
+        );
         return {
           ...updatedPhone,
           askingPrice: Math.max(updatedPhone.askingPrice, roundPrice(newFair * 1.15)),
@@ -1691,18 +2309,21 @@ export default function App() {
           repairSpend: prev.todayStats.repairSpend + cost,
         },
       };
-      nextState = applyXpGain(nextState, masterCrafted ? 55 : 25);
+      nextState = applyXpGain(
+        nextState,
+        (effectiveMaster ? 55 : 25) + (defectIds.length - 1) * 15
+      );
       return applyQuestProgress(nextState, 'REPAIR_PHONE', 1);
     });
   };
 
-  const handleQuickRepairDefect = (
+  const handleQuickRepairDefects = (
     phoneUid: string,
-    defectId: DefectId,
+    defectIds: DefectId[],
     external: boolean
   ) => {
-    const cost = getRepairCost(
-      defectId,
+    const cost = getMultiRepairCost(
+      defectIds,
       shop.upgrades,
       shop.dailyNews,
       external,
@@ -1710,17 +2331,71 @@ export default function App() {
       shop.legacyPath
     );
     if (shop.cash < cost) return;
-    applyInventoryRepair(phoneUid, defectId, cost, false);
+    applyInventoryRepair(phoneUid, defectIds, cost, !external && shop.upgrades.includes('clean_room_lab'));
   };
 
   const handleStartMiniRepair = (
     phone: PhoneDevice,
-    defectId: DefectId,
+    defectIds: DefectId[],
     cost: number
   ) => {
-    if (shop.cash < cost) return;
+    if (shop.cash < cost || defectIds.length === 0) return;
     soundFX.playClick();
-    setMiniRepairJob({ mode: 'INVENTORY', phone, defectId, cost });
+    setMiniRepairJob({ mode: 'INVENTORY', phone, defectIds, cost });
+  };
+
+  const handleDelegateRepairToMaster = (
+    phoneUid: string,
+    defectIds: DefectId[]
+  ) => {
+    if (!shop.staff.includes('master_tech') || defectIds.length === 0) return;
+    const phone = shop.inventory.find((p) => p.uid === phoneUid);
+    if (!phone || phone.assignedToStaff) return;
+    const masterLevel = shop.staffLevels?.master_tech ?? 1;
+    const masterSpecs = getMasterTechSpecs(masterLevel, shop.upgrades);
+    if ((shop.staffRepairQueue?.length ?? 0) >= masterSpecs.maxParallelJobs) return;
+    const rawCost = getMultiRepairCost(
+      defectIds,
+      shop.upgrades,
+      shop.dailyNews,
+      false,
+      shop.level,
+      shop.legacyPath
+    );
+    const partCost = calculateMasterDelegateCost(rawCost, masterLevel, shop.upgrades);
+    if (shop.cash < partCost) return;
+
+    const job: StaffRepairJob = {
+      id: `srep_${Date.now()}`,
+      mode: 'INVENTORY',
+      phoneUid: phone.uid,
+      deviceName: `${phone.brand} ${phone.model}`,
+      defectIds,
+      turnsRemaining: masterSpecs.turnsPerJob,
+      totalTurns: masterSpecs.turnsPerJob,
+      payout: 0,
+    };
+
+    soundFX.playRepair();
+    pushFeedback(
+      `Hasan Usta’ya Verildi (-${formatTRY(partCost)} · ${masterSpecs.turnsPerJob} Tur)`,
+      'positive'
+    );
+
+    setShop((prev) => ({
+      ...prev,
+      cash: prev.cash - partCost,
+      inventory: prev.inventory.map((p) =>
+        p.uid === phoneUid
+          ? { ...p, assignedToStaff: true, listedForSale: false, repairSpend: p.repairSpend + partCost }
+          : p
+      ),
+      staffRepairQueue: [...(prev.staffRepairQueue ?? []), job],
+      todayStats: {
+        ...prev.todayStats,
+        repairSpend: prev.todayStats.repairSpend + partCost,
+      },
+    }));
   };
 
   const handleMiniRepairSuccess = (masterCrafted: boolean) => {
@@ -1729,7 +2404,7 @@ export default function App() {
     setMiniRepairJob(null);
 
     if (job.mode === 'INVENTORY') {
-      applyInventoryRepair(job.phone.uid, job.defectId, job.cost, masterCrafted);
+      applyInventoryRepair(job.phone.uid, job.defectIds, job.cost, masterCrafted);
     } else {
       completeExpressRepair(masterCrafted ? 1000 : 350);
     }
@@ -1807,7 +2482,7 @@ export default function App() {
         return {
           ...updated,
           askingPrice: roundPrice(
-            calculateMarketValue(updated, false, prev.dailyNews) * 1.15
+            calculateMarketValue(updated, false, prev.dailyNews, prev.upgrades) * 1.15
           ),
         };
       }),
@@ -1839,14 +2514,72 @@ export default function App() {
 
   const handleBuyUpgrade = (upgradeId: UpgradeId) => {
     const upg = SHOP_UPGRADES.find((u) => u.id === upgradeId);
-    if (!upg || shop.upgrades.includes(upgradeId) || shop.cash < upg.cost) return;
+    if (
+      !upg ||
+      shop.upgrades.includes(upgradeId) ||
+      shop.level < (upg.minLevel ?? 1) ||
+      shop.cash < upg.cost ||
+      (shop.pendingProjects ?? []).some(
+        (p) => p.kind === 'UPGRADE' && p.targetId === upgradeId
+      )
+    ) {
+      return;
+    }
     soundFX.playCashRegister();
-    pushFeedback(`${upg.name} Kuruldu!`, 'positive');
+    const installDays = upg.installDays ?? 0;
+    if (installDays > 0) {
+      pushFeedback(
+        `${upg.name} Sipariş Edildi · Kurulum ${installDays} Gün Sürecek`,
+        'positive'
+      );
+      const proj: TimedProject = {
+        id: `proj_upg_${Date.now()}`,
+        kind: 'UPGRADE',
+        targetId: upgradeId,
+        label: upg.name,
+        daysRemaining: installDays,
+        totalDays: installDays,
+      };
+      setShop((prev) => ({
+        ...prev,
+        cash: prev.cash - upg.cost,
+        pendingProjects: [...(prev.pendingProjects ?? []), proj],
+      }));
+    } else {
+      pushFeedback(`${upg.name} Kuruldu!`, 'positive');
+      setShop((prev) => ({
+        ...prev,
+        cash: prev.cash - upg.cost,
+        upgrades: [...prev.upgrades, upgradeId],
+      }));
+    }
+  };
 
+  const handleBuyShowcaseUpgrade = () => {
+    const curLvl = shop.showcaseUpgradeLevel ?? 0;
+    if (curLvl >= SHOWCASE_UPGRADE_MAX_LEVEL) return;
+    if ((shop.pendingProjects ?? []).some((p) => p.kind === 'SHOWCASE_UPGRADE')) {
+      return;
+    }
+    const cost = getShowcaseUpgradeCost(curLvl);
+    if (shop.cash < cost) return;
+    soundFX.playCashRegister();
+    pushFeedback(
+      `Vitrin Rafı Sv.${curLvl + 1} Montajı Başladı (1 Gün · +2 Yuva)!`,
+      'positive'
+    );
+    const proj: TimedProject = {
+      id: `proj_show_${Date.now()}`,
+      kind: 'SHOWCASE_UPGRADE',
+      targetId: String(curLvl + 1),
+      label: `Vitrin Rafı Sv.${curLvl + 1} (+2 Yuva)`,
+      daysRemaining: 1,
+      totalDays: 1,
+    };
     setShop((prev) => ({
       ...prev,
-      cash: prev.cash - upg.cost,
-      upgrades: [...prev.upgrades, upgradeId],
+      cash: prev.cash - cost,
+      pendingProjects: [...(prev.pendingProjects ?? []), proj],
     }));
   };
 
@@ -1855,24 +2588,46 @@ export default function App() {
     if (
       targetTier !== shop.shopTier + 1 ||
       shop.cash < info.cost ||
-      shop.reputation < info.minReputation
+      shop.reputation < info.minReputation ||
+      shop.level < (info.minLevel ?? 1) ||
+      (shop.pendingProjects ?? []).some((p) => p.kind === 'SHOP_TIER')
     ) {
       return;
     }
+    const renDays = info.renovationDays ?? 0;
     soundFX.playDayComplete();
-    pushFeedback(`Yeni Dükkan Açıldı: ${info.name}!`, 'positive');
-
-    setShop((prev) => {
-      const nextState: ShopState = {
+    if (renDays > 0) {
+      pushFeedback(
+        `${info.name} Tadilatı Başladı (${renDays} Gün Sonra Açılacak)!`,
+        'positive'
+      );
+      const proj: TimedProject = {
+        id: `proj_tier_${Date.now()}`,
+        kind: 'SHOP_TIER',
+        targetId: String(targetTier),
+        label: info.name,
+        daysRemaining: renDays,
+        totalDays: renDays,
+      };
+      setShop((prev) => ({
         ...prev,
         cash: prev.cash - info.cost,
-        shopTier: targetTier,
-      };
-      if (checkVictoryCondition(nextState)) {
-        window.setTimeout(() => setScreen('VICTORY'), 500);
-      }
-      return nextState;
-    });
+        pendingProjects: [...(prev.pendingProjects ?? []), proj],
+      }));
+    } else {
+      pushFeedback(`Yeni Dükkan Açıldı: ${info.name}!`, 'positive');
+      setShop((prev) => {
+        const nextState: ShopState = {
+          ...prev,
+          cash: prev.cash - info.cost,
+          shopTier: targetTier,
+        };
+        if (checkVictoryCondition(nextState)) {
+          window.setTimeout(() => setScreen('VICTORY'), 500);
+        }
+        return nextState;
+      });
+    }
   };
 
   const handleBuyDecoration = (decorId: DecorationId) => {
@@ -1912,63 +2667,160 @@ export default function App() {
       ...prev,
       cash: prev.cash - member.hireCost,
       staff: [...prev.staff, staffId],
+      staffLevels: {
+        ...prev.staffLevels,
+        [staffId]: prev.staffLevels?.[staffId] ?? 1,
+      },
     }));
   };
 
   const handleTrainStaff = (staffId: StaffId) => {
     if (!shop.staff.includes(staffId)) return;
     const currentLvl = shop.staffLevels?.[staffId] ?? 1;
-    if (currentLvl >= 3) return;
-    const cost = STAFF_TRAINING_COSTS[currentLvl + 1] ?? 12000;
+    if (currentLvl >= STAFF_MAX_LEVEL) return;
+    if (
+      (shop.pendingProjects ?? []).some(
+        (p) => p.kind === 'STAFF_TRAIN' && p.targetId === staffId
+      )
+    ) {
+      return;
+    }
+    const cost = getStaffTrainingCost(currentLvl);
+    const days = getStaffTrainingDays(currentLvl);
     if (shop.cash < cost) return;
     const member = SHOP_STAFF.find((s) => s.id === staffId);
     soundFX.playLevelUp();
     pushFeedback(
-      `${member?.name ?? 'Ekip'} Sv.${currentLvl + 1} Oldu!`,
+      `${member?.name ?? 'Ekip'} Eğitime Başladı (${days} Gün → Sv.${currentLvl + 1})!`,
+      'positive'
+    );
+    const proj: TimedProject = {
+      id: `proj_stf_${Date.now()}`,
+      kind: 'STAFF_TRAIN',
+      targetId: staffId,
+      label: member?.name ?? staffId,
+      daysRemaining: days,
+      totalDays: days,
+    };
+    setShop((prev) => ({
+      ...prev,
+      cash: prev.cash - cost,
+      pendingProjects: [...(prev.pendingProjects ?? []), proj],
+    }));
+  };
+
+  const handleAttachAccessoryBundle = (
+    phoneUid: string,
+    accessoryId: AccessoryId
+  ) => {
+    const stock = shop.accessories[accessoryId];
+    if (!stock || stock.quantity <= 0) return;
+    const target = shop.inventory.find((p) => p.uid === phoneUid);
+    if (!target || (target.bundledAccessories ?? []).includes(accessoryId)) return;
+    const spec = getAccessorySpec(accessoryId);
+
+    const bundleValueAdd = Math.round(spec.recommendedPrice * 1.1);
+    soundFX.playRepair();
+    pushFeedback(
+      `${spec.name} Kutu Paketine Eklendi (+${formatTRY(bundleValueAdd)} Değer)!`,
+      'positive'
+    );
+    setShop((prev) => {
+      const nextAccessories = {
+        ...prev.accessories,
+        [accessoryId]: {
+          ...prev.accessories[accessoryId],
+          quantity: prev.accessories[accessoryId].quantity - 1,
+        },
+      };
+      const nextInv = prev.inventory.map((phone) => {
+        if (phone.uid !== phoneUid) return phone;
+        const nextBundles = [...(phone.bundledAccessories ?? []), accessoryId];
+        const updated: PhoneDevice = {
+          ...phone,
+          bundledAccessories: nextBundles,
+        };
+        const fairVal = calculateMarketValue(
+          updated,
+          false,
+          prev.dailyNews,
+          prev.upgrades
+        );
+        return {
+          ...updated,
+          askingPrice: Math.max(
+            phone.askingPrice + stock.retailPrice,
+            roundPrice(fairVal * 1.15)
+          ),
+        };
+      });
+      return {
+        ...prev,
+        accessories: nextAccessories,
+        inventory: nextInv,
+      };
+    });
+  };
+
+  const handleBuyOutfit = (outfitId: OutfitId) => {
+    const outfit = PLAYER_OUTFITS.find((o) => o.id === outfitId);
+    if (
+      !outfit ||
+      (shop.ownedOutfits ?? []).includes(outfitId) ||
+      shop.cash < outfit.cost
+    ) {
+      return;
+    }
+    soundFX.playCashRegister();
+    pushFeedback(`${outfit.name} Satın Alındı & Giyildi!`, 'positive');
+    setShop((prev) => ({
+      ...prev,
+      cash: prev.cash - outfit.cost,
+      ownedOutfits: [...(prev.ownedOutfits ?? ['casual_hoodie']), outfitId],
+      equippedOutfit: outfitId,
+    }));
+  };
+
+  const handleEquipOutfit = (outfitId: OutfitId) => {
+    if (!(shop.ownedOutfits ?? ['casual_hoodie']).includes(outfitId)) return;
+    const outfit = PLAYER_OUTFITS.find((o) => o.id === outfitId);
+    soundFX.playClick();
+    pushFeedback(`Kıyafet Değiştirildi: ${outfit?.name ?? outfitId}`, 'amber');
+    setShop((prev) => ({
+      ...prev,
+      equippedOutfit: outfitId,
+    }));
+  };
+
+  const handleResolveStoreEventAction = () => {
+    const ev = shop.activeStoreEvent;
+    if (!ev || ev.resolved || !ev.actionLabel) return;
+    const cost = ev.actionCost ?? 0;
+    if (shop.cash < cost) return;
+    soundFX.playScanOk();
+    pushFeedback(
+      `${ev.title} Çözüldü (${cost > 0 ? `-${formatTRY(cost)}` : 'Ücretsiz'})!`,
       'positive'
     );
     setShop((prev) => ({
       ...prev,
       cash: prev.cash - cost,
-      staffLevels: {
-        ...prev.staffLevels,
-        [staffId]: currentLvl + 1,
+      activeStoreEvent: prev.activeStoreEvent
+        ? { ...prev.activeStoreEvent, resolved: true }
+        : null,
+      nextCustomerEventEffect: {
+        title: `${ev.title} (Çözüldü)`,
+        moodDelta: ev.actionMoodDelta ?? Math.max(4, ev.moodDelta + 8),
+        patienceDelta: ev.actionPatienceDelta ?? 8,
+        budgetMultiplier: ev.actionBudgetMultiplier ?? 1.03,
+        visualKind: ev.visualKind,
       },
     }));
   };
 
-  const handleApplyCustomMod = (phoneUid: string, modId: CustomModId) => {
-    const spec = CUSTOM_MODS[modId];
-    if (!spec || shop.cash < spec.cost) return;
-    const target = shop.inventory.find((p) => p.uid === phoneUid);
-    if (!target || target.isBrandNew || target.customMod) return;
-    soundFX.playRepair();
-    pushFeedback(`${spec.name} Uygulandı (+%${Math.round(spec.valueBoostRatio * 100)} Değer)!`, 'positive');
-    setShop((prev) => {
-      const nextInv = prev.inventory.map((phone) => {
-        if (phone.uid !== phoneUid) return phone;
-        const updated: PhoneDevice = {
-          ...phone,
-          customMod: modId,
-          repairSpend: phone.repairSpend + spec.cost,
-        };
-        const fairVal = calculateMarketValue(updated, false, prev.dailyNews);
-        return {
-          ...updated,
-          askingPrice: Math.max(updated.askingPrice, roundPrice(fairVal * 1.15)),
-        };
-      });
-      const nextState: ShopState = {
-        ...prev,
-        cash: prev.cash - spec.cost,
-        inventory: nextInv,
-        todayStats: {
-          ...prev.todayStats,
-          repairSpend: prev.todayStats.repairSpend + spec.cost,
-        },
-      };
-      return applyXpGain(nextState, 35);
-    });
+  const handleDismissStoreEvent = () => {
+    soundFX.playClick();
+    setShop((prev) => ({ ...prev, activeStoreEvent: null }));
   };
 
   const handleClaimDailyStreak = () => {
@@ -1996,15 +2848,115 @@ export default function App() {
 
   // === PİYASA & İMPARATORLUK (EMPIRE) HANDLERS ===
 
+  const handleInspectClassifiedOnsite = (listingId: string) => {
+    const listing = shop.onlineListings.find((l) => l.id === listingId);
+    if (
+      !listing ||
+      (listing.status && listing.status !== 'AVAILABLE') ||
+      shop.cash < CLASSIFIED_ONSITE_FEE
+    ) {
+      return;
+    }
+    soundFX.playScanOk();
+    pushFeedback(
+      `-${formatTRY(CLASSIFIED_ONSITE_FEE)} · Yerinde Kontrol Yapıldı (${listing.device.defects.length} Kusur)`,
+      'amber'
+    );
+    setShop((prev) => ({
+      ...prev,
+      cash: prev.cash - CLASSIFIED_ONSITE_FEE,
+      onlineListings: prev.onlineListings.map((l) =>
+        l.id === listingId
+          ? {
+              ...l,
+              status: 'INSPECTED_ONSITE' as const,
+              device: {
+                ...l.device,
+                inspected: { screen: true, battery: true, imei: true, hardware: true },
+              },
+            }
+          : l
+      ),
+    }));
+  };
+
+  const handleOrderClassifiedCod = (listingId: string) => {
+    const listing = shop.onlineListings.find((l) => l.id === listingId);
+    if (
+      !listing ||
+      (listing.status && listing.status !== 'AVAILABLE') ||
+      shop.cash < CLASSIFIED_COD_FEE
+    ) {
+      return;
+    }
+    soundFX.playClick();
+    pushFeedback(
+      `-${formatTRY(CLASSIFIED_COD_FEE)} · Kapıda Kontrollü Kargo İstendi (Yarın Gelir)`,
+      'amber'
+    );
+    setShop((prev) => ({
+      ...prev,
+      cash: prev.cash - CLASSIFIED_COD_FEE,
+      onlineListings: prev.onlineListings.map((l) =>
+        l.id === listingId
+          ? {
+              ...l,
+              status: 'SHIPPING_IN_TRANSIT' as const,
+              deliveryDaysLeft: 1,
+            }
+          : l
+      ),
+    }));
+  };
+
+  const handleHaggleClassified = (listingId: string, offerPrice: number) => {
+    const listing = shop.onlineListings.find((l) => l.id === listingId);
+    if (!listing || listing.bought) return;
+    const res = evaluateClassifiedHaggle(listing, offerPrice);
+    if (res.accepted) {
+      soundFX.playScanOk();
+      pushFeedback(res.message, 'positive');
+    } else if (res.rejectedWalkout) {
+      soundFX.playScanDefect();
+      pushFeedback(res.message, 'negative');
+    } else {
+      soundFX.playCounterOffer();
+      pushFeedback('Satıcı Karşı Fiyat Verdi!', 'amber');
+    }
+    setShop((prev) => ({
+      ...prev,
+      onlineListings: prev.onlineListings.map((l) =>
+        l.id === listingId ? res.updatedListing : l
+      ),
+    }));
+  };
+
+  const handleRejectClassified = (listingId: string) => {
+    soundFX.playClick();
+    pushFeedback('İlandan Vazgeçildi', 'amber');
+    setShop((prev) => ({
+      ...prev,
+      onlineListings: prev.onlineListings.map((l) =>
+        l.id === listingId ? { ...l, status: 'REJECTED' as const } : l
+      ),
+    }));
+  };
+
   const handleBuyClassified = (listingId: string) => {
     const listing = shop.onlineListings.find((l) => l.id === listingId);
-    if (!listing || listing.bought || shop.cash < listing.askingPrice) return;
+    const price = listing ? listing.currentPrice ?? listing.askingPrice : 0;
+    if (!listing || listing.bought || shop.cash < price) return;
     soundFX.playCashRegister();
-    pushFeedback(`-${formatTRY(listing.askingPrice)} · İlan Kargosu Atölyede!`, 'amber');
-    const fairVal = calculateMarketValue(listing.device, false, shop.dailyNews);
+    pushFeedback(`-${formatTRY(price)} · İlan Cihazı Atölyeye Alındı!`, 'amber');
+    const fairVal = calculateMarketValue(
+      listing.device,
+      false,
+      shop.dailyNews,
+      shop.upgrades
+    );
     const boughtPhone: PhoneDevice = {
       ...listing.device,
-      purchasePrice: listing.askingPrice,
+      purchasePrice: price,
       inspected: { screen: true, battery: true, imei: true, hardware: true },
       listedForSale: false,
       askingPrice: roundPrice(fairVal * 1.15),
@@ -2012,16 +2964,18 @@ export default function App() {
     setShop((prev) => {
       const nextState: ShopState = {
         ...prev,
-        cash: prev.cash - listing.askingPrice,
+        cash: prev.cash - price,
         inventory: [boughtPhone, ...prev.inventory],
         discoveredSpecIds: discoverSpec(prev.discoveredSpecIds, boughtPhone.specId),
         onlineListings: prev.onlineListings.map((l) =>
-          l.id === listingId ? { ...l, bought: true } : l
+          l.id === listingId
+            ? { ...l, bought: true, status: 'BOUGHT' as const }
+            : l
         ),
         todayStats: {
           ...prev.todayStats,
           phonesBought: prev.todayStats.phonesBought + 1,
-          buySpend: prev.todayStats.buySpend + listing.askingPrice,
+          buySpend: prev.todayStats.buySpend + price,
         },
       };
       return applyXpGain(nextState, 24);
@@ -2034,14 +2988,23 @@ export default function App() {
     if (!order || order.fulfilled || !phone) return;
     if (order.requireClean && phone.defects.length > 0) return;
 
-    const gross = roundPrice(
-      calculateMarketValue(phone, false, shop.dailyNews) * order.bonusMultiplier
+    const gross =
+      roundPrice(
+        calculateMarketValue(phone, false, shop.dailyNews, shop.upgrades) *
+          order.bonusMultiplier
+      ) + order.shippingFee;
+    const { taxAmount: saleTax, netAmount: netPayout } = calculateSaleTax(
+      gross,
+      shop.staff,
+      shop.staffLevels
     );
-    const netPayout = gross - order.shippingFee;
     const profit = netPayout - (phone.purchasePrice + phone.repairSpend);
 
     soundFX.playCashRegister();
-    pushFeedback(`+${formatTRY(netPayout)} · ${order.city} Kargo Satışı Tamam!`, 'positive');
+    pushFeedback(
+      `+${formatTRY(netPayout)} · ${order.city} Kargo Satışı (-${formatTRY(saleTax)} vergi)!`,
+      'positive'
+    );
 
     setShop((prev) => {
       let nextState: ShopState = {
@@ -2058,7 +3021,8 @@ export default function App() {
         todayStats: {
           ...prev.todayStats,
           phonesSold: prev.todayStats.phonesSold + 1,
-          salesRevenue: prev.todayStats.salesRevenue + netPayout,
+          salesRevenue: prev.todayStats.salesRevenue + gross,
+          salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
           reputationDelta: prev.todayStats.reputationDelta + 0.1,
         },
       };
@@ -2074,30 +3038,44 @@ export default function App() {
     });
   };
 
-  const handleResolveAuction = (wonByPlayer: boolean, finalBid: number) => {
-    const lot = shop.dailyAuctionLot;
+  const handleResolveAuction = (
+    lotId: string,
+    wonByPlayer: boolean,
+    finalBid: number
+  ) => {
+    const lots =
+      shop.dailyAuctionLots && shop.dailyAuctionLots.length > 0
+        ? shop.dailyAuctionLots
+        : shop.dailyAuctionLot
+        ? [shop.dailyAuctionLot]
+        : [];
+    const lot = lots.find((l) => l.id === lotId);
     if (!lot || lot.resolved) return;
 
     if (!wonByPlayer) {
       soundFX.playClick();
-      pushFeedback('Açık Artırma Rakibe Kaldı', 'amber');
-      setShop((prev) => ({
-        ...prev,
-        dailyAuctionLot: prev.dailyAuctionLot
-          ? {
-              ...prev.dailyAuctionLot,
-              resolved: true,
-              wonByPlayer: false,
-              winningBid: finalBid,
-            }
-          : null,
-      }));
+      pushFeedback('Açık Artırma Seansı Rakibe Kaldı', 'amber');
+      setShop((prev) => {
+        const updatedLots = (prev.dailyAuctionLots ?? []).map((l) =>
+          l.id === lotId
+            ? { ...l, resolved: true, wonByPlayer: false, winningBid: finalBid }
+            : l
+        );
+        return {
+          ...prev,
+          dailyAuctionLots: updatedLots,
+          dailyAuctionLot: updatedLots[0] ?? prev.dailyAuctionLot,
+        };
+      });
       return;
     }
 
     if (shop.cash < finalBid) return;
     soundFX.playDayComplete();
-    pushFeedback(`İHALE SENİN! ${lot.devices.length} Cihaz + Aksesuar Atölyede!`, 'positive');
+    pushFeedback(
+      `İHALE SENİN! ${lot.devices.length} Cihaz + Aksesuar Atölyede!`,
+      'positive'
+    );
 
     const perPhoneCost = Math.round(finalBid / Math.max(1, lot.devices.length));
     const wonDevices: PhoneDevice[] = lot.devices.map((d) => ({
@@ -2105,7 +3083,9 @@ export default function App() {
       purchasePrice: perPhoneCost,
       inspected: { screen: true, battery: true, imei: true, hardware: true },
       listedForSale: false,
-      askingPrice: roundPrice(calculateMarketValue(d, false, shop.dailyNews) * 1.15),
+      askingPrice: roundPrice(
+        calculateMarketValue(d, false, shop.dailyNews, shop.upgrades) * 1.15
+      ),
     }));
 
     setShop((prev) => {
@@ -2123,6 +3103,11 @@ export default function App() {
       for (const p of wonDevices) {
         nextDisc = discoverSpec(nextDisc, p.specId);
       }
+      const updatedLots = (prev.dailyAuctionLots ?? []).map((l) =>
+        l.id === lotId
+          ? { ...l, resolved: true, wonByPlayer: true, winningBid: finalBid }
+          : l
+      );
       const nextState: ShopState = {
         ...prev,
         cash: prev.cash - finalBid,
@@ -2130,14 +3115,8 @@ export default function App() {
         accessories: nextAccessories,
         discoveredSpecIds: nextDisc,
         totalAuctionsWon: (prev.totalAuctionsWon ?? 0) + 1,
-        dailyAuctionLot: prev.dailyAuctionLot
-          ? {
-              ...prev.dailyAuctionLot,
-              resolved: true,
-              wonByPlayer: true,
-              winningBid: finalBid,
-            }
-          : null,
+        dailyAuctionLots: updatedLots,
+        dailyAuctionLot: updatedLots[0] ?? prev.dailyAuctionLot,
         todayStats: {
           ...prev.todayStats,
           phonesBought: prev.todayStats.phonesBought + wonDevices.length,
@@ -2155,24 +3134,39 @@ export default function App() {
       shop.branches.includes(branchId) ||
       shop.cash < spec.unlockCost ||
       shop.level < spec.minLevel ||
-      shop.reputation < spec.minReputation
+      shop.reputation < spec.minReputation ||
+      (shop.pendingProjects ?? []).some(
+        (p) => p.kind === 'BRANCH' && p.targetId === branchId
+      )
     ) {
       return;
     }
     soundFX.playDayComplete();
-    pushFeedback(`Yeni Şube Açıldı: ${spec.name}!`, 'positive');
+    const buildDays = spec.buildDays ?? 2;
+    pushFeedback(
+      `${spec.name} İnşaatı Başladı (${buildDays} Gün Sonra Açılacak)!`,
+      'positive'
+    );
+    const proj: TimedProject = {
+      id: `proj_br_${Date.now()}`,
+      kind: 'BRANCH',
+      targetId: branchId,
+      label: spec.name,
+      daysRemaining: buildDays,
+      totalDays: buildDays,
+    };
     setShop((prev) => {
       const nextState: ShopState = {
         ...prev,
         cash: prev.cash - spec.unlockCost,
-        branches: [...prev.branches, branchId],
+        pendingProjects: [...(prev.pendingProjects ?? []), proj],
       };
       return applyXpGain(nextState, 80);
     });
   };
 
   const handleRunRivalPromo = () => {
-    const promoCost = 1800;
+    const promoCost = 1500;
     if (shop.rival.boughtOut || shop.rival.promoUsedToday || shop.cash < promoCost) {
       return;
     }
@@ -2184,7 +3178,7 @@ export default function App() {
       reputation: Math.min(5, prev.reputation + 0.08),
       rival: {
         ...prev.rival,
-        marketShare: Math.max(5, prev.rival.marketShare - 12),
+        marketShare: Math.max(5, prev.rival.marketShare - 9),
         promoUsedToday: true,
         lastTaunt:
           'Kurnaz Kerim: "Afiş mi astın tüm pasaja?! Müşterilerim hep senin kapına yığıldı!"',
@@ -2222,20 +3216,35 @@ export default function App() {
   };
 
   const handleTakeLoan = (offer: BankLoanOffer) => {
-    if ((shop.activeLoans?.length ?? 0) >= 2) return;
-    const totalRepay = Math.round(offer.principal * (1 + offer.interestRate));
+    if (
+      (shop.activeLoans?.length ?? 0) >= 2 ||
+      shop.shopTier < offer.minShopTier ||
+      shop.level < offer.minLevel
+    ) {
+      return;
+    }
+    const terms = getEffectiveLoanTerms(
+      offer.principal,
+      offer.interestRate,
+      offer.termDays,
+      shop.staff,
+      shop.staffLevels
+    );
     soundFX.playCashRegister();
-    pushFeedback(`+${formatTRY(offer.principal)} · ${offer.name} Hesabına Yattı!`, 'amber');
+    pushFeedback(
+      `+${formatTRY(terms.effectivePrincipal)} · ${offer.name} Hesabına Yattı!`,
+      'amber'
+    );
     const newLoan = {
       id: `loan_${Date.now()}`,
       name: offer.name,
-      remainingBalance: totalRepay,
-      dailyPayment: Math.ceil(totalRepay / offer.termDays),
+      remainingBalance: terms.totalRepay,
+      dailyPayment: terms.dailyPayment,
       daysLeft: offer.termDays,
     };
     setShop((prev) => ({
       ...prev,
-      cash: prev.cash + offer.principal,
+      cash: prev.cash + terms.effectivePrincipal,
       activeLoans: [...(prev.activeLoans ?? []), newLoan],
     }));
   };
@@ -2259,16 +3268,19 @@ export default function App() {
   const handlePayWeeklyTax = () => {
     if (shop.weeklyTaxDue <= 0 || shop.cash < shop.weeklyTaxDue) return;
     soundFX.playScanOk();
-    pushFeedback(`Vergi & Faturalar Ödendi (-${formatTRY(shop.weeklyTaxDue)})`, 'positive');
+    pushFeedback(
+      `Vergi & Faturalar Ödendi (-${formatTRY(shop.weeklyTaxDue)} · +0.10★)`,
+      'positive'
+    );
     setShop((prev) => ({
       ...prev,
       cash: prev.cash - prev.weeklyTaxDue,
-      reputation: Math.min(5, prev.reputation + 0.05),
+      reputation: Math.min(5, prev.reputation + 0.1),
       weeklyTaxDue: 0,
       todayStats: {
         ...prev.todayStats,
         taxPaid: (prev.todayStats.taxPaid ?? 0) + prev.weeklyTaxDue,
-        reputationDelta: prev.todayStats.reputationDelta + 0.05,
+        reputationDelta: prev.todayStats.reputationDelta + 0.1,
       },
     }));
   };
@@ -2288,13 +3300,98 @@ export default function App() {
     });
   };
 
+  // === GOOGLE PLAY / APP STORE COMPLIANCE & SETTINGS HANDLERS ===
+  const handleToggleHaptics = () => {
+    soundFX.playClick();
+    setShop((prev) => ({ ...prev, hapticsEnabled: !prev.hapticsEnabled }));
+  };
+
+  const handleSetTextSpeed = (speed: 'normal' | 'fast' | 'instant') => {
+    soundFX.playClick();
+    setShop((prev) => ({ ...prev, textSpeed: speed }));
+  };
+
+  const handleAcceptPrivacy = () => {
+    soundFX.playScanOk();
+    pushFeedback('KVKK & Gizlilik Tercihi Kaydedildi', 'positive');
+    setShop((prev) => ({ ...prev, privacyAccepted: true }));
+  };
+
+  const handleImportSaveJson = (rawJson: string): boolean => {
+    try {
+      const parsed = JSON.parse(rawJson) as Partial<ShopState>;
+      if (!parsed || typeof parsed.cash !== 'number' || typeof parsed.day !== 'number') {
+        return false;
+      }
+      saveShopState(parsed as ShopState);
+      const migrated = loadShopState();
+      if (!migrated) return false;
+      setShop(migrated);
+      setSavedSnapshot(migrated);
+      soundFX.playLevelUp();
+      pushFeedback('Kayıt Başarıyla Geri Yüklendi!', 'positive');
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleDeleteAllData = () => {
+    clearSavedShopState();
+    const fresh = createInitialShopState();
+    setShop(fresh);
+    setSavedSnapshot(null);
+    setShowComplianceModal(false);
+    setScreen('TITLE_MENU');
+    pushFeedback('Tüm Kayıtlar Kalıcı Olarak Silindi', 'amber');
+  };
+
+  const handleRateApp = (stars: number) => {
+    soundFX.playLevelUp();
+    pushFeedback(`${stars}★ Değerlendirmen İçin Teşekkürler!`, 'positive');
+    setShop((prev) => ({ ...prev, ratedApp: true }));
+  };
+
+  const handleSubmitFeedback = (note: string) => {
+    soundFX.playScanOk();
+    pushFeedback('Geri Bildirimin Kaydedildi!', 'positive');
+    setShop((prev) => ({
+      ...prev,
+      feedbackNotes: [note, ...(prev.feedbackNotes ?? [])].slice(0, 15),
+    }));
+  };
+
   if (screen === 'TITLE_MENU') {
     return (
-      <TitleScreen
-        savedState={savedSnapshot}
-        onStartNew={handleStartNew}
-        onContinue={handleContinue}
-      />
+      <>
+        <TitleScreen
+          savedState={savedSnapshot}
+          onStartNew={handleStartNew}
+          onContinue={handleContinue}
+          onOpenCompliance={() => {
+            soundFX.playClick();
+            setShowComplianceModal(true);
+          }}
+        />
+        {showComplianceModal && (
+          <StoreComplianceModal
+            shop={savedSnapshot ?? shop}
+            muted={muted}
+            onToggleMute={handleToggleMute}
+            onToggleHaptics={handleToggleHaptics}
+            onSetTextSpeed={handleSetTextSpeed}
+            onAcceptPrivacy={handleAcceptPrivacy}
+            onImportSaveJson={handleImportSaveJson}
+            onDeleteAllData={handleDeleteAllData}
+            onRateApp={handleRateApp}
+            onSubmitFeedback={handleSubmitFeedback}
+            onClose={() => {
+              soundFX.playClick();
+              setShowComplianceModal(false);
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -2308,16 +3405,16 @@ export default function App() {
 
   return (
     <div className="h-dvh w-screen overflow-hidden flex flex-col bg-[#0F141B] text-slate-100 select-none">
-      {/* LOW-OCCLUSION GAME HUD HEADER (Responsive for Mobile & Desktop) */}
-      <header className="min-h-14 shrink-0 border-b border-white/10 bg-[#131A24] px-3 sm:px-4 py-1.5 sm:py-0 flex flex-wrap lg:flex-nowrap items-center justify-between gap-2 sm:gap-4">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 lg:flex-initial">
-          <div className="hidden sm:block shrink-0">
+      {/* ULTRA-COMPACT GAME HUD HEADER: All 6 tabs always reachable on mobile & landscape */}
+      <header className="shrink-0 border-b border-white/10 bg-[#131A24] safe-px py-1 sm:py-0 sm:h-11 lg:h-13 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 sm:gap-2">
+        <div className="flex items-center gap-1.5 lg:gap-3 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
+          <div className="hidden xl:block shrink-0">
             <BrandLogo size="compact" />
           </div>
 
           <nav
             aria-label="Dükkan bölümleri"
-            className="flex items-center gap-1 rounded-xl bg-[#0D1219] p-1 border border-white/8 overflow-x-auto max-w-full"
+            className="grid grid-cols-6 sm:flex sm:items-center gap-0.5 sm:gap-1 rounded-lg bg-[#0D1219] p-0.5 border border-white/8 w-full sm:w-auto sm:max-w-full overflow-x-auto no-scrollbar"
           >
             <button
               type="button"
@@ -2325,14 +3422,14 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('COUNTER');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'COUNTER'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>Tezgah</span>
+              <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="truncate">Tezgah</span>
             </button>
 
             <button
@@ -2341,14 +3438,17 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('WORKSHOP');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'WORKSHOP'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <Wrench className="w-3.5 h-3.5" />
-              <span>Atölye ({shop.inventory.length})</span>
+              <Wrench className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="truncate">
+                Atölye
+                {shop.inventory.length > 0 ? ` (${shop.inventory.length})` : ''}
+              </span>
             </button>
 
             <button
@@ -2357,14 +3457,14 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('WHOLESALE');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'WHOLESALE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <Package className="w-3.5 h-3.5" />
-              <span>Toptancı</span>
+              <Package className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="truncate">Toptan</span>
             </button>
 
             <button
@@ -2373,16 +3473,16 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('EMPIRE');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'EMPIRE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Piyasa</span>
+              <Building2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="truncate">Piyasa</span>
               {shop.weeklyTaxDue > 0 && (
-                <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-rose-500 text-white">
+                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-rose-500 text-white">
                   !
                 </span>
               )}
@@ -2394,16 +3494,16 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('MISSIONS');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'MISSIONS'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <Target className="w-3.5 h-3.5" />
-              <span>Görevler</span>
+              <Target className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="truncate">Görev</span>
               {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
-                <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                   +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
                 </span>
               )}
@@ -2415,32 +3515,32 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('UPGRADES');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'UPGRADES'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Büyütme</span>
+              <Sparkles className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="truncate">Büyüt</span>
             </button>
           </nav>
         </div>
 
-        {/* Unboxed Tabular HUD Readouts */}
-        <div className="flex items-center gap-3.5 sm:gap-5 tabular-nums shrink-0">
-          <div className="hidden xl:flex items-center gap-3 text-xs text-slate-400">
+        {/* Compact Tabular HUD Readouts */}
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2.5 lg:gap-4 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
+          <div className="hidden xl:flex items-center gap-2.5 text-xs text-slate-400">
             <span>
               Gün <strong className="text-slate-100 font-mono">{shop.day}</strong>
             </span>
             <span aria-hidden="true" className="text-white/20">·</span>
             <span>
-              Sv. <strong className="text-amber-300 font-mono">{shop.level}</strong>
+              Sv.<strong className="text-amber-300 font-mono">{shop.level}</strong>
             </span>
             <span aria-hidden="true" className="text-white/20">·</span>
             <span className="inline-flex items-center gap-1">
               <Store className="w-3.5 h-3.5 text-slate-400" />
-              <strong className="text-slate-100 font-mono">{listedCount}</strong> vitrin
+              <strong className="text-slate-100 font-mono">{listedCount}</strong>
             </span>
             <span aria-hidden="true" className="text-white/20">·</span>
             <span>
@@ -2448,26 +3548,28 @@ export default function App() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400">
-              <Star className="w-3.5 h-3.5 fill-amber-400" />
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="inline-flex items-center gap-0.5 text-[11px] lg:text-xs font-semibold text-amber-400">
+              <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-amber-400" />
               <span className="font-mono">{shop.reputation.toFixed(1)}</span>
             </div>
 
             <div className="text-right">
-              <div className="font-mono text-sm sm:text-base font-extrabold text-emerald-400 leading-none">
+              <div className="font-mono text-xs sm:text-sm lg:text-base font-extrabold text-emerald-400 leading-none">
                 {formatTRY(shop.cash)}
               </div>
               {!shop.endlessMode && (
-                <div className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                <div className="hidden lg:block text-[9.5px] text-slate-400 leading-tight mt-0.5">
                   Showroom Hedef %{victoryProgress}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <PWAInstallButton variant="compact" />
+          <div className="flex items-center gap-1">
+            <div className="hidden sm:block">
+              <PWAInstallButton variant="compact" />
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -2476,9 +3578,9 @@ export default function App() {
               }}
               aria-label="Pasaj Postası gazetesini oku"
               title="Pasaj Postası & Günlük Görevler"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-amber-300 hover:text-amber-200 hover:bg-[#243042] transition-colors cursor-pointer"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-amber-300 hover:text-amber-200 hover:bg-[#243042] transition-colors cursor-pointer"
             >
-              <Newspaper className="w-4 h-4" />
+              <Newspaper className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
             </button>
             <button
               type="button"
@@ -2488,17 +3590,33 @@ export default function App() {
               }}
               aria-label="D3 İstatistik panelini aç"
               title="Dükkan İstatistikleri (D3)"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer"
             >
-              <BarChart3 className="w-4 h-4" />
+              <BarChart3 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setShowComplianceModal(true);
+              }}
+              aria-label="Ayarlar, Başarımlar ve Gizlilik Merkezi"
+              title="Mağaza, Başarımlar & Gizlilik Merkezi"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-sky-300 hover:text-sky-200 hover:bg-[#243042] transition-colors cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
             </button>
             <button
               type="button"
               onClick={handleToggleMute}
               aria-label={muted ? 'Sesi aç' : 'Sesi kapat'}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer"
             >
-              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {muted ? (
+                <VolumeX className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+              )}
             </button>
             <button
               type="button"
@@ -2507,13 +3625,45 @@ export default function App() {
                 setScreen('PAUSED');
               }}
               aria-label="Oyunu duraklat"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer"
             >
-              <Pause className="w-4 h-4" />
+              <Pause className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Non-blocking Portrait Orientation Helper Banner (Mobile Browser Fallback) */}
+      {isPortraitMobile && !portraitHintDismissed && (
+        <div className="shrink-0 bg-amber-500/15 border-b border-amber-400/35 px-2.5 py-1.5 flex items-center justify-between gap-2 text-[11px] text-amber-100">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <RotateCw className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate font-medium">
+              En iyi tezgah deneyimi için telefonu <strong>yatay</strong> çevir
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                void attemptLandscapeLock(true);
+              }}
+              className="rounded-md bg-amber-500 px-2 py-0.5 text-[10.5px] font-extrabold text-slate-950 cursor-pointer whitespace-nowrap"
+            >
+              Yatay Mod
+            </button>
+            <button
+              type="button"
+              onClick={() => setPortraitHintDismissed(true)}
+              aria-label="Uyarıyı kapat"
+              className="p-0.5 text-amber-200/80 hover:text-white cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ACTIVE SHOP PLAYFIELD */}
       <main className="relative flex-1 min-h-0 flex flex-col">
@@ -2533,6 +3683,13 @@ export default function App() {
             queue={shop.dailyQueue}
             queueIndex={shop.currentQueueIndex}
             queueTotal={shop.dailyQueue.length}
+            activeStoreEvent={shop.activeStoreEvent}
+            nextCustomerEventEffect={shop.nextCustomerEventEffect}
+            equippedOutfit={shop.equippedOutfit}
+            hiredStaff={shop.staff}
+            staffLevels={shop.staffLevels}
+            staffRepairQueue={shop.staffRepairQueue ?? []}
+            textSpeed={shop.textSpeed}
             onOpenNewspaper={() => {
               soundFX.playClick();
               setShowNewspaperReview(true);
@@ -2541,7 +3698,13 @@ export default function App() {
               soundFX.playClick();
               setActiveTab('MISSIONS');
             }}
+            onOpenWardrobe={() => {
+              soundFX.playClick();
+              setActiveTab('UPGRADES');
+            }}
             onClaimDailyQuest={handleClaimDailyQuest}
+            onResolveStoreEventAction={handleResolveStoreEventAction}
+            onDismissStoreEvent={handleDismissStoreEvent}
             onPlaceOnDeskReaction={handlePlaceOnDeskReaction}
             onInspect={handleInspect}
             onInspectAll={handleInspectAll}
@@ -2562,6 +3725,7 @@ export default function App() {
             }}
             onExpressRepairQuick={handleExpressRepairQuick}
             onExpressRepairMini={handleExpressRepairMini}
+            onDelegateExpressRepair={handleDelegateExpressRepair}
             onAcceptBulkAuction={handleAcceptBulkAuction}
             onResolveWarranty={handleResolveWarranty}
             onResolveDataRecovery={handleResolveDataRecovery}
@@ -2572,16 +3736,22 @@ export default function App() {
         {activeTab === 'WORKSHOP' && (
           <WorkshopView
             inventory={shop.inventory}
+            accessories={shop.accessories}
             cash={shop.cash}
             shopTier={shop.shopTier}
+            showcaseUpgradeLevel={shop.showcaseUpgradeLevel ?? 0}
             shopLevel={shop.level}
             legacyPath={shop.legacyPath}
             upgrades={shop.upgrades}
+            hiredStaff={shop.staff}
+            staffLevels={shop.staffLevels}
+            staffRepairQueue={shop.staffRepairQueue ?? []}
             dailyNews={shop.dailyNews}
-            onQuickRepairDefect={handleQuickRepairDefect}
+            onQuickRepairDefects={handleQuickRepairDefects}
             onStartMiniRepair={handleStartMiniRepair}
+            onDelegateRepairToMaster={handleDelegateRepairToMaster}
             onAddBoxKit={handleAddBoxKit}
-            onApplyCustomMod={handleApplyCustomMod}
+            onAttachAccessoryBundle={handleAttachAccessoryBundle}
             onUpdateListing={handleUpdateListing}
             onBackToCounter={() => {
               soundFX.playClick();
@@ -2610,7 +3780,11 @@ export default function App() {
         {activeTab === 'EMPIRE' && (
           <EmpireView
             shop={shop}
+            onInspectClassifiedOnsite={handleInspectClassifiedOnsite}
+            onOrderClassifiedCod={handleOrderClassifiedCod}
+            onHaggleClassified={handleHaggleClassified}
             onBuyClassified={handleBuyClassified}
+            onRejectClassified={handleRejectClassified}
             onFulfillShipping={handleFulfillShipping}
             onResolveAuction={handleResolveAuction}
             onUnlockBranch={handleUnlockBranch}
@@ -2620,6 +3794,10 @@ export default function App() {
             onRepayLoanEarly={handleRepayLoanEarly}
             onPayWeeklyTax={handlePayWeeklyTax}
             onBuyMuseumItem={handleBuyMuseumItem}
+            onGoToStaff={() => {
+              soundFX.playClick();
+              setActiveTab('UPGRADES');
+            }}
             onBackToCounter={() => {
               soundFX.playClick();
               setActiveTab('COUNTER');
@@ -2645,7 +3823,9 @@ export default function App() {
           <UpgradesView
             cash={shop.cash}
             reputation={shop.reputation}
+            level={shop.level}
             shopTier={shop.shopTier}
+            showcaseUpgradeLevel={shop.showcaseUpgradeLevel ?? 0}
             ownedUpgrades={shop.upgrades}
             ownedDecorations={shop.decorations}
             activeDecorations={shop.activeDecorations}
@@ -2653,12 +3833,18 @@ export default function App() {
             staffLevels={shop.staffLevels}
             branches={shop.branches}
             museumItems={shop.museumItems}
+            pendingProjects={shop.pendingProjects ?? []}
+            ownedOutfits={shop.ownedOutfits ?? ['casual_hoodie']}
+            equippedOutfit={shop.equippedOutfit ?? 'casual_hoodie'}
             onBuyUpgrade={handleBuyUpgrade}
+            onBuyShowcaseUpgrade={handleBuyShowcaseUpgrade}
             onUpgradeShopTier={handleUpgradeShopTier}
             onBuyDecoration={handleBuyDecoration}
             onToggleDecoration={handleToggleDecoration}
             onHireStaff={handleHireStaff}
             onTrainStaff={handleTrainStaff}
+            onBuyOutfit={handleBuyOutfit}
+            onEquipOutfit={handleEquipOutfit}
           />
         )}
 
@@ -2687,11 +3873,11 @@ export default function App() {
         onComplete={() => setInspectionOverlay(null)}
       />
 
-      {/* INTERACTIVE 3-STEP MINI-REPAIR MODAL */}
+      {/* INTERACTIVE SINGLE-SESSION MULTI-DEFECT MINI-REPAIR MODAL */}
       {miniRepairJob && (
         <MiniRepairModal
           phone={miniRepairJob.phone}
-          defectId={miniRepairJob.defectId}
+          defectIds={miniRepairJob.defectIds}
           cost={miniRepairJob.cost}
           isExpressJob={miniRepairJob.mode === 'EXPRESS'}
           legacyPath={shop.legacyPath}
@@ -2728,6 +3914,8 @@ export default function App() {
           news={shop.dailyNews}
           quests={shop.dailyQuests}
           shopRank={getShopRank(shop)}
+          flashWholesaleDeal={shop.flashWholesaleDeal}
+          morningNotifications={shop.morningNotifications}
           isMidDayReview={showNewspaperReview && screen !== 'MORNING_NEWS'}
           onClose={() => {
             soundFX.playClick();
@@ -2750,12 +3938,37 @@ export default function App() {
         />
       )}
 
+      {/* GOOGLE PLAY & APP STORE COMPLIANCE, SETTINGS & ACHIEVEMENTS MODAL */}
+      {showComplianceModal && (
+        <StoreComplianceModal
+          shop={shop}
+          muted={muted}
+          onToggleMute={handleToggleMute}
+          onToggleHaptics={handleToggleHaptics}
+          onSetTextSpeed={handleSetTextSpeed}
+          onAcceptPrivacy={handleAcceptPrivacy}
+          onImportSaveJson={handleImportSaveJson}
+          onDeleteAllData={handleDeleteAllData}
+          onRateApp={handleRateApp}
+          onSubmitFeedback={handleSubmitFeedback}
+          onClose={() => {
+            soundFX.playClick();
+            setShowComplianceModal(false);
+          }}
+        />
+      )}
+
       {/* GAME SHELL MODALS */}
       {screen === 'PAUSED' && (
         <PauseModal
           onResume={() => {
             soundFX.playClick();
             setScreen('PLAYING');
+          }}
+          onOpenCompliance={() => {
+            soundFX.playClick();
+            setScreen('PLAYING');
+            setShowComplianceModal(true);
           }}
           onRestart={handleStartNew}
           onTitle={() => {

@@ -18,14 +18,27 @@ import {
   LevelPerk,
   MuseumItemSpec,
   NegotiationTone,
+  OutfitId,
+  OutfitSpec,
   PhoneModelSpec,
+  RandomStoreEvent,
   ShopDecoration,
   ShopTier,
   ShopTierInfo,
   ShopUpgrade,
   StaffMember,
+  StoreAchievementSpec,
   StoryChapter,
 } from './types';
+
+export const MUSEUM_BANNER_IMAGE =
+  '/src/assets/images/museum_retro_showcase_1795476278430.jpg';
+export const DECOR_BANNER_IMAGE =
+  '/src/assets/images/decor_shop_ambiance_1795476278909.jpg';
+export const OUTFITS_BANNER_IMAGE =
+  '/src/assets/images/merchant_outfits_rack_1795476278731.jpg';
+export const FLAGSHIP_INTERIOR_IMAGE =
+  '/src/assets/images/shop_flagship_interior_1795476278004.jpg';
 
 export const SHOP_TIERS: Record<ShopTier, ShopTierInfo> = {
   1: {
@@ -33,45 +46,102 @@ export const SHOP_TIERS: Record<ShopTier, ShopTierInfo> = {
     name: 'Küçük Pasaj Standı',
     cost: 0,
     minReputation: 1.0,
+    minLevel: 1,
+    renovationDays: 0,
     backdropPath: '/src/assets/images/shop_counter_backdrop_1795453524289.jpg',
     showcaseSlots: 3,
-    dailyCustomers: 5,
+    dailyCustomers: 12,
     baseRent: 1100,
     prestigeBonus: 10,
-    description: '23 yaşında ilk kiraladığın 12 m² pasaj dükkanı. Düşük kira, sıcak esnaf atmosferi.',
-    unlocksText: '3 Vitrin Rafı · Günde 5 Müşteri · Temel Aksesuar Standı',
+    description:
+      '23 yaşında ilk kiraladığın 12 m² pasaj dükkanı. Düşük kira, sıcak esnaf atmosferi.',
+    unlocksText: '3 Vitrin Rafı · Günde 12 Müşteri · Temel Aksesuar Standı',
   },
   2: {
     tier: 2,
     name: 'Köşe Teknoloji Dükkanı',
     cost: 38000,
-    minReputation: 3.4,
+    minReputation: 3.3,
+    minLevel: 2,
+    renovationDays: 2,
     backdropPath: '/src/assets/images/shop_tier2_corner_1795455392009.jpg',
-    showcaseSlots: 6,
-    dailyCustomers: 6,
+    showcaseSlots: 5,
+    dailyCustomers: 14,
     baseRent: 2400,
     prestigeBonus: 35,
-    description: 'Caddeye bakan geniş vitrinli köşe mağaza. Hem sıfır kutu hem 2. el hem aksesuar trafiği katlanır.',
-    unlocksText: '6 Vitrin Rafı · Günde 6 Müşteri · Geniş Aksesuar Reyonu · +35 Prestij',
+    description:
+      'Caddeye bakan geniş vitrinli köşe mağaza. Hem sıfır kutu hem 2. el hem aksesuar trafiği katlanır.',
+    unlocksText: '5 Vitrin Rafı · Günde 14 Müşteri · 2 Gün Tadilat · +35 Prestij',
   },
   3: {
     tier: 3,
-    name: 'GSM Showroom & Servis',
+    name: 'Cadde GSM Merkezi',
     cost: 95000,
-    minReputation: 4.3,
+    minReputation: 3.9,
+    minLevel: 4,
+    renovationDays: 2,
     backdropPath: '/src/assets/images/shop_tier3_showroom_1795455391998.jpg',
-    showcaseSlots: 9,
-    dailyCustomers: 8,
-    baseRent: 4400,
-    prestigeBonus: 75,
-    description: 'Şehrin zirvesindeki lüks teknoloji & teknik servis merkezi. VIP koleksiyonerlerin ve sıfır amiral gemisi alıcılarının adresi.',
-    unlocksText: '9 Vitrin Rafı · Günde 8 Müşteri · Lüks Showroom Sahnesi · +75 Prestij',
+    showcaseSlots: 8,
+    dailyCustomers: 15,
+    baseRent: 4600,
+    prestigeBonus: 70,
+    description:
+      'İki katlı cadde mağazası ve cam bölmeli teknik servis istasyonu. Kurumsal müşterilerin gözdesi.',
+    unlocksText: '8 Vitrin Rafı · Günde 15 Müşteri · 2 Gün Tadilat · +70 Prestij',
+  },
+  4: {
+    tier: 4,
+    name: 'Bölge GSM Showroom',
+    cost: 220000,
+    minReputation: 4.3,
+    minLevel: 6,
+    renovationDays: 3,
+    backdropPath: FLAGSHIP_INTERIOR_IMAGE,
+    showcaseSlots: 11,
+    dailyCustomers: 17,
+    baseRent: 8500,
+    prestigeBonus: 120,
+    description:
+      'Ceviz ahşap ve pirinç detaylı dev bölge showroom’u. VIP koleksiyonerler ve toplu alıcılar akın eder.',
+    unlocksText: '11 Vitrin Rafı · Günde 17 Müşteri · 3 Gün Tadilat · +120 Prestij',
+  },
+  5: {
+    tier: 5,
+    name: 'AVM Flagship Teknoloji',
+    cost: 480000,
+    minReputation: 4.6,
+    minLevel: 8,
+    renovationDays: 3,
+    backdropPath: FLAGSHIP_INTERIOR_IMAGE,
+    showcaseSlots: 14,
+    dailyCustomers: 18,
+    baseRent: 15000,
+    prestigeBonus: 185,
+    description:
+      'Şehrin en prestijli AVM girişindeki dev amiral gemisi mağazası. Sıfır kutu ve lüks satış rekorları!',
+    unlocksText: '14 Vitrin Rafı · Günde 18 Müşteri · 3 Gün Tadilat · +185 Prestij',
+  },
+  6: {
+    tier: 6,
+    name: 'GSM Plaza Genel Merkezi',
+    cost: 1150000,
+    minReputation: 4.8,
+    minLevel: 9,
+    renovationDays: 4,
+    backdropPath: FLAGSHIP_INTERIOR_IMAGE,
+    showcaseSlots: 18,
+    dailyCustomers: 20,
+    baseRent: 26000,
+    prestigeBonus: 280,
+    description:
+      'Kendi adınla açılan çok katlı GSM Plaza! Milyonluk krediler, dev vitrin ve Türkiye’nin en büyük servis merkezi.',
+    unlocksText: '18 Vitrin Rafı · Günde 20 Müşteri · 4 Gün Tadilat · +280 Prestij',
   },
 };
 
 export const SHOP_BACKDROP_IMAGE = SHOP_TIERS[1].backdropPath;
 
-export const VICTORY_CASH_GOAL = 250000;
+export const VICTORY_CASH_GOAL = 1500000;
 export const VICTORY_REPUTATION_GOAL = 4.8;
 export const STARTING_CASH = 16500;
 
@@ -343,6 +413,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     id: 'tempered_glass',
     name: '9H Hayalet Kırılmaz Cam',
     category: 'Ekran Koruma',
+    shelfGroup: 'protection',
     wholesaleCost: 65,
     recommendedPrice: 250,
     minPrice: 120,
@@ -354,6 +425,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     id: 'magsafe_case',
     name: 'MagKlik Silikon Kılıf',
     category: 'Kılıf & Koruma',
+    shelfGroup: 'protection',
     wholesaleCost: 145,
     recommendedPrice: 450,
     minPrice: 220,
@@ -362,20 +434,10 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     demandWeight: 1.25,
   },
   {
-    id: 'gan_charger',
-    name: '30W GaN Hızlı Şarj Seti',
-    category: 'Güç & Kablo',
-    wholesaleCost: 290,
-    recommendedPrice: 780,
-    minPrice: 420,
-    maxPrice: 1250,
-    description: 'Yeni kutulardan adaptör çıkmadığı için her gün sorulan hızlı şarj adaptörü + örgülü kablo.',
-    demandWeight: 1.15,
-  },
-  {
     id: 'car_mount',
-    name: 'Manyetik Araç Telefon Tutucu',
+    name: 'Manyetik Araç Tutucu',
     category: 'Araç Aksesuarı',
+    shelfGroup: 'protection',
     wholesaleCost: 220,
     recommendedPrice: 600,
     minPrice: 320,
@@ -384,9 +446,22 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     demandWeight: 0.95,
   },
   {
+    id: 'gan_charger',
+    name: '30W GaN Hızlı Şarj Seti',
+    category: 'Güç & Kablo',
+    shelfGroup: 'power',
+    wholesaleCost: 290,
+    recommendedPrice: 780,
+    minPrice: 420,
+    maxPrice: 1250,
+    description: 'Yeni kutulardan adaptör çıkmadığı için her gün sorulan hızlı şarj adaptörü + örgülü kablo.',
+    demandWeight: 1.15,
+  },
+  {
     id: 'powerbank',
     name: '10.000 mAh Mini Powerbank',
     category: 'Taşınabilir Güç',
+    shelfGroup: 'power',
     wholesaleCost: 480,
     recommendedPrice: 1180,
     minPrice: 650,
@@ -398,6 +473,7 @@ export const ACCESSORY_CATALOG: AccessorySpec[] = [
     id: 'tws_earbuds',
     name: 'ANC Bluetooth Kulaklık',
     category: 'Ses & Kulaklık',
+    shelfGroup: 'audio',
     wholesaleCost: 640,
     recommendedPrice: 1600,
     minPrice: 880,
@@ -542,6 +618,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'Abi ön cam resmen harita gibi çatlamış, buna ekran takmadan kimse almaz!',
     leverageDropRatio: 0.14,
+    zone: 'front',
   },
   screen_aftermarket: {
     id: 'screen_aftermarket',
@@ -554,6 +631,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'Hocam Gerçek Ton yok, ekran yan sanayi TFT çıktı! Beni mi yiyorsun?',
     leverageDropRatio: 0.17,
+    zone: 'front',
   },
   battery_degraded: {
     id: 'battery_degraded',
@@ -566,6 +644,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'Pil sağlığı %67 kalmış, prizden çekince bayılır bu cihaz!',
     leverageDropRatio: 0.1,
+    zone: 'back',
   },
   battery_fake_chip: {
     id: 'battery_fake_chip',
@@ -578,6 +657,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'Ayarlarda %100 yazıyor ama testte çip takıldığı çıktı, gerçek pil %69!',
     leverageDropRatio: 0.15,
+    zone: 'back',
   },
   imei_unregistered: {
     id: 'imei_unregistered',
@@ -590,6 +670,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: false,
     leverageLine: 'Kardeşim bu cihaz yurt dışı kayıtsız çıktı! Kayıt harcı telefon parası zaten!',
     leverageDropRatio: 0.24,
+    zone: 'back',
   },
   liquid_damage: {
     id: 'liquid_damage',
@@ -602,6 +683,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'SIM yuvası kıpkırmızı olmuş, bu cihaz suya düşmüş! Anakart temizliği şart.',
     leverageDropRatio: 0.16,
+    zone: 'back',
   },
   camera_fog: {
     id: 'camera_fog',
@@ -614,6 +696,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'Kamera bulanık çekiyor, yüz tanıma da çalışmıyor. Fiyatı kırmamız lazım.',
     leverageDropRatio: 0.13,
+    zone: 'back',
   },
   cosmetic_worn: {
     id: 'cosmetic_worn',
@@ -626,6 +709,7 @@ export const DEFECT_CATALOG: Record<DefectId, DefectDefinition> = {
     repairable: true,
     leverageLine: 'Kasa köşeleri ezik, kutu fatura da yok. Yenileme + kutu masrafı benden çıkar.',
     leverageDropRatio: 0.08,
+    zone: 'back',
   },
 };
 
@@ -705,48 +789,131 @@ export const CUSTOMER_ARCHETYPES: Record<CustomerArchetypeId, CustomerArchetype>
 export const SHOP_UPGRADES: ShopUpgrade[] = [
   {
     id: 'repair_bench',
-    name: 'Kendi Tamir Tezgahın',
+    name: 'Kendi ESD Tamir Tezgahın',
     cost: 5500,
+    minLevel: 1,
+    installDays: 1,
+    category: 'workshop',
     summary: 'Dış tamirciye komisyon ödemeyi bırak; dükkanına ESD tamir masası ve havya istasyonu kur.',
-    benefitText: '5 Aşamalı Mikro Tamir Masası açılır (+%12 Usta İşi değeri), tek tık onarım ve acil tamir müşterileri!',
+    benefitText: 'Tek seferde çoklu arıza onarımı (+%12 Usta İşi) ve Acil Servis müşterileri açılır! (Kurulum: 1 Gün)',
     highlightTag: 'Öncelikli',
   },
   {
     id: 'tea_samovar',
     name: 'Bakır Semaver Çay Ocağı',
     cost: 6000,
+    minLevel: 1,
+    installDays: 1,
+    category: 'sales',
     summary: 'Taze tavşan kanı çay ile en inatçı müşterinin bile gönlünü fethet.',
-    benefitText: 'Çay ikramı sabrı +38 artırır ve müşteri beklentisini ek %4 yumuşatır.',
+    benefitText: 'Çay ikramı sabrı +38 artırır ve müşteri beklentisini ek %4 yumuşatır. (Kurulum: 1 Gün)',
   },
   {
     id: 'pro_diagnostic',
     name: 'Pro Ekspertiz İstasyonu',
     cost: 8500,
+    minLevel: 2,
+    installDays: 1,
+    category: 'workshop',
     summary: 'Tek tuşla ekran, pil, IMEI ve sıvı sensörlerini anında tarayan masaüstü cihaz.',
-    benefitText: '"Tümünü Tara" kısayolu açılır ve net tamir masrafı tahmini görünür.',
+    benefitText: '"Tümünü Tara" kısayolu açılır ve net tamir masrafı tahmini görünür. (Kurulum: 1 Gün)',
   },
   {
     id: 'display_cabinet',
-    name: 'Ekstra Cam Vitrin Modülü',
+    name: 'Kilitli Cam Vitrin Modülü',
     cost: 10000,
+    minLevel: 2,
+    installDays: 1,
+    category: 'sales',
     summary: 'Tezgah yanına özel kilitli sergileme dolabı ekleyerek stok kapasiteni genişlet.',
-    benefitText: 'Mevcut dükkan seviyene ek +2 vitrin rafı kapasitesi sağlar.',
+    benefitText: 'Mevcut vitrin rafına kalıcı +2 sergileme yuvası ekler. (Kurulum: 1 Gün)',
   },
   {
     id: 'parts_wholesale',
     name: 'Tahtakale Toptan Parça Hattı',
-    cost: 12000,
+    cost: 12500,
+    minLevel: 3,
+    installDays: 2,
+    category: 'workshop',
     summary: 'Toptancıdan doğrudan orijinal ekran ve pil çekerek tamir maliyetlerini kır.',
-    benefitText: 'Atölyedeki tüm tamir ve parça maliyetlerinde %30 kalıcı indirim.',
+    benefitText: 'Atölyedeki tüm tamir ve parça maliyetlerinde %30 kalıcı indirim. (Kurulum: 2 Gün)',
   },
   {
     id: 'neon_sign',
-    name: 'Sosyal Medya & Pasaj İlanı',
+    name: 'Sosyal Medya & Pasaj Reklamı',
     cost: 15000,
+    minLevel: 3,
+    installDays: 1,
+    category: 'sales',
     summary: 'Dükkanını şehrin en çok konuşulan teknoloji ve aksesuar noktasına dönüştür.',
-    benefitText: 'VIP koleksiyoner oranı ve pasif aksesuar satışı artar, itibar hızla yükselir.',
+    benefitText: 'VIP müşteri oranı ve pasif aksesuar satışı artar, itibar hızla yükselir. (Kurulum: 1 Gün)',
+  },
+  {
+    id: 'ultrasonic_cleaner',
+    name: 'Ultrasonik Anakart Banyosu',
+    cost: 22000,
+    minLevel: 4,
+    installDays: 2,
+    category: 'workshop',
+    summary: 'Sıvı temaslı ve oksitli anakartları yüksek frekanslı banyoda ilk günkü gibi temizler.',
+    benefitText: 'Sıvı ve donanım arızalarında ek -%20 maliyet, Usta İşi değerine +%4 ek prim. (Kurulum: 2 Gün)',
+  },
+  {
+    id: 'laser_backglass',
+    name: 'Lazer Arka Cam & Kasa Makinesi',
+    cost: 34000,
+    minLevel: 5,
+    installDays: 2,
+    category: 'workshop',
+    summary: 'Kırık arka cam ve darbeli kasaları lazerle dakikalar içinde fabrika çizgisinde yeniler.',
+    benefitText: 'Tüm onarım maliyetlerinde ek -%12 indirim ve Hasan Usta tamir hızı +1 tur hızlanır. (Kurulum: 2 Gün)',
+  },
+  {
+    id: 'smart_pos_zero',
+    name: 'Akıllı POS & Sıfır Komisyon Anlaşması',
+    cost: 42000,
+    minLevel: 5,
+    installDays: 2,
+    category: 'automation',
+    summary: 'Bankalarla özel esnaf POS anlaşması yaparak taksitli satış komisyonunu dibe çek.',
+    benefitText: 'Kredi kartı POS komisyonu %5 yerine sadece %1 kesilir! (Kurulum: 2 Gün)',
+  },
+  {
+    id: 'micro_soldering',
+    name: 'Mikroskop & BGA Lehim İstasyonu',
+    cost: 68000,
+    minLevel: 6,
+    installDays: 3,
+    category: 'workshop',
+    summary: 'Entegre ve işlemci düzeyinde mikro-cerrahi onarım istasyonu.',
+    benefitText: 'Usta İşi onarılan cihazların piyasa değeri ekstra +%6 artar, veri kurtarma %95 tutar! (Kurulum: 3 Gün)',
+  },
+  {
+    id: 'barcode_automation',
+    name: 'Barkod & Otomatik Stok Yazılımı',
+    cost: 85000,
+    minLevel: 7,
+    installDays: 2,
+    category: 'automation',
+    summary: 'Tüm aksesuar reyonunu ve vitrin fiyatlarını anlık takip eden akıllı kasa sistemi.',
+    benefitText: 'Gün sonu pasif aksesuar satış hızı +%35 artar ve çapraz satış şansı +%10 yükselir! (Kurulum: 2 Gün)',
+  },
+  {
+    id: 'clean_room_lab',
+    name: 'ISO-5 Temiz Oda Veri Laboratuvarı',
+    cost: 145000,
+    minLevel: 8,
+    installDays: 3,
+    category: 'workshop',
+    summary: 'Şehirdeki diğer telefoncuların bile cihaz gönderdiği tozsuz profesyonel laboratuvar.',
+    benefitText: 'Veri Kurtarma ve Acil Servis ödemeleri +%35 artar, tüm tamirler otomatik Usta İşi olur! (Kurulum: 3 Gün)',
   },
 ];
+
+export const SHOWCASE_UPGRADE_MAX_LEVEL = 10;
+export function getShowcaseUpgradeCost(currentLevel: number): number {
+  return Math.round((4500 * Math.pow(1.45, currentLevel)) / 500) * 500;
+}
 
 export const SHOP_DECORATIONS: ShopDecoration[] = [
   {
@@ -795,24 +962,28 @@ export const SHOP_STAFF: StaffMember[] = [
   {
     id: 'apprentice',
     name: 'Çırak Emre',
-    role: 'Ön Ekspertiz & Reyon Çırağı',
+    role: 'Ön Ekspertiz & Reyon Uzmanı',
     hireCost: 9000,
     dailyWage: 650,
-    summary: 'Müşteri kapıdan girer girmez ilk testi yapar, aksesuar reyonunu düzeltip satışı hızlandırır.',
-    benefitText: 'Her yeni satıcıda 1 testi otomatik yapar, çay bonusu +10 artar ve çevrimdışı gelir üretir.',
-    level2Bonus: 'Satıcıda 2 testi otomatik tarar & pasif aksesuar satışı +%25 artar.',
-    level3Bonus: 'Tüm ön ekspertizi hızlandırır & çevrimdışı gelir 2 katına çıkar.',
+    maxLevel: 10,
+    summary: 'Müşteri kapıdan girer girmez ön testi yapar, aksesuar reyonunu yönetip satışı hızlandırır.',
+    benefitText: 'Sv.1: Her satıcıda 1 testi otomatik yapar, çay bonusu +10 artar.',
+    level2Bonus: 'Sv.2–4: 2 testi otomatik tarar, reyon satışı seviye başına +%8 artar.',
+    level3Bonus: 'Sv.5–7: 3 testi anında tarar, çevrimdışı reyon geliri katlanır.',
+    highLevelBonus: 'Sv.8–10: Tüm 4 ekspertiz testini anında bitirir & dev reyon trafiği!',
   },
   {
     id: 'master_tech',
     name: 'Hasan Usta',
-    role: 'Kıdemli Anakart & Tamir Ustası',
+    role: 'Baş Anakart & Tamir Ustası',
     hireCost: 18000,
     dailyWage: 1300,
-    summary: 'Yılların pasaj ustası. Mesai bitiminde bekleyen arızalı cihazları elden geçirir.',
-    benefitText: 'Her gün sonunda atölyedeki 1 tamir bekleyen kusuru %50 parça fiyatıyla otomatik onarır.',
-    level2Bonus: 'Gün sonunda 2 kusura kadar otomatik onarım & Usta İşi mührü!',
-    level3Bonus: 'Otomatik onarımlarda parça masrafı %75 düşer & mikro-lehim bonusu.',
+    maxLevel: 10,
+    summary: 'Atölyeden veya Acil Servisten aktardığın cihazları süreli olarak tamir edip müşteriye teslim eder!',
+    benefitText: 'Sv.1: Cihazları ustaya aktarabilirsin (4 müşteri turunda bitirir, -%35 parça maliyeti).',
+    level2Bonus: 'Sv.2–4: Tamir süresi 3 tura düşer, aynı anda 2 cihaz işler, Usta İşi mührü basar.',
+    level3Bonus: 'Sv.5–7: Tamir süresi 2 tura düşer, aynı anda 3 cihaz ve -%55 parça indirimi!',
+    highLevelBonus: 'Sv.8–10: 1 turda yıldırım onarım, 4 paralel iş & -%70 parça maliyeti!',
   },
   {
     id: 'sales_rep',
@@ -820,42 +991,77 @@ export const SHOP_STAFF: StaffMember[] = [
     role: 'Vitrin Satış & Sosyal Medya Uzmanı',
     hireCost: 14500,
     dailyWage: 950,
-    summary: 'İkna kabiliyeti yüksek, fenomenlerle arası iyi. Müşteri trafiğini ve aksesuar sepetini büyütür.',
-    benefitText: 'Alıcı bütçelerini +%6 artırır, çapraz satış başarısını +%12 yükseltir ve gece geliri kazandırır.',
-    level2Bonus: 'Alıcı bütçesi +%10, rakip esnafa karşı günlük +%3 pazar payı!',
-    level3Bonus: 'VIP müşteri oranı patlar & her satışta ekstra itibar kazandırır.',
+    maxLevel: 10,
+    summary: 'İkna kabiliyeti yüksek, fenomenlerle arası iyi. Alıcı bütçelerini ve çapraz satışları büyütür.',
+    benefitText: 'Sv.1: Alıcı bütçeleri +%5 artar, çapraz satış başarısı +%10 yükselir.',
+    level2Bonus: 'Sv.2–4: Alıcı bütçesi +%10, rakibe karşı her gün pazar payı kazanır.',
+    level3Bonus: 'Sv.5–7: Alıcı bütçesi +%16, VIP oranı ve çoklu aksesuar sepeti büyür.',
+    highLevelBonus: 'Sv.8–10: Alıcı bütçesi +%22, her satışta ekstra itibar & maksimum sosyal erişim!',
+  },
+  {
+    id: 'accountant',
+    name: 'Mali Müşavir Selma Hanım',
+    role: 'Vergi & Finans Danışmanı',
+    hireCost: 16000,
+    dailyWage: 1100,
+    maxLevel: 10,
+    summary: 'Satış vergilerini (KDV/Gelir) yasal gider optimizasyonuyla düşürür, haftalık maliye yükünü hafifletir.',
+    benefitText: 'Sv.1: Satış başı vergi oranı %12’den %11’e, haftalık vergi -%15 iner.',
+    level2Bonus: 'Sv.2–4: Satış vergisi %9–10’a iner, haftalık vergi -%30 azalır.',
+    level3Bonus: 'Sv.5–7: Satış vergisi %7–8’e iner, banka kredi faizlerinde %15 avantaj sağlar.',
+    highLevelBonus: 'Sv.8–10: Minimum %6 vergi dilimi, haftalık vergide -%55 yasal teşvik & kredi limiti bonusu!',
   },
 ];
 
+export const STAFF_MAX_LEVEL = 10;
+
+export function getStaffTrainingCost(currentLevel: number): number {
+  return Math.round((6500 * Math.pow(1.42, Math.max(0, currentLevel - 1))) / 500) * 500;
+}
+
+export function getStaffTrainingDays(currentLevel: number): number {
+  if (currentLevel <= 3) return 1;
+  if (currentLevel <= 7) return 2;
+  return 3;
+}
+
+// Legacy mapping kept for backwards compatibility if referenced
 export const STAFF_TRAINING_COSTS: Record<number, number> = {
-  1: 8500, // Level 1 -> 2
-  2: 18500, // Level 2 -> 3
+  1: getStaffTrainingCost(1),
+  2: getStaffTrainingCost(2),
+  3: getStaffTrainingCost(3),
+  4: getStaffTrainingCost(4),
+  5: getStaffTrainingCost(5),
+  6: getStaffTrainingCost(6),
+  7: getStaffTrainingCost(7),
+  8: getStaffTrainingCost(8),
+  9: getStaffTrainingCost(9),
 };
 
-// CUSTOM PHONE MODDING CATALOG (WORKSHOP)
+// CUSTOM MODS kept only for legacy save compatibility (removed from Workshop UI in favor of Multi-Accessory Bundles)
 export const CUSTOM_MODS: Record<CustomModId, CustomModSpec> = {
   transparent_back: {
     id: 'transparent_back',
-    name: 'Şeffaf Arka Kapak (X-Ray Mod)',
+    name: 'Şeffaf Arka Kapak',
     cost: 1100,
     valueBoostRatio: 0.16,
-    description: 'İç donanımı gösteren özel safir şeffaf kapak; gençler ve teknoloji meraklıları bayılır.',
+    description: 'Özel tasarım arka kapak.',
     badgeText: 'Şeffaf Mod',
   },
   rgb_logo: {
     id: 'rgb_logo',
-    name: 'Işıklı Logo & Neon Çerçeve',
+    name: 'Işıklı Logo',
     cost: 1500,
     valueBoostRatio: 0.2,
-    description: 'Bildirim gelince parlayan özel tasarım arka logo ve mat çerçeve kaplaması.',
+    description: 'Özel tasarım ışıklı logo.',
     badgeText: 'Işıklı Custom',
   },
   gold_titanium: {
     id: 'gold_titanium',
-    name: '24K Altın & Titanyum Kaplama',
+    name: '24K Altın Kaplama',
     cost: 2600,
     valueBoostRatio: 0.27,
-    description: 'VIP koleksiyonerlerin gözdesi lüks altın-titanyum el işçiliği özel kasa.',
+    description: 'Lüks kaplama.',
     badgeText: '24K VIP Mod',
   },
 };
@@ -866,7 +1072,7 @@ export const CUSTOM_MOD_LIST: CustomModSpec[] = [
   CUSTOM_MODS.gold_titanium,
 ];
 
-// CITY BRANCHES (EMPIRE PASSIVE INCOME + OFFLINE IDLE)
+// CITY BRANCHES (5 TIMED EMPIRE BRANCHES)
 export const CITY_BRANCHES: BranchSpec[] = [
   {
     id: 'street_kiosk',
@@ -875,34 +1081,68 @@ export const CITY_BRANCHES: BranchSpec[] = [
     unlockCost: 26000,
     minLevel: 2,
     minReputation: 3.0,
-    dailyNetIncome: 2400,
-    offlineHourlyRate: 450,
+    buildDays: 2,
+    dailyNetIncome: 2600,
+    offlineHourlyRate: 480,
     prestigeBonus: 20,
-    description: 'Yaya trafiğinin en yoğun olduğu caddede kırılmaz cam, MagKlik kılıf ve hızlı şarj satan ekspres kiosk.',
+    description:
+      'Yaya trafiğinin en yoğun olduğu caddede kırılmaz cam, MagKlik kılıf ve hızlı şarj satan ekspres kiosk.',
   },
   {
     id: 'mall_corner',
     name: 'Forum AVM GSM Noktası',
     district: 'Kuzey AVM',
-    unlockCost: 62000,
+    unlockCost: 65000,
     minLevel: 4,
-    minReputation: 3.7,
-    dailyNetIncome: 5800,
-    offlineHourlyRate: 1100,
+    minReputation: 3.6,
+    buildDays: 3,
+    dailyNetIncome: 6200,
+    offlineHourlyRate: 1150,
     prestigeBonus: 45,
-    description: 'Hafta sonları dolup taşan AVM standı. Sıfır kutu aPhone ve Samxung satışından yüksek günlük gelir.',
+    description:
+      'Hafta sonları dolup taşan AVM standı. Sıfır kutu aPhone ve Samxung satışından yüksek günlük gelir.',
   },
   {
     id: 'service_hub',
     name: 'Bölge Mikro-Lehim & Servis Üssü',
     district: 'Teknoloji Vadisi',
-    unlockCost: 115000,
-    minLevel: 6,
-    minReputation: 4.2,
-    dailyNetIncome: 11500,
-    offlineHourlyRate: 2200,
+    unlockCost: 130000,
+    minLevel: 5,
+    minReputation: 4.0,
+    buildDays: 3,
+    dailyNetIncome: 12500,
+    offlineHourlyRate: 2300,
     prestigeBonus: 80,
-    description: 'Diğer telefoncuların bile anakart tamiri gönderdiği profesyonel teknik servis fabrikası!',
+    description:
+      'Diğer telefoncuların bile anakart tamiri gönderdiği profesyonel teknik servis fabrikası!',
+  },
+  {
+    id: 'airport_tech_booth',
+    name: 'Havalimanı Duty-Free GSM Butiği',
+    district: 'Uluslararası Terminal',
+    unlockCost: 290000,
+    minLevel: 7,
+    minReputation: 4.4,
+    buildDays: 4,
+    dailyNetIncome: 27000,
+    offlineHourlyRate: 4900,
+    prestigeBonus: 135,
+    description:
+      'Yurt dışı yolcularına yüksek marjlı GaN adaptör, ANC kulaklık ve lüks cihaz satan VIP terminal noktası.',
+  },
+  {
+    id: 'regional_warehouse',
+    name: 'Marmara Toptan Dağıtım Deposu',
+    district: 'Lojistik Merkezi',
+    unlockCost: 620000,
+    minLevel: 9,
+    minReputation: 4.7,
+    buildDays: 4,
+    dailyNetIncome: 58000,
+    offlineHourlyRate: 10500,
+    prestigeBonus: 210,
+    description:
+      'Artık pasajdaki diğer telefoncular senden mal çekiyor! Kendi dağıtım ağınla dev pasif gelir imparatorluğu.',
   },
 ];
 
@@ -914,7 +1154,7 @@ export const MUSEUM_ITEMS: MuseumItemSpec[] = [
     year: '2000',
     cost: 4500,
     prestigeBonus: 18,
-    dailyPassiveCash: 350,
+    dailyPassiveCash: 380,
     story: 'Yere düşerse parkeyi kıran efsane! Vitrinde gören herkes fotoğraf çeker, esnaf muhabbeti başlar.',
     accentColor: '#38BDF8',
   },
@@ -924,7 +1164,7 @@ export const MUSEUM_ITEMS: MuseumItemSpec[] = [
     year: '1999',
     cost: 6800,
     prestigeBonus: 24,
-    dailyPassiveCash: 520,
+    dailyPassiveCash: 560,
     story: 'Yaylı kapağının çıkardığı o meşhur "çıt" sesiyle 90’lar iş adamlarının rüyası.',
     accentColor: '#A78BFA',
   },
@@ -934,7 +1174,7 @@ export const MUSEUM_ITEMS: MuseumItemSpec[] = [
     year: '2004',
     cost: 9500,
     prestigeBonus: 32,
-    dailyPassiveCash: 780,
+    dailyPassiveCash: 820,
     story: 'Alüminyum gövdeli, mavi ışıklı tuş takımlı ikonik kapaklı model.',
     accentColor: '#F472B6',
   },
@@ -944,7 +1184,7 @@ export const MUSEUM_ITEMS: MuseumItemSpec[] = [
     year: '2008',
     cost: 13500,
     prestigeBonus: 40,
-    dailyPassiveCash: 1100,
+    dailyPassiveCash: 1150,
     story: 'Fiziksel tuş takımı ve trackball topuyla dönemin CEO telefonu.',
     accentColor: '#34D399',
   },
@@ -954,13 +1194,13 @@ export const MUSEUM_ITEMS: MuseumItemSpec[] = [
     year: '2007',
     cost: 24000,
     prestigeBonus: 65,
-    dailyPassiveCash: 2100,
+    dailyPassiveCash: 2200,
     story: 'Dokunmatik çağı başlatan koleksiyonluk ilk nesil efsane. Şehrin tüm VIP’leri bunu görmeye gelir!',
     accentColor: '#F59E0B',
   },
 ];
 
-// BANK & MERCHANT LOAN OFFERS
+// BANK & MERCHANT LOAN OFFERS (SCALING UP TO MULTI-MILLION TL AT TIER 6!)
 export const BANK_LOANS: BankLoanOffer[] = [
   {
     id: 'loan_starter',
@@ -968,23 +1208,338 @@ export const BANK_LOANS: BankLoanOffer[] = [
     principal: 15000,
     interestRate: 0.14,
     termDays: 6,
+    minShopTier: 1,
+    minLevel: 1,
     description: 'Acil kelepir fırsatları veya tamir tezgahını kaçırmamak için düşük faizli kısa destek.',
   },
   {
     id: 'loan_wholesale',
     name: 'Toptan Stok & İhale Kredisi',
-    principal: 38000,
-    interestRate: 0.18,
+    principal: 45000,
+    interestRate: 0.17,
     termDays: 8,
-    description: 'Gümrük açık artırmalarına ve sıfır kutu distribütör siparişlerine güçlü sermaye.',
+    minShopTier: 2,
+    minLevel: 2,
+    description: 'Köşe dükkana geçince açılır. Gümrük ihaleleri ve sıfır kutu çekmek için güçlü sermaye.',
   },
   {
-    id: 'loan_empire',
-    name: 'Şube Yatırım Paketi',
-    principal: 80000,
-    interestRate: 0.22,
+    id: 'loan_cadde',
+    name: 'Cadde Mağazası Ticari Paket',
+    principal: 120000,
+    interestRate: 0.19,
     termDays: 10,
-    description: 'Yeni şube veya Showroom açılışını erkene çekmek isteyen cesur girişimciler için.',
+    minShopTier: 3,
+    minLevel: 4,
+    description: 'Cadde GSM Merkezi yatırımcıları için yüksek limitli şube ve ekipman finansmanı.',
+  },
+  {
+    id: 'loan_showroom',
+    name: 'Bölge Showroom Yatırım Kredisi',
+    principal: 350000,
+    interestRate: 0.2,
+    termDays: 12,
+    minShopTier: 4,
+    minLevel: 6,
+    description: 'Büyük showroom ve havalimanı şubesi finansmanı için kurumsal ticari kredi.',
+  },
+  {
+    id: 'loan_flagship',
+    name: 'AVM Flagship Milyoner Paketi',
+    principal: 1000000,
+    interestRate: 0.21,
+    termDays: 15,
+    minShopTier: 5,
+    minLevel: 8,
+    description: '1 Milyon ₺ dev kurumsal finansman! Toptan dağıtım deposu ve büyük filolar için.',
+  },
+  {
+    id: 'loan_plaza_holding',
+    name: 'GSM Plaza Holding Kredisi (2.5M ₺)',
+    principal: 2500000,
+    interestRate: 0.22,
+    termDays: 18,
+    minShopTier: 6,
+    minLevel: 9,
+    description: 'Son seviye GSM Plaza patronlarına özel 2.5 Milyon ₺ imparatorluk sendikasyon kredisi!',
+  },
+];
+
+// PLAYER MERCHANT OUTFITS (WARDROBE CUSTOMIZATION)
+export const PLAYER_OUTFITS: OutfitSpec[] = [
+  {
+    id: 'casual_hoodie',
+    name: 'Günlük Kapüşonlu Sweatshirt',
+    subtitle: '23 Yaş Genç Girişimci Tarzı',
+    cost: 0,
+    minLevel: 1,
+    moodBonus: 3,
+    patienceBonus: 4,
+    preferredArchetypes: ['student', 'influencer'],
+    bonusDescription: 'Öğrenci & Fenomen müşterilerde başlangıç ruh hali +7, diğerlerinde +3.',
+    accentColor: '#64748B',
+  },
+  {
+    id: 'traditional_vest',
+    name: 'Geleneksel Esnaf Yeleği',
+    subtitle: 'Klasik Pasaj Güvenilirliği',
+    cost: 3200,
+    minLevel: 1,
+    moodBonus: 5,
+    patienceBonus: 8,
+    preferredArchetypes: ['uncle', 'hustler'],
+    bonusDescription: 'Esnaf Dayı & Pasaj Tüccarı güveni patlar (+11 ruh hali, +8 sabır).',
+    accentColor: '#92400E',
+  },
+  {
+    id: 'tech_esd_coat',
+    name: 'Profesyonel Teknik Usta Önlüğü',
+    subtitle: 'Mikro-Cerrahi Servis İmajı',
+    cost: 5800,
+    minLevel: 2,
+    moodBonus: 6,
+    patienceBonus: 6,
+    preferredArchetypes: ['hustler', 'student', 'uncle'],
+    bonusDescription: 'Ekspertiz ve tamir güveni verir: tüm müşteriler +6 ruh hali, kusur kozunda sabır kaybı azalır.',
+    accentColor: '#0284C7',
+  },
+  {
+    id: 'formal_shirt',
+    name: 'Ütülü Resmi Beyaz Gömlek',
+    subtitle: 'Kurumsal Cadde Esnafı',
+    cost: 8500,
+    minLevel: 3,
+    moodBonus: 8,
+    patienceBonus: 8,
+    preferredArchetypes: ['influencer', 'vip'],
+    bonusDescription: 'Tüm müşterilerde +8 ruh hali & +8 sabır; Fenomen ve VIP’lerde +13 güven!',
+    accentColor: '#E2E8F0',
+  },
+  {
+    id: 'italian_blazer',
+    name: 'Lacivert İtalyan Blazer Ceket',
+    subtitle: 'Showroom Direktörü Şıklığı',
+    cost: 22000,
+    minLevel: 5,
+    moodBonus: 11,
+    patienceBonus: 10,
+    preferredArchetypes: ['vip', 'influencer'],
+    bonusDescription: 'VIP & Fenomenlerde +16 başlangıç ruh hali, tüm müşterilerde +11 ruh hali & +10 sabır!',
+    accentColor: '#1E3A8A',
+  },
+  {
+    id: 'boss_suit',
+    name: 'Özel Dikim GSM Patron Takımı',
+    subtitle: 'Plaza & Holding Prestiji',
+    cost: 65000,
+    minLevel: 7,
+    moodBonus: 15,
+    patienceBonus: 14,
+    preferredArchetypes: ['vip', 'influencer', 'uncle', 'hustler', 'student'],
+    bonusDescription: 'Tüm müşteri tiplerinde dev +15 başlangıç ruh hali, +14 sabır ve ekstra pazarlık otoritesi!',
+    accentColor: '#D97706',
+  },
+];
+
+export function getOutfitSpec(id: OutfitId): OutfitSpec {
+  return PLAYER_OUTFITS.find((o) => o.id === id) ?? PLAYER_OUTFITS[0];
+}
+
+// MID-DAY RANDOM STORE EVENTS
+export const RANDOM_STORE_EVENTS: Omit<RandomStoreEvent, 'id' | 'resolved'>[] = [
+  {
+    title: 'Kapı Önünde Sokak Müzisyeni!',
+    description:
+      'Yerel bir sokak müzisyeni tam vitrin önünde yüksek sesle darbuka ve bağlama çalıyor. İçeride konuşmak zorlaştı!',
+    effectSummary: 'Sonraki müşteri: -12 Ruh Hali, -10 Sabır (veya 250 ₺ bahşişle sakinleştir)',
+    visualKind: 'music',
+    moodDelta: -12,
+    patienceDelta: -10,
+    budgetMultiplier: 0.97,
+    actionLabel: '250 ₺ Bahşiş Ver & Sakin Parça İste',
+    actionCost: 250,
+    actionResultText: 'Müzisyen yumuşak bir akustik melodiye geçti! Dükkanın havası şahane oldu.',
+    actionMoodDelta: 12,
+    actionPatienceDelta: 10,
+    actionBudgetMultiplier: 1.04,
+  },
+  {
+    title: 'Ani Elektrik Dalgalanması!',
+    description:
+      'Pasaj trafosundaki voltaj dalgalanması vitrin spotlarını ve tavan ışıklarını kırpıştırmaya başladı.',
+    effectSummary: 'Sonraki müşteri: -10 Ruh Hali, -8 Sabır (veya 350 ₺ UPS sigorta reseti)',
+    visualKind: 'power_surge',
+    moodDelta: -10,
+    patienceDelta: -8,
+    budgetMultiplier: 0.96,
+    actionLabel: '350 ₺ Voltaj Regülatörünü Devreye Al',
+    actionCost: 350,
+    actionResultText: 'Regülatör anında devreye girdi, vitrin ışıkları pırıl pırıl sabitlendi!',
+    actionMoodDelta: 8,
+    actionPatienceDelta: 8,
+    actionBudgetMultiplier: 1.03,
+  },
+  {
+    title: 'Taze Demlenmiş Çay & Sıcak Simit Kokusu',
+    description:
+      'Komşu fırından taze susamlı simit geldi, senin çay ocağından da mis gibi dem kokusu pasaja yayıldı!',
+    effectSummary: 'Sonraki müşteri: +14 Ruh Hali, +12 Sabır ve +%4 daha sıcak bütçe!',
+    visualKind: 'tea_aroma',
+    moodDelta: 14,
+    patienceDelta: 12,
+    budgetMultiplier: 1.04,
+  },
+  {
+    title: 'Aniden Bastıran Sağanak Yağmur',
+    description:
+      'Dışarıda bardaktan boşanırcasına yağmur başladı! Islanarak içeri sığınan müşteri biraz gergin ama acelesi yok.',
+    effectSummary: 'Sonraki müşteri: -6 Ruh Hali ama +14 Sabır (yağmur dinene kadar konuşur)',
+    visualKind: 'rain',
+    moodDelta: -6,
+    patienceDelta: 14,
+    budgetMultiplier: 1.0,
+    actionLabel: '150 ₺ Havlu & Sıcak İkram Sun',
+    actionCost: 150,
+    actionResultText: 'Müşteri sırılsıklam gelmişti, bu jest karşısında mest oldu!',
+    actionMoodDelta: 16,
+    actionPatienceDelta: 16,
+    actionBudgetMultiplier: 1.05,
+  },
+  {
+    title: 'Semt Fenomeni Vitrinden Canlı Yayın Açtı!',
+    description:
+      'Genç bir teknoloji yayıncısı vitrinindeki telefonları gösterip "Pasajın en sağlam ustası burada!" diye yayın yaptı.',
+    effectSummary: 'Sonraki müşteri: +16 Ruh Hali, +10 Sabır ve +%7 alım/satım enerjisi!',
+    visualKind: 'livestream',
+    moodDelta: 16,
+    patienceDelta: 10,
+    budgetMultiplier: 1.07,
+  },
+  {
+    title: 'Pasaj Yönetimi Ani Düzen Denetimi',
+    description:
+      'Pasaj müdürü koridorlarda dolaşıyor, çevre dükkanlarda hafif bir tedirginlik havası var.',
+    effectSummary: 'Sonraki müşteri: -8 Ruh Hali (veya 200 ₺ vitrin hızlı parlatma yap)',
+    visualKind: 'inspection',
+    moodDelta: -8,
+    patienceDelta: -5,
+    budgetMultiplier: 0.98,
+    actionLabel: '200 ₺ Tezgahı Parlat & Evrakları Diz',
+    actionCost: 200,
+    actionResultText: 'Müdür tam not verdi, içerideki müşteri dükkanın profesyonelliğine hayran kaldı!',
+    actionMoodDelta: 10,
+    actionPatienceDelta: 8,
+    actionBudgetMultiplier: 1.04,
+  },
+];
+
+// FLASH WHOLESALE NEWSPAPER BRAND DEAL TEMPLATES (RIVAL STOCK RACE!)
+export const FLASH_WHOLESALE_NEWS_TEMPLATES: {
+  brand: string;
+  discountPct: number;
+  stockMin: number;
+  stockMax: number;
+  headline: string;
+  subline: string;
+}[] = [
+  {
+    brand: 'Samxung',
+    discountPct: 18,
+    stockMin: 4,
+    stockMax: 7,
+    headline: 'FLAŞ TOPTAN İNDİRİM: Samxung Depoda %18 Seri Sonu!',
+    subline: 'Kurnaz Kerim ve pasaj esnafı depoya koştu — rakipler tüketmeden ne kadar kapabilirsen kâr!',
+  },
+  {
+    brand: 'RedMix',
+    discountPct: 20,
+    stockMin: 5,
+    stockMax: 8,
+    headline: 'DEPO KAMPANYASI: RedMix Kapalı Kutularda %20 Fırsat!',
+    subline: 'Sınırlı konteyner kotası açıldı! Gün içinde rakipler stokları saniyeler içinde eritiyor.',
+  },
+  {
+    brand: 'PocoPop',
+    discountPct: 19,
+    stockMin: 4,
+    stockMax: 7,
+    headline: 'TOPTANCIDA İZDİHAM: PocoPop Serisi %19 İndirimde!',
+    subline: 'Sabah yetişen ucuza kapar; öğlene kalan boş raf görür!',
+  },
+  {
+    brand: 'aPhone',
+    discountPct: 15,
+    stockMin: 3,
+    stockMax: 5,
+    headline: 'KUR FIRSATI: aPhone Yetkili Depoda %15 Anlık İskonto!',
+    subline: 'Çok az stok var! Rakip esnaflar telefon açıp ayırtmaya başladı bile!',
+  },
+  {
+    brand: 'FoldZ',
+    discountPct: 17,
+    stockMin: 2,
+    stockMax: 4,
+    headline: 'VIP DEPO İNDİRİMİ: FoldZ Lüks Kutular %17 Ucuzladı!',
+    subline: 'Showroom patronları kapışıyor — geç kalırsan tek kutu bile bulamazsın!',
+  },
+];
+
+// GOOGLE PLAY GAMES / APPLE GAME CENTER ACHIEVEMENTS
+export const STORE_ACHIEVEMENTS: StoreAchievementSpec[] = [
+  {
+    id: 'ach_first_deal',
+    title: 'İlk Kepenk & Siftah',
+    description: 'İlk telefon satışını tamamla.',
+    points: 15,
+    check: (s) => s.totalPhonesSold >= 1,
+  },
+  {
+    id: 'ach_eagle_eye',
+    title: 'Kartal Gözlü Eksper',
+    description: 'Ekspertizde toplam 10 gizli kusur yakala.',
+    points: 25,
+    check: (s) => s.totalDefectsExposed >= 10,
+  },
+  {
+    id: 'ach_repair_master',
+    title: 'Mikro-Cerrahi Ustası',
+    description: 'Toplam 10 telefon onarımı tamamla.',
+    points: 30,
+    check: (s) => s.totalPhonesRepaired >= 10,
+  },
+  {
+    id: 'ach_accessory_baron',
+    title: 'Reyon Baronu',
+    description: 'Toplam 40 adet aksesuar sat.',
+    points: 30,
+    check: (s) => s.totalAccessoriesSold >= 40,
+  },
+  {
+    id: 'ach_auction_shark',
+    title: 'Gümrük İhale Kurdu',
+    description: 'Toplam 3 açık artırma kazan.',
+    points: 35,
+    check: (s) => s.totalAuctionsWon >= 3,
+  },
+  {
+    id: 'ach_fashion_boss',
+    title: 'Tarz Sahibi Esnaf',
+    description: 'Gardıroptan en az 3 farklı kıyafet aç.',
+    points: 25,
+    check: (s) => (s.ownedOutfits?.length ?? 1) >= 3,
+  },
+  {
+    id: 'ach_empire_branches',
+    title: 'Şehir Çapında Ağ',
+    description: 'En az 3 farklı şehir şubesi aç.',
+    points: 50,
+    check: (s) => (s.branches?.length ?? 0) >= 3,
+  },
+  {
+    id: 'ach_plaza_king',
+    title: 'GSM Plaza İmparatoru',
+    description: '6. Seviye GSM Plaza Genel Merkezine ulaş.',
+    points: 100,
+    check: (s) => s.shopTier >= 6,
   },
 ];
 
@@ -1352,23 +1907,44 @@ export const TEA_REACTIONS: Record<CustomerArchetypeId, string[]> = {
 
 export const LEVERAGE_REACTIONS: Record<CustomerArchetypeId, string[]> = {
   student: [
-    'Ah be abi, fark etmezsin sanmıştım... Haklısın, masrafı düşüp tekrar konuşalım.',
-    'Valla benim haberim yoktu usta, demek ondan ucuza almışım. Tamam fiyatı indiriyorum.',
+    'Ah be abi, fark etmezsin sanmıştım... Yüzüm kızardı valla, masrafı düşüp ciddi kırayım.',
+    'Valla benim haberim yoktu usta, demek ondan ucuza almışım. Tamam fiyatı sert aşağı çekiyorum!',
   ],
   uncle: [
-    'Hadi canım, cihazın kurdu olmuşsun sen! İyi madem, gördüğün kusurun hakkını düşeyim.',
-    'Gözünden de hiçbir şey kaçmıyor evladım... Tamam, o masrafı fiyattan kıralım.',
+    'Hadi canım, cihazın kurdu olmuşsun sen! İyi madem, gördüğün kusurun hakkını fazlasıyla düşeyim.',
+    'Gözünden de hiçbir şey kaçmıyor evladım... Lafın üstüne laf olmaz, fiyattan sağlam kırıyorum!',
   ],
   influencer: [
-    'Gerçekten mi? Hiç fark etmemiştim, aşırı mahcup oldum! Tamam fiyatı revize edeyim.',
-    'Of ya, servis bunu bana söylememişti... Haklısın, o zaman biraz daha aşağı çekeyim.',
+    'Gerçekten mi? Hiç fark etmemiştim, aşırı mahcup oldum! Tamam fiyatı bayağı revize edeyim.',
+    'Of ya, servis bunu bana söylememişti... Çok haklısın, ciddi indirim yapayım bari.',
   ],
   hustler: [
-    'Haha usta sen bu işin piri olmuşsun! Tamam yakaladın beni, fiyatı kırıyorum.',
-    'Helal olsun kardeşim, profesyonel adamsın. Kusuru gördün, hakkın olanı düşüyorum.',
+    'Haha usta sen bu işin piri olmuşsun! Faka bastık, tamam yakaladın beni — fiyatı sert kırıyorum!',
+    'Helal olsun kardeşim, kurnazlık sökmedi! Kusuru yüzüme vurdun, hakkın olanı düşüyorum.',
   ],
   vip: [
-    'Çok titiz bir ekspertiz, tebrik ederim. Tespitinize saygı duyuyorum, fiyatı düşelim.',
+    'Çok titiz ve profesyonel bir ekspertiz, tebrik ederim. Tespitinize saygı duyuyorum, fiyatı ciddi oranda düşelim.',
+  ],
+};
+
+export const SEVERE_LEVERAGE_REACTIONS: Record<CustomerArchetypeId, string[]> = {
+  student: [
+    'Eyvah! Gerçekten mi usta?! Aldığım kişi beni fena kandırmış o zaman... Ne diyorsan haklısın, fiyatı dibe çekiyorum!',
+    'Abi şok oldum şu an, yemin ederim bilmiyordum! Bu kusurla kimse almaz, büyük indirim yapıyorum.',
+  ],
+  uncle: [
+    'Vay anasını, bunu nasıl yakaladın evladım?! Elim kolum bağlandı, madem öyle fiyatı ciddi kırmak zorundayım!',
+    'Eyvah, bize de bunu yutturmuşlar! Senin gibi ustaya yalan yürümez, mecburen sağlam iniyorum!',
+  ],
+  influencer: [
+    'İnanamıyorum! Cihazı alırken bana sıfır gibi anlatmışlardı, yerin dibine girdim! Lütfen yeni fiyatı değerlendir, bayağı indim.',
+  ],
+  hustler: [
+    'Hoppa! Usta sen röntgen cihazı mısın mübarek?! Tamam pes ettim, oyunun kuralı bu — fiyatı fena kırıyorum!',
+    'Vay arkadaş, pasajda bunu ilk kez sen yakaladın! Kırmızı kart yedik, masrafını fazlasıyla düşüyorum!',
+  ],
+  vip: [
+    'Bu düzeyde bir kusur gerçekten kabul edilemez, ekspertiziniz için teşekkürler. Fiyatı radikal şekilde aşağı çekiyorum.',
   ],
 };
 

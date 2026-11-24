@@ -16,7 +16,7 @@ export type ShopTab =
   | 'MISSIONS'
   | 'UPGRADES';
 
-export type ShopTier = 1 | 2 | 3;
+export type ShopTier = 1 | 2 | 3 | 4 | 5 | 6;
 
 export type PhoneTier = 'entry' | 'mid' | 'flagship' | 'luxury';
 
@@ -43,6 +43,8 @@ export interface DefectDefinition {
   repairable: boolean;
   leverageLine: string;
   leverageDropRatio: number;
+  /** Backside/internal defects can be repaired together in one teardown session */
+  zone: 'front' | 'back';
 }
 
 export type CustomModId = 'transparent_back' | 'gold_titanium' | 'rgb_logo';
@@ -97,6 +99,12 @@ export interface PhoneDevice {
   masterCrafted?: boolean;
   isBrandNew?: boolean;
   customMod?: CustomModId;
+  /** Multiple accessories bundled onto this showcase device for extra bundle value */
+  bundledAccessories?: AccessoryId[];
+  /** True while Hasan Usta is repairing this phone in the timed staff repair queue */
+  assignedToStaff?: boolean;
+  /** Subtle overlooked defect or micro-scam note revealed after purchasing */
+  surpriseNote?: string;
 }
 
 export type AccessoryId =
@@ -107,10 +115,13 @@ export type AccessoryId =
   | 'powerbank'
   | 'tws_earbuds';
 
+export type AccessoryShelfGroup = 'protection' | 'power' | 'audio';
+
 export interface AccessorySpec {
   id: AccessoryId;
   name: string;
   category: string;
+  shelfGroup: AccessoryShelfGroup;
   wholesaleCost: number;
   recommendedPrice: number;
   minPrice: number;
@@ -297,6 +308,8 @@ export interface CustomerEncounter {
   maxPatience: number;
   moodScore: number;
   mood: CustomerMood;
+  /** Heated bargaining intensity (0 to 100) */
+  negotiationHeat?: number;
   negotiationPace?: NegotiationPace;
   lastToneUsed?: NegotiationTone;
   lastMoodReason?: string;
@@ -314,10 +327,18 @@ export interface CustomerEncounter {
   messages: DialogueMessage[];
   bundleDevices?: PhoneDevice[];
   expressDefectId?: DefectId;
+  expressDefectIds?: DefectId[];
   expressPartCost?: number;
   accessoryOrder?: AccessoryOrderLine[];
   crossSellAttempted?: boolean;
   crossSellAttached?: CrossSellAttachment;
+  /** Support pitching & selling multiple accessories on a single phone sale */
+  crossSellAttachments?: CrossSellAttachment[];
+  crossSellTriedIds?: AccessoryId[];
+  /** Minimum negotiation rounds required before customer folds easily */
+  requiredRounds?: number;
+  /** Alert shown after closing a 2nd-hand purchase if an overlooked flaw or subtle trap appeared */
+  postBuySurpriseAlert?: string;
 }
 
 export type UpgradeId =
@@ -326,12 +347,21 @@ export type UpgradeId =
   | 'pro_diagnostic'
   | 'display_cabinet'
   | 'parts_wholesale'
-  | 'neon_sign';
+  | 'neon_sign'
+  | 'ultrasonic_cleaner'
+  | 'laser_backglass'
+  | 'micro_soldering'
+  | 'clean_room_lab'
+  | 'smart_pos_zero'
+  | 'barcode_automation';
 
 export interface ShopUpgrade {
   id: UpgradeId;
   name: string;
   cost: number;
+  minLevel: number;
+  installDays: number;
+  category: 'workshop' | 'sales' | 'automation';
   summary: string;
   benefitText: string;
   highlightTag?: string;
@@ -353,7 +383,7 @@ export interface ShopDecoration {
   visualEffectText: string;
 }
 
-export type StaffId = 'apprentice' | 'master_tech' | 'sales_rep';
+export type StaffId = 'apprentice' | 'master_tech' | 'sales_rep' | 'accountant';
 
 export interface StaffMember {
   id: StaffId;
@@ -361,10 +391,12 @@ export interface StaffMember {
   role: string;
   hireCost: number;
   dailyWage: number;
+  maxLevel: number;
   summary: string;
   benefitText: string;
   level2Bonus: string;
   level3Bonus: string;
+  highLevelBonus: string;
 }
 
 export interface ShopTierInfo {
@@ -372,6 +404,8 @@ export interface ShopTierInfo {
   name: string;
   cost: number;
   minReputation: number;
+  minLevel: number;
+  renovationDays: number;
   backdropPath: string;
   showcaseSlots: number;
   dailyCustomers: number;
@@ -398,6 +432,113 @@ export interface DailyMarketEvent {
   overseasImeiMultiplier?: number;
   repairDiscount?: number;
   launchedModels?: string[];
+}
+
+export interface FlashWholesaleDeal {
+  id: string;
+  brand: string;
+  discountPct: number;
+  initialStock: number;
+  remainingStock: number;
+  rivalsSnatchedCount: number;
+  headline: string;
+  subline: string;
+  expired: boolean;
+}
+
+export type OutfitId =
+  | 'casual_hoodie'
+  | 'traditional_vest'
+  | 'formal_shirt'
+  | 'tech_esd_coat'
+  | 'italian_blazer'
+  | 'boss_suit';
+
+export interface OutfitSpec {
+  id: OutfitId;
+  name: string;
+  subtitle: string;
+  cost: number;
+  minLevel: number;
+  moodBonus: number;
+  patienceBonus: number;
+  preferredArchetypes: CustomerArchetypeId[];
+  bonusDescription: string;
+  accentColor: string;
+}
+
+export type StoreEventVisualKind =
+  | 'music'
+  | 'power_surge'
+  | 'rain'
+  | 'tea_aroma'
+  | 'livestream'
+  | 'inspection';
+
+export interface RandomStoreEvent {
+  id: string;
+  title: string;
+  description: string;
+  effectSummary: string;
+  visualKind: StoreEventVisualKind;
+  moodDelta: number;
+  patienceDelta: number;
+  budgetMultiplier: number;
+  actionLabel?: string;
+  actionCost?: number;
+  actionResultText?: string;
+  actionMoodDelta?: number;
+  actionPatienceDelta?: number;
+  actionBudgetMultiplier?: number;
+  resolved?: boolean;
+}
+
+export interface NextCustomerEventEffect {
+  title: string;
+  visualKind: StoreEventVisualKind;
+  moodDelta: number;
+  patienceDelta: number;
+  budgetMultiplier: number;
+}
+
+export type TimedProjectKind =
+  | 'SHOP_TIER'
+  | 'UPGRADE'
+  | 'BRANCH'
+  | 'STAFF_TRAIN'
+  | 'SHOWCASE_UPGRADE';
+
+export interface TimedProject {
+  id: string;
+  kind: TimedProjectKind;
+  targetId: string;
+  label: string;
+  daysRemaining: number;
+  totalDays: number;
+}
+
+export interface PendingWholesaleOrder {
+  id: string;
+  kind: 'ACCESSORY' | 'PHONE';
+  label: string;
+  accessoryId?: AccessoryId;
+  quantity?: number;
+  specId?: string;
+  wholesaleCost: number;
+  daysRemaining: number;
+  totalDays: number;
+}
+
+export interface StaffRepairJob {
+  id: string;
+  mode: 'INVENTORY' | 'EXPRESS_CUSTOMER';
+  phoneUid?: string;
+  customerName?: string;
+  deviceName: string;
+  defectIds: DefectId[];
+  payout: number;
+  turnsRemaining: number;
+  totalTurns: number;
 }
 
 export type DailyQuestKind =
@@ -457,6 +598,14 @@ export interface InspectionOverlayData {
 
 // === EMPIRE, ONLINE CLASSIFIEDS, AUCTION, BRANCHES, BANK, MUSEUM ===
 
+export type ClassifiedListingStatus =
+  | 'AVAILABLE'
+  | 'INSPECTED_ONSITE'
+  | 'SHIPPING_IN_TRANSIT'
+  | 'ARRIVED_COD'
+  | 'BOUGHT'
+  | 'REJECTED';
+
 export interface OnlineClassifiedListing {
   id: string;
   sellerName: string;
@@ -464,9 +613,15 @@ export interface OnlineClassifiedListing {
   title: string;
   sellerNote: string;
   askingPrice: number;
+  currentPrice?: number;
+  secretFloor?: number;
   device: PhoneDevice;
   riskTag: 'Temiz İlan' | 'Kelepir Fırsat' | 'Şüpheli İlan';
   bought: boolean;
+  status?: ClassifiedListingStatus;
+  deliveryDaysLeft?: number;
+  haggleAttempts?: number;
+  lastSellerReply?: string;
 }
 
 export interface ShippingOrder {
@@ -483,6 +638,7 @@ export interface ShippingOrder {
 
 export interface CustomsAuctionLot {
   id: string;
+  sessionLabel?: string;
   lotTitle: string;
   description: string;
   startingBid: number;
@@ -493,7 +649,12 @@ export interface CustomsAuctionLot {
   winningBid: number;
 }
 
-export type BranchId = 'street_kiosk' | 'mall_corner' | 'service_hub';
+export type BranchId =
+  | 'street_kiosk'
+  | 'mall_corner'
+  | 'service_hub'
+  | 'airport_tech_booth'
+  | 'regional_warehouse';
 
 export interface BranchSpec {
   id: BranchId;
@@ -502,6 +663,7 @@ export interface BranchSpec {
   unlockCost: number;
   minLevel: number;
   minReputation: number;
+  buildDays: number;
   dailyNetIncome: number;
   offlineHourlyRate: number;
   prestigeBonus: number;
@@ -514,6 +676,8 @@ export interface BankLoanOffer {
   principal: number;
   interestRate: number;
   termDays: number;
+  minShopTier: ShopTier;
+  minLevel: number;
   description: string;
 }
 
@@ -577,6 +741,8 @@ export interface DayFinancials {
   posCommission: number;
   loanPayments: number;
   taxPaid: number;
+  /** Per-sale KDV & income tax deducted across phone/accessory/service sales */
+  salesTaxPaid: number;
   reputationDelta: number;
   dealsLost: number;
   autoRepairedNote?: string;
@@ -596,6 +762,14 @@ export interface DayHistoryEntry {
   cashEnd: number;
 }
 
+export interface StoreAchievementSpec {
+  id: string;
+  title: string;
+  description: string;
+  points: number;
+  check: (state: ShopState) => boolean;
+}
+
 export interface ShopState {
   day: number;
   cash: number;
@@ -606,6 +780,8 @@ export interface ShopState {
   dealStreak: number;
   bestDealStreak: number;
   shopTier: ShopTier;
+  /** Repeatable showcase shelf expansion level (0..10), each adds +2 showcase slots */
+  showcaseUpgradeLevel: number;
   inventory: PhoneDevice[];
   accessories: Record<AccessoryId, AccessoryStockItem>;
   upgrades: UpgradeId[];
@@ -621,7 +797,34 @@ export interface ShopState {
   soldHistory: SoldPhoneRecord[];
   onlineListings: OnlineClassifiedListing[];
   shippingOrders: ShippingOrder[];
+  /** Legacy single lot kept optional for backward compatibility */
   dailyAuctionLot: CustomsAuctionLot | null;
+  /** 2-3 daily auctions per day */
+  dailyAuctionLots: CustomsAuctionLot[];
+  /** Ongoing multi-day renovations, equipment installs, branch builds, staff trainings */
+  pendingProjects: TimedProject[];
+  /** Wholesale orders currently in cargo transit */
+  pendingWholesaleOrders: PendingWholesaleOrder[];
+  /** Active repairs delegated to Hasan Usta */
+  staffRepairQueue: StaffRepairJob[];
+  /** Morning completed projects / cargo / staff notes shown in newspaper */
+  morningNotifications: string[];
+  /** Newspaper flash wholesale brand discount with live rival stock race */
+  flashWholesaleDeal: FlashWholesaleDeal | null;
+  /** Player merchant wardrobe outfits */
+  ownedOutfits: OutfitId[];
+  equippedOutfit: OutfitId;
+  /** Mid-day random store event currently displaying on Counter */
+  activeStoreEvent: RandomStoreEvent | null;
+  /** Event modifier affecting the next incoming customer */
+  nextCustomerEventEffect: NextCustomerEventEffect | null;
+  storeEventsTriggeredToday: number;
+  /** Google Play / App Store compliance & user preferences */
+  privacyAccepted: boolean;
+  hapticsEnabled: boolean;
+  textSpeed: 'normal' | 'fast' | 'instant';
+  ratedApp: boolean;
+  feedbackNotes: string[];
   weeklyTaxDue: number;
   loginStreak: number;
   lastLoginDateStr: string;

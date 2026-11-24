@@ -20,7 +20,8 @@ import { DefectId, LegacyPathId, PhoneDevice } from '../game/types';
 
 interface MiniRepairModalProps {
   phone: PhoneDevice;
-  defectId: DefectId;
+  defectId?: DefectId;
+  defectIds?: DefectId[];
   cost: number;
   legacyPath?: LegacyPathId;
   isExpressJob?: boolean;
@@ -54,14 +55,35 @@ const CORROSION_SPOTS = [
 export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
   phone,
   defectId,
+  defectIds,
   cost,
   legacyPath,
   isExpressJob = false,
   onSuccess,
   onCancel,
 }) => {
-  const def = DEFECT_CATALOG[defectId];
-  const isLiquid = defectId === 'liquid_damage';
+  const activeDefectIds: DefectId[] =
+    defectIds && defectIds.length > 0
+      ? defectIds
+      : defectId
+      ? [defectId]
+      : ['screen_crack'];
+  const primaryDefectId = activeDefectIds[0];
+  const def = DEFECT_CATALOG[primaryDefectId];
+  const multiCount = activeDefectIds.length;
+  const combinedLabel =
+    multiCount === 1
+      ? def.name
+      : `${multiCount} Arıza Tek Oturumda (${activeDefectIds
+          .map((d) => DEFECT_CATALOG[d].shortLabel)
+          .join(' + ')})`;
+  const combinedShort =
+    multiCount === 1 ? def.shortLabel : `${multiCount} Arızalı Modül`;
+  const isLiquid = activeDefectIds.includes('liquid_damage');
+  const hasBatteryDefect = activeDefectIds.some(
+    (d) => d === 'battery_degraded' || d === 'battery_fake_chip'
+  );
+  const hasCameraDefect = activeDefectIds.includes('camera_fog');
   const isExApprentice = legacyPath === 'EX_APPRENTICE';
   const calMin = isExApprentice ? 28 : 34;
   const calMax = isExApprentice ? 72 : 66;
@@ -199,39 +221,56 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
   const removedScrewCount = screwsRemoved.filter(Boolean).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/84 p-2 sm:p-3 overflow-y-auto pasaj-scroll">
       <motion.div
         initial={{ scale: 0.93, opacity: 0, y: 12 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
-        className="w-full max-w-2xl rounded-2xl border border-white/12 bg-[#141C27] p-6 shadow-2xl"
+        className="w-full max-w-2xl my-auto max-h-[95dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/12 bg-[#141C27] p-3 sm:p-4 lg:p-5 shadow-2xl"
       >
         {/* Top Lab Header */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-400">
-              <Wrench className="w-3.5 h-3.5" />
-              <span>MİKRO CERRAHİ TAMİR MASASI · ADIM {step} / 5</span>
+        <div className="flex items-start justify-between gap-2.5 mb-2.5 sm:mb-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-amber-400">
+              <Wrench className="w-3.5 h-3.5 shrink-0" />
+              <span>MİKRO CERRAHİ TAMİR · ADIM {step} / 5</span>
               {isExApprentice && (
-                <span className="text-emerald-300">· Eski Çırak Hız Bonusu Aktif</span>
+                <span className="text-emerald-300">· Eski Çırak Hız Bonusu</span>
               )}
             </div>
-            <h2 className="font-display text-xl sm:text-2xl font-extrabold text-slate-50 mt-0.5">
-              {phone.brand} {phone.model} — {def.name}
+            <h2 className="font-display text-sm sm:text-base lg:text-xl font-extrabold text-slate-50 mt-0.5 truncate">
+              {phone.brand} {phone.model} — {combinedLabel}
             </h2>
+            {multiCount > 1 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {activeDefectIds.map((d) => (
+                  <span
+                    key={d}
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold border ${
+                      step >= 4 && oemMounted
+                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                        : 'border-amber-500/35 bg-amber-500/12 text-amber-200'
+                    }`}
+                  >
+                    {step >= 4 && oemMounted ? '✓ ' : ''}
+                    {DEFECT_CATALOG[d].shortLabel}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <button
             type="button"
             onClick={onCancel}
             aria-label="Tamir masasından çık"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#1D2735] text-slate-300 hover:text-slate-50 cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1D2735] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* 5-Stage Progress Stepper */}
-        <div className="grid grid-cols-5 gap-2 mb-5">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-2.5 sm:mb-3.5">
           {STEP_META.map((item) => {
             const done = step > item.id;
             const active = step === item.id;
@@ -247,7 +286,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                   }`}
                 />
                 <div
-                  className={`text-[10.5px] font-medium truncate ${
+                  className={`text-[10px] font-medium truncate ${
                     done
                       ? 'text-emerald-300'
                       : active
@@ -264,7 +303,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
 
         {/* Main Interactive ESD Repair Bench */}
         <div
-          className="relative grid grid-cols-1 md:grid-cols-12 gap-5 rounded-xl border border-white/10 bg-[#0E151F] p-5 mb-4"
+          className="relative grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 rounded-xl border border-white/10 bg-[#0E151F] p-3 sm:p-4"
           style={{
             backgroundImage:
               'radial-gradient(rgba(148,163,184,0.11) 1px, transparent 1px)',
@@ -272,8 +311,9 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
           }}
         >
           {/* Left: Detailed Interactive Internal Smartphone Cutaway */}
-          <div className="md:col-span-6 flex flex-col items-center justify-center">
-            <div className="relative w-[200px] h-[244px] rounded-[26px] border-2 border-slate-600 bg-[#151E2C] shadow-[0_18px_38px_rgba(0,0,0,0.65)] overflow-visible">
+          <div className="sm:col-span-5 lg:col-span-6 flex flex-col items-center justify-center">
+            <div className="relative w-[164px] h-[200px] lg:w-[200px] lg:h-[244px] flex items-start justify-center">
+            <div className="relative w-[200px] h-[244px] origin-top scale-[0.82] lg:scale-100 rounded-[26px] border-2 border-slate-600 bg-[#151E2C] shadow-[0_18px_38px_rgba(0,0,0,0.65)] overflow-visible shrink-0">
               {/* Step 1 Thermal Gasket Heat Shimmer */}
               {step === 1 && (
                 <div
@@ -314,7 +354,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                   rx="10"
                   fill="#17202E"
                   stroke={
-                    defectId === 'camera_fog' && step >= 3 && !oemMounted
+                    hasCameraDefect && step >= 3 && !oemMounted
                       ? '#F43F5E'
                       : '#475569'
                   }
@@ -361,25 +401,19 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                   height="112"
                   rx="10"
                   fill={
-                    partExtracted &&
-                    !oemMounted &&
-                    (defectId === 'battery_degraded' || defectId === 'battery_fake_chip')
+                    partExtracted && !oemMounted && hasBatteryDefect
                       ? '#101722'
                       : '#1B2534'
                   }
                   stroke={
-                    (defectId === 'battery_degraded' || defectId === 'battery_fake_chip') &&
-                    step >= 3 &&
-                    !oemMounted
+                    hasBatteryDefect && step >= 3 && !oemMounted
                       ? '#F43F5E'
                       : oemMounted
                       ? '#10B981'
                       : '#475569'
                   }
                   strokeDasharray={
-                    partExtracted &&
-                    !oemMounted &&
-                    (defectId === 'battery_degraded' || defectId === 'battery_fake_chip')
+                    partExtracted && !oemMounted && hasBatteryDefect
                       ? '4 4'
                       : undefined
                   }
@@ -533,15 +567,16 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                   );
                 })}
             </div>
+            </div>
 
             {/* Magnetic Screw Organizer Tray */}
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-white/8 bg-[#141D2A] px-3 py-1.5 text-[11px] text-slate-400 tabular-nums">
-              <span>Manyetik Vida Tepsisi:</span>
+            <div className="mt-2 flex items-center gap-2 rounded-lg border border-white/8 bg-[#141D2A] px-2.5 py-1 text-[10.5px] text-slate-400 tabular-nums">
+              <span>Vida Tepsisi:</span>
               <div className="flex items-center gap-1">
                 {screwsRemoved.map((rem, i) => (
                   <span
                     key={i}
-                    className={`h-2.5 w-2.5 rounded-full border ${
+                    className={`h-2 w-2 rounded-full border ${
                       rem
                         ? 'border-amber-300 bg-amber-400'
                         : 'border-white/15 bg-white/5'
@@ -554,7 +589,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
           </div>
 
           {/* Right: Active Step Tool Controls & Telemetry */}
-          <div className="md:col-span-6 flex flex-col justify-between">
+          <div className="sm:col-span-7 lg:col-span-6 flex flex-col justify-between">
             <AnimatePresence mode="wait">
               {step === 1 && (
                 <motion.div
@@ -562,7 +597,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="space-y-4"
+                  className="space-y-2.5 sm:space-y-3.5"
                 >
                   <div>
                     <div className="text-xs font-semibold text-amber-400 mb-1">
@@ -599,7 +634,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     onPointerUp={() => setIsHeating(false)}
                     onPointerLeave={() => setIsHeating(false)}
                     onPointerCancel={() => setIsHeating(false)}
-                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-5 py-4 text-sm font-bold transition-all cursor-pointer select-none ${
+                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold transition-all cursor-pointer select-none ${
                       isHeating
                         ? 'bg-orange-500 text-slate-950 scale-[0.98] shadow-[0_0_24px_rgba(249,115,22,0.5)]'
                         : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
@@ -663,7 +698,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     <p className="text-xs text-slate-300 leading-relaxed">
                       {!batteryFlexDisconnected
                         ? 'Önce cihaz üzerindeki parlak "Flex Ayır" soketine tıklayıp batarya elektriğini kes!'
-                        : `Elektrik kesildi! Şimdi arızalı "${def.shortLabel}" modülünü anakarttan çıkar.`}
+                        : `Elektrik kesildi! Şimdi arızalı "${combinedShort}" parçasını anakarttan çıkar.`}
                     </p>
                   </div>
 
@@ -691,8 +726,8 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                       <Wrench className="w-4 h-4 text-rose-400" />
                       <span>
                         {partExtracted
-                          ? 'Arızalı Parça Çıkarıldı'
-                          : `2. Arızalı ${def.shortLabel} Modülünü Sök`}
+                          ? 'Arızalı Parçalar Çıkarıldı'
+                          : `2. Arızalı ${combinedShort} Sök`}
                       </span>
                     </button>
                   </div>
@@ -711,14 +746,14 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     <div className="text-xs font-semibold text-amber-400 mb-1">
                       Adım 4:{' '}
                       {isLiquid
-                        ? 'IPA %99 Alkolle Oksidasyon Temizliği'
+                        ? 'IPA %99 Alkolle Oksidasyon Temizliği & Montaj'
                         : 'Orijinal OEM Parça Montajı'}
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed">
                       {isLiquid && !oemMounted
-                        ? 'Anakart üzerindeki 3 mavi oksidasyon noktasına tıklayarak izopropil alkol (IPA) ile temizle.'
+                        ? 'Anakart üzerindeki 3 mavi oksidasyon noktasına tıklayarak izopropil alkol (IPA) ile temizle ve modülleri yerleştir.'
                         : !oemMounted
-                        ? `Yeni orijinal ${def.shortLabel} yedek parçasını yuvasına oturt.`
+                        ? `Yeni orijinal ${combinedShort} yedek parçalarını yuvasına oturt.`
                         : 'Montaj tamam! Şimdi batarya flex soketini tekrar takıp gücü ver.'}
                     </p>
                   </div>
@@ -730,7 +765,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                       className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3.5 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer"
                     >
                       <Cpu className="w-4 h-4" />
-                      <span>Yeni Orijinal {def.shortLabel} Tak</span>
+                      <span>Yeni Orijinal {combinedShort} Tak</span>
                     </button>
                   )}
 
@@ -826,11 +861,11 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
             </AnimatePresence>
 
             {/* Footer Info */}
-            <div className="mt-5 pt-3 border-t border-white/8 flex items-center justify-between text-xs text-slate-400 tabular-nums">
+            <div className="mt-3 pt-2.5 border-t border-white/8 flex items-center justify-between text-[11px] sm:text-xs text-slate-400 tabular-nums">
               <span>
-                Parça Maliyeti: <strong className="text-slate-100">{formatTRY(cost)}</strong>
+                Parça: <strong className="text-slate-100">{formatTRY(cost)}</strong>
               </span>
-              <span className="text-amber-300/90">Yeşil bölge = Usta İşi (+%12)</span>
+              <span className="text-amber-300/90">Yeşil bölge = Usta İşi (+%12+)</span>
             </div>
           </div>
         </div>

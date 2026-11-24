@@ -66,13 +66,13 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
   const isLast = beatIndex === STORY_BEATS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090D13]/95 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-[#090D13]/95 p-2.5 sm:p-4 overflow-y-auto pasaj-scroll">
       <motion.div
         key={beat.step}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.24 }}
-        className="w-full max-w-3xl rounded-2xl border border-white/12 bg-[#141C27] shadow-[0_32px_90px_rgba(0,0,0,0.75)] overflow-hidden my-auto"
+        className="w-full max-w-3xl my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/12 bg-[#141C27] shadow-[0_32px_90px_rgba(0,0,0,0.75)]"
       >
         {/* Top Progress Header */}
         <div className="px-6 pt-5 pb-4 border-b border-white/8 flex items-center justify-between gap-4">

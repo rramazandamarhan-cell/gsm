@@ -27,8 +27,8 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-[#151C26] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto pasaj-scroll">
+      <div className="w-full max-w-md my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-amber-500/40 bg-[#151C26] p-4 sm:p-6 shadow-2xl">
         <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 mb-2">
           <Clock className="w-4 h-4" />
           <span>Hoş Geldin Usta · {timeText} Yoktun</span>

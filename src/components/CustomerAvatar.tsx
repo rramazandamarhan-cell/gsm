@@ -192,7 +192,9 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
       {/* Main Illustrated Portrait with Smooth CSS Mood Transitions */}
       <div
         className={`relative overflow-hidden border-2 transition-all duration-300 ease-out ${
-          isLg ? 'h-32 w-32 sm:h-36 sm:w-36 rounded-2xl' : 'h-20 w-20 rounded-xl'
+          isLg
+            ? 'h-20 w-20 sm:h-24 sm:w-24 lg:h-32 lg:w-32 rounded-2xl'
+            : 'h-12 w-12 lg:h-18 lg:w-18 rounded-xl'
         } ${frameStyle}`}
         style={{ backgroundColor: fallbackColor }}
       >
@@ -206,7 +208,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
             className="h-full w-full object-cover object-top transition-all duration-300 ease-out"
           />
         ) : (
-          <div className="h-full w-full flex items-center justify-center font-display text-3xl font-bold text-white/90">
+          <div className="h-full w-full flex items-center justify-center font-display text-2xl lg:text-3xl font-bold text-white/90">
             {name.slice(0, 1)}
           </div>
         )}
@@ -224,7 +226,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
           className="pointer-events-none absolute top-1 left-1 flex items-center gap-0.5 transition-all duration-300"
         >
           {(mood === 'excited' || mood === 'happy') && (
-            <svg viewBox="0 0 24 24" className="w-4 h-4 drop-shadow">
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 lg:w-4 lg:h-4 drop-shadow">
               <path
                 d="M12 2 L14.2 8.8 L21 11 L14.2 13.2 L12 20 L9.8 13.2 L3 11 L9.8 8.8 Z"
                 fill={mood === 'excited' ? '#34D399' : '#FBBF24'}
@@ -239,7 +241,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
             </div>
           )}
           {mood === 'annoyed' && (
-            <svg viewBox="0 0 20 24" className="w-3.5 h-4 drop-shadow">
+            <svg viewBox="0 0 20 24" className="w-3 h-3.5 lg:w-3.5 lg:h-4 drop-shadow">
               <path
                 d="M10 2 C10 2 4 10 4 14.5 C4 18 6.7 21 10 21 C13.3 21 16 18 16 14.5 C16 10 10 2 10 2 Z"
                 fill="#38BDF8"
@@ -249,7 +251,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
             </svg>
           )}
           {mood === 'angry' && (
-            <svg viewBox="0 0 24 24" className="w-4 h-4 drop-shadow">
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 lg:w-4 lg:h-4 drop-shadow">
               <path
                 d="M5 10 Q9 10 9 5 M19 10 Q15 10 15 5 M5 14 Q9 14 9 19 M19 14 Q15 14 15 19"
                 fill="none"
@@ -265,8 +267,8 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
       {/* State-Based Dynamic Facial Expression SVG Overlay (Bottom-Right Corner) */}
       <div
         title={`Müşteri Ruh Hali: %${moodScore}`}
-        className={`absolute -bottom-1.5 -right-1.5 rounded-full border-2 shadow-lg transition-all duration-300 ease-out flex items-center justify-center ${
-          isLg ? 'h-9 w-9' : 'h-7 w-7'
+        className={`absolute -bottom-1 -right-1 rounded-full border-2 shadow-lg transition-all duration-300 ease-out flex items-center justify-center ${
+          isLg ? 'h-7 w-7 lg:h-9 lg:w-9' : 'h-5 w-5 lg:h-7 lg:w-7'
         }`}
         style={{
           backgroundColor: faceConfig.bg,

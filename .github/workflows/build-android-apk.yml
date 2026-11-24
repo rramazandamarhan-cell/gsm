@@ -28,14 +28,55 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
 
-      - name: Initialize Capacitor Android project
+      - name: Initialize Capacitor Android project & App Icons
         run: |
           npm install --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets
           if [ ! -d "android" ]; then
             npx cap add android
           fi
+          mkdir -p assets
+          if [ -f "public/pwa-512x512.png" ]; then
+            cp public/pwa-512x512.png assets/icon.png
+            cp public/pwa-512x512.png assets/icon-only.png
+            cp public/pwa-512x512.png assets/icon-foreground.png
+            cp public/pwa-512x512.png assets/splash.png
+            cp public/pwa-512x512.png assets/splash-dark.png
+          fi
           npx cap sync android
-          npx capacitor-assets generate --android || true
+          npx capacitor-assets generate --android --iconBackgroundColor '#0F141B' --iconBackgroundColorDark '#0F141B' --splashBackgroundColor '#0F141B' --splashBackgroundColorDark '#0F141B' || true
+
+      - name: Force Landscape Orientation & Fullscreen in Android Manifest
+        run: |
+          python3 - <<'EOF'
+          from pathlib import Path
+          import re
+
+          manifest_path = Path("android/app/src/main/AndroidManifest.xml")
+          manifest = manifest_path.read_text(encoding="utf-8")
+          if 'android:screenOrientation=' in manifest:
+              manifest = re.sub(
+                  r'android:screenOrientation="[^"]*"',
+                  'android:screenOrientation="sensorLandscape"',
+                  manifest,
+              )
+          else:
+              manifest = manifest.replace(
+                  'android:name=".MainActivity"',
+                  'android:name=".MainActivity"\n            android:screenOrientation="sensorLandscape"',
+              )
+          manifest_path.write_text(manifest, encoding="utf-8")
+
+          styles_path = Path("android/app/src/main/res/values/styles.xml")
+          if styles_path.exists():
+              styles = styles_path.read_text(encoding="utf-8")
+              if 'android:windowFullscreen' not in styles:
+                  styles = styles.replace(
+                      '<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">',
+                      '<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">\n        <item name="android:windowFullscreen">true</item>\n        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>',
+                  )
+                  styles_path.write_text(styles, encoding="utf-8")
+          print("Patched AndroidManifest.xml and styles.xml for sensorLandscape fullscreen.")
+          EOF
 
       - name: Compile Debug APK
         working-directory: android

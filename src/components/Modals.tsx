@@ -8,6 +8,7 @@ import {
   Play,
   RotateCcw,
   ShieldAlert,
+  ShieldCheck,
   TrendingUp,
   Trophy,
   Wrench,
@@ -26,15 +27,17 @@ interface PauseModalProps {
   onResume: () => void;
   onRestart: () => void;
   onTitle: () => void;
+  onOpenCompliance?: () => void;
 }
 
 export const PauseModal: React.FC<PauseModalProps> = ({
   onResume,
   onRestart,
   onTitle,
+  onOpenCompliance,
 }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-    <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#171F2A] p-6 shadow-2xl">
+  <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/75 p-3 sm:p-4 overflow-y-auto pasaj-scroll">
+    <div className="w-full max-w-sm my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-5 shadow-2xl">
       <h2 className="font-display text-2xl font-bold text-slate-50 mb-1">
         GSM Simulator Duraklatıldı
       </h2>
@@ -51,6 +54,17 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           <Play className="w-4 h-4 fill-slate-950" />
           <span>Devam Et</span>
         </button>
+
+        {onOpenCompliance && (
+          <button
+            type="button"
+            onClick={onOpenCompliance}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/12 px-5 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4 text-sky-400" />
+            <span>Ayarlar, Başarımlar & Mağaza Merkezi</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -98,7 +112,8 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
     stats.staffWages +
     (stats.posCommission ?? 0) +
     (stats.loanPayments ?? 0) +
-    (stats.taxPaid ?? 0);
+    (stats.taxPaid ?? 0) +
+    (stats.salesTaxPaid ?? 0);
   const netToday = totalRevenue - totalExpenses;
   const rank = getShopRank(shop);
 
@@ -115,8 +130,8 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
         ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/82 p-2.5 sm:p-4 overflow-y-auto pasaj-scroll">
+      <div className="w-full max-w-4xl my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-4 sm:p-6 shadow-2xl">
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
@@ -267,9 +282,17 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
               )}
               {(stats.taxPaid ?? 0) > 0 && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Vergi & Fatura Ödemesi</span>
+                  <span className="text-slate-400">Haftalık Vergi & Elektrik Faturası</span>
                   <span className="font-mono text-rose-400">
                     -{formatTRY(stats.taxPaid)}
+                  </span>
+                </div>
+              )}
+              {(stats.salesTaxPaid ?? 0) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Satış Vergisi (KDV / Gelir Kesintisi)</span>
+                  <span className="font-mono text-rose-400">
+                    -{formatTRY(stats.salesTaxPaid)}
                   </span>
                 </div>
               )}
@@ -395,8 +418,8 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
   const rank = getShopRank(shop);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 p-2.5 sm:p-4 overflow-y-auto pasaj-scroll">
+      <div className="w-full max-w-4xl my-auto max-h-[90dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-4 sm:p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-0.5">
@@ -471,8 +494,8 @@ export const EndModal: React.FC<EndModalProps> = ({
   const rank = getShopRank(state);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#171F2A] p-7 text-center shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/82 p-3 sm:p-4 overflow-y-auto pasaj-scroll">
+      <div className="w-full max-w-md my-auto max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-5 sm:p-7 text-center shadow-2xl">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#222E3E] border border-white/10">
           {isVictory ? (
             <Award className="w-7 h-7 text-amber-400" />

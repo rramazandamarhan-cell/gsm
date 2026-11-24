@@ -11,14 +11,18 @@ import {
   DATA_RECOVERY_CASES,
   DEAL_ACCEPTED_LINES,
   DEFECT_CATALOG,
+  FLASH_WHOLESALE_NEWS_TEMPLATES,
+  getOutfitSpec,
   LAUNCH_EVENTS_BY_DAY,
   LEGACY_PATHS,
   LEVERAGE_REACTIONS,
   MUSEUM_ITEMS,
   PHONE_CATALOG,
   RANDOM_NEWSPAPER_POOL,
+  RANDOM_STORE_EVENTS,
   REGULAR_GREETING_NOTES,
   SELLER_OPENING_LINES,
+  SEVERE_LEVERAGE_REACTIONS,
   SHOP_DECORATIONS,
   SHOP_STAFF,
   SHOP_TIERS,
@@ -48,26 +52,34 @@ import {
   DayFinancials,
   DayHistoryEntry,
   DefectId,
+  FlashWholesaleDeal,
   InspectionCategory,
   LegacyPathId,
   MuseumItemId,
   NegotiationPace,
   NegotiationTone,
+  NextCustomerEventEffect,
   OfflineEarningsSummary,
   OnlineClassifiedListing,
+  OutfitId,
+  PendingWholesaleOrder,
   PhoneDevice,
   PhoneModelSpec,
   PhoneTier,
+  RandomStoreEvent,
   ShippingOrder,
   ShopState,
   ShopTier,
   StaffId,
+  StaffRepairJob,
   StoryChapter,
+  TimedProject,
   UpgradeId,
 } from './types';
 
-const STORAGE_KEY = 'gsm_simulator_save_v7';
+const STORAGE_KEY = 'gsm_simulator_save_v8';
 const LEGACY_KEYS = [
+  'gsm_simulator_save_v7',
   'gsm_simulator_save_v6',
   'gsm_simulator_save_v5',
   'gsm_simulator_save_v4',
@@ -84,6 +96,17 @@ function makeId(prefix: string): string {
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = tmp;
+  }
+  return copy;
 }
 
 function generateImeiNumber(trRegistered: boolean): string {
@@ -108,9 +131,11 @@ export function formatTRY(amount: number): string {
 export function getShopRank(
   state: Pick<ShopState, 'cash' | 'shopTier' | 'reputation' | 'totalPhonesSold' | 'level'>
 ): string {
-  if (state.shopTier === 3 && state.cash >= 200000) return 'GSM İmparatoru';
-  if (state.shopTier === 3 || state.level >= 8) return 'Showroom Patronu';
-  if (state.shopTier === 2 || state.level >= 5) return 'Cadde Bayisi';
+  if (state.shopTier >= 6) return 'GSM Plaza İmparatoru';
+  if (state.shopTier === 5) return 'Flagship Patronu';
+  if (state.shopTier === 4) return 'Bölge Showroom Lideri';
+  if (state.shopTier === 3 || state.level >= 7) return 'Cadde Merkezi Patronu';
+  if (state.shopTier === 2 || state.level >= 4) return 'Köşe Mağaza Bayisi';
   if (state.totalPhonesSold >= 4 || state.level >= 3) return 'Usta Eksper';
   return 'Genç Esnaf (23)';
 }
@@ -134,6 +159,59 @@ export function pickDailyWholesaleDiscountBrand(day: number): string {
       ? ['RedMix', 'PocoPop', 'Samxung', 'aPhone']
       : ['RedMix', 'PocoPop', 'Samxung', 'aPhone', 'FoldZ'];
   return pick(brands);
+}
+
+export function generateFlashWholesaleDeal(
+  day: number,
+  level: number
+): FlashWholesaleDeal | null {
+  // 65% chance on day 1+ to spark wholesale excitement & rival stock race!
+  if (day > 1 && Math.random() > 0.68) return null;
+  const eligible = FLASH_WHOLESALE_NEWS_TEMPLATES.filter((t) => {
+    if (t.brand === 'Samxung' && level < 2) return false;
+    if (t.brand === 'aPhone' && level < 3) return false;
+    if (t.brand === 'FoldZ' && level < 5) return false;
+    return true;
+  });
+  const tpl = pick(eligible.length > 0 ? eligible : FLASH_WHOLESALE_NEWS_TEMPLATES.slice(0, 2));
+  const initialStock =
+    tpl.stockMin + Math.floor(Math.random() * (tpl.stockMax - tpl.stockMin + 1));
+  return {
+    id: makeId('flash'),
+    brand: tpl.brand,
+    discountPct: tpl.discountPct,
+    initialStock,
+    remainingStock: initialStock,
+    rivalsSnatchedCount: 0,
+    headline: tpl.headline,
+    subline: tpl.subline,
+    expired: false,
+  };
+}
+
+export function tickRivalFlashSnatch(
+  deal: FlashWholesaleDeal | null
+): { updatedDeal: FlashWholesaleDeal | null; snatchedNow: number; justSoldOut: boolean } {
+  if (!deal || deal.expired || deal.remainingStock <= 0) {
+    return { updatedDeal: deal, snatchedNow: 0, justSoldOut: false };
+  }
+  // Rivals aggressively buy during the day (~55% chance per customer turn)
+  if (Math.random() > 0.56) {
+    return { updatedDeal: deal, snatchedNow: 0, justSoldOut: false };
+  }
+  const snatch = Math.min(deal.remainingStock, Math.random() < 0.35 ? 2 : 1);
+  const nextRem = Math.max(0, deal.remainingStock - snatch);
+  const justSoldOut = nextRem === 0;
+  return {
+    updatedDeal: {
+      ...deal,
+      remainingStock: nextRem,
+      rivalsSnatchedCount: deal.rivalsSnatchedCount + snatch,
+      expired: justSoldOut,
+    },
+    snatchedNow: snatch,
+    justSoldOut,
+  };
 }
 
 // Balanced long-term 10-level progression curve (not too fast, not too slow)
@@ -292,29 +370,57 @@ export function getDistributorWholesalePrice(
   shopLevel: number,
   dailyDiscountBrand?: string,
   legacyPath?: LegacyPathId,
-  loyaltyUnits = 0
+  loyaltyUnits = 0,
+  flashDeal?: FlashWholesaleDeal | null
 ): number {
   const dist = getDistributorForBrand(spec.brand);
-  // Sealed brand-new retail is ~1.18x second-hand baseValue; wholesale is dist.wholesaleRatio * baseValue (~15-22% profit margin!)
   let mult = dist.wholesaleRatio;
   if (shopLevel >= 7) mult -= 0.04;
   if (shopLevel >= 10) mult -= 0.04;
   if (legacyPath === 'BORN_MERCHANT') {
-    mult -= 0.06; // Doğuştan Tüccar permanent wholesale network discount
+    mult -= 0.06;
   }
   if (loyaltyUnits >= 2) {
-    mult -= Math.min(0.06, Math.floor(loyaltyUnits / 2) * 0.02); // Authorized dealer loyalty discount
+    mult -= Math.min(0.06, Math.floor(loyaltyUnits / 2) * 0.02);
   }
-  if (dailyDiscountBrand && dailyDiscountBrand === spec.brand) {
-    mult -= 0.06; // Daily Distributor Flash Deal!
+  if (
+    flashDeal &&
+    !flashDeal.expired &&
+    flashDeal.remainingStock > 0 &&
+    flashDeal.brand === spec.brand
+  ) {
+    mult -= flashDeal.discountPct / 100;
+  } else if (dailyDiscountBrand && dailyDiscountBrand === spec.brand) {
+    mult -= 0.06;
   }
-  return roundPrice(spec.baseValue * Math.max(0.72, mult));
+  return roundPrice(spec.baseValue * Math.max(0.62, mult));
+}
+
+export function estimateBrandNewRetailValue(
+  spec: PhoneModelSpec,
+  dailyNews?: DailyMarketEvent
+): number {
+  let val = spec.baseValue * 1.18;
+  if (dailyNews) {
+    if (dailyNews.valueMultiplier) {
+      const matchesBrand = dailyNews.brandBoost && spec.brand === dailyNews.brandBoost;
+      const matchesTier = dailyNews.tierBoost && spec.tier === dailyNews.tierBoost;
+      if (matchesBrand || matchesTier) {
+        val *= dailyNews.valueMultiplier;
+      }
+    }
+    if (dailyNews.trImeiMultiplier) {
+      val *= dailyNews.trImeiMultiplier;
+    }
+  }
+  return roundPrice(Math.max(1500, val));
 }
 
 export function generateBrandNewPhone(
   spec: PhoneModelSpec,
   wholesaleCost: number,
-  dailyNews?: DailyMarketEvent
+  dailyNews?: DailyMarketEvent,
+  upgrades: UpgradeId[] = []
 ): PhoneDevice {
   const phone: PhoneDevice = {
     uid: makeId('new_phone'),
@@ -344,7 +450,7 @@ export function generateBrandNewPhone(
     masterCrafted: false,
     isBrandNew: true,
   };
-  const retailFair = calculateMarketValue(phone, false, dailyNews);
+  const retailFair = calculateMarketValue(phone, false, dailyNews, upgrades);
   phone.askingPrice = roundPrice(retailFair * 1.08);
   return phone;
 }
@@ -542,14 +648,130 @@ export function calculatePrestige(
   return tierPrestige + decorPrestige + branchPrestige + museumPrestige;
 }
 
-export function getShowcaseCapacity(shopTier: ShopTier, upgrades: UpgradeId[]): number {
+export function getShowcaseCapacity(
+  shopTier: ShopTier,
+  upgrades: UpgradeId[],
+  showcaseUpgradeLevel = 0
+): number {
   const base = SHOP_TIERS[shopTier].showcaseSlots;
-  return base + (upgrades.includes('display_cabinet') ? 2 : 0);
+  return base + (upgrades.includes('display_cabinet') ? 2 : 0) + showcaseUpgradeLevel * 2;
+}
+
+export function getEffectiveSalesTaxRate(
+  staff: StaffId[],
+  staffLevels?: Record<StaffId, number>
+): number {
+  // Base 12% per-sale tax (KDV + Gelir), lowered by Accountant Sv.1..10 down to 6%
+  if (!staff.includes('accountant')) return 0.12;
+  const accLvl = Math.max(1, Math.min(10, staffLevels?.accountant ?? 1));
+  // Sv.1 -> 11%, Sv.10 -> 6%
+  return Math.max(0.06, Number((0.115 - accLvl * 0.0055).toFixed(4)));
+}
+
+export function calculateSaleTax(
+  grossAmount: number,
+  staff: StaffId[],
+  staffLevels?: Record<StaffId, number>
+): { taxRate: number; taxAmount: number; netAmount: number } {
+  const taxRate = getEffectiveSalesTaxRate(staff, staffLevels);
+  const taxAmount = Math.max(0, Math.round(grossAmount * taxRate));
+  return {
+    taxRate,
+    taxAmount,
+    netAmount: Math.max(0, grossAmount - taxAmount),
+  };
+}
+
+export function getLoanLimitMultiplier(
+  staff: StaffId[],
+  staffLevels?: Record<StaffId, number>
+): number {
+  if (!staff.includes('accountant')) return 1;
+  const accLvl = staffLevels?.accountant ?? 1;
+  if (accLvl >= 8) return 1.35;
+  if (accLvl >= 5) return 1.15;
+  return 1;
+}
+
+export function getEffectiveLoanTerms(
+  principal: number,
+  baseInterestRate: number,
+  termDays: number,
+  staff: StaffId[],
+  staffLevels?: Record<StaffId, number>
+): {
+  effectivePrincipal: number;
+  effectiveRate: number;
+  totalRepay: number;
+  dailyPayment: number;
+  hasInterestDiscount: boolean;
+  limitMultiplier: number;
+} {
+  const accLvl = staff.includes('accountant') ? staffLevels?.accountant ?? 1 : 0;
+  const limitMultiplier = getLoanLimitMultiplier(staff, staffLevels);
+  const effectivePrincipal = roundPrice(principal * limitMultiplier);
+  const hasInterestDiscount = accLvl >= 5;
+  const effectiveRate = hasInterestDiscount
+    ? Number((baseInterestRate * 0.85).toFixed(4))
+    : baseInterestRate;
+  const totalRepay = roundPrice(effectivePrincipal * (1 + effectiveRate));
+  const dailyPayment = Math.max(250, Math.ceil(totalRepay / termDays / 50) * 50);
+  return {
+    effectivePrincipal,
+    effectiveRate,
+    totalRepay,
+    dailyPayment,
+    hasInterestDiscount,
+    limitMultiplier,
+  };
+}
+
+export function getCrossSellBonusChance(
+  upgrades: UpgradeId[],
+  staff: StaffId[],
+  staffLevels?: Record<StaffId, number>
+): number {
+  let bonus = 0;
+  if (upgrades.includes('barcode_automation')) bonus += 0.1;
+  if (staff.includes('sales_rep')) {
+    const lvl = Math.max(1, Math.min(10, staffLevels?.sales_rep ?? 1));
+    bonus += 0.09 + lvl * 0.01;
+  }
+  return bonus;
+}
+
+export function getMasterCraftBonusPercent(upgrades?: UpgradeId[]): number {
+  let pct = 12;
+  if (upgrades?.includes('ultrasonic_cleaner')) pct += 4;
+  if (upgrades?.includes('micro_soldering')) pct += 6;
+  return pct;
+}
+
+export function getMasterTechSpecs(
+  level: number,
+  upgrades: UpgradeId[]
+): { turnsPerJob: number; maxParallelJobs: number; partCostFactor: number } {
+  const clamped = Math.max(1, Math.min(10, level));
+  const laserBonus = upgrades.includes('laser_backglass') ? 1 : 0;
+  const baseTurns = clamped >= 8 ? 1 : clamped >= 5 ? 2 : clamped >= 2 ? 3 : 4;
+  const turnsPerJob = Math.max(1, baseTurns - laserBonus);
+  const maxParallelJobs = clamped >= 8 ? 4 : clamped >= 5 ? 3 : clamped >= 2 ? 2 : 1;
+  const partCostFactor = Math.max(0.3, Number((0.68 - clamped * 0.038).toFixed(2)));
+  return { turnsPerJob, maxParallelJobs, partCostFactor };
+}
+
+export function calculateMasterDelegateCost(
+  rawCost: number,
+  level: number,
+  upgrades: UpgradeId[]
+): number {
+  const specs = getMasterTechSpecs(level, upgrades);
+  return Math.max(100, Math.round((rawCost * specs.partCostFactor) / 50) * 50);
 }
 
 export function getDailyRent(day: number, shopTier: ShopTier): number {
   const tierBase = SHOP_TIERS[shopTier].baseRent;
-  return tierBase + Math.min(day - 1, 10) * 140;
+  return tierBase + Math.min(day - 1, 15) * (140 * shopTier);
 }
 
 export function getDailyStaffWages(staff: StaffId[]): number {
@@ -574,48 +796,91 @@ export function getRepairCost(
     return Math.round((base * 1.45 * legacyFactor) / 50) * 50;
   }
   let mult = upgrades.includes('parts_wholesale') ? 0.7 : 1;
+  if (
+    upgrades.includes('ultrasonic_cleaner') &&
+    (defectId === 'liquid_damage' || defectId === 'camera_fog')
+  ) {
+    mult *= 0.8;
+  }
+  if (upgrades.includes('laser_backglass')) {
+    mult *= 0.88;
+  }
   if (shopLevel >= 3) {
     mult *= 0.9;
   }
   if (legacyPath === 'EX_APPRENTICE') {
-    mult *= 0.8; // Eski Çırak permanent -20% repair mastery discount
+    mult *= 0.8;
   }
   if (dailyNews?.repairDiscount) {
     mult *= 1 - dailyNews.repairDiscount;
   }
-  return Math.max(200, Math.round((base * mult) / 50) * 50);
+  return Math.max(150, Math.round((base * mult) / 50) * 50);
+}
+
+export function getMultiRepairCost(
+  defectIds: DefectId[],
+  upgrades: UpgradeId[],
+  dailyNews?: DailyMarketEvent,
+  externalOutsource = false,
+  shopLevel = 1,
+  legacyPath?: LegacyPathId
+): number {
+  const raw = defectIds.reduce(
+    (sum, id) =>
+      sum + getRepairCost(id, upgrades, dailyNews, externalOutsource, shopLevel, legacyPath),
+    0
+  );
+  // Single-session bundle efficiency: 10% cheaper when fixing 2+ defects at once!
+  if (defectIds.length >= 2 && !externalOutsource) {
+    return Math.round((raw * 0.9) / 50) * 50;
+  }
+  return raw;
 }
 
 export function calculateMarketValue(
   device: PhoneDevice,
   onlyInspected = false,
-  dailyNews?: DailyMarketEvent
+  dailyNews?: DailyMarketEvent,
+  upgrades?: UpgradeId[]
 ): number {
   let penalty = 0;
+  let visibleDefectCount = 0;
   for (const defectId of device.defects) {
     const def = DEFECT_CATALOG[defectId];
     if (!onlyInspected || device.inspected[def.category]) {
       penalty += def.valuePenaltyRatio;
+      visibleDefectCount += 1;
     }
   }
   const cappedPenalty = Math.min(0.68, penalty);
   let val = device.baseValue * (1 - cappedPenalty);
 
   if (device.isBrandNew) {
-    // Factory-sealed 24-month TR official warranty retail value
     val *= 1.18;
-  } else if (device.defects.length === 0 && device.hasBoxAndCharger) {
+  } else if (visibleDefectCount === 0 && device.hasBoxAndCharger) {
     val *= 1.08;
-  } else if (device.defects.length === 0) {
+  } else if (visibleDefectCount === 0) {
     val *= 1.03;
   }
 
   if (device.masterCrafted) {
-    val *= 1.12;
+    let craftBoost = 1.12;
+    if (upgrades?.includes('ultrasonic_cleaner')) craftBoost += 0.04;
+    if (upgrades?.includes('micro_soldering')) craftBoost += 0.06;
+    val *= craftBoost;
   }
 
   if (device.customMod && CUSTOM_MODS[device.customMod]) {
     val *= 1 + CUSTOM_MODS[device.customMod].valueBoostRatio;
+  }
+
+  // Bundled accessories add their combined value + 10% combo appeal (matches Workshop UI & Toast!)
+  if (device.bundledAccessories && device.bundledAccessories.length > 0) {
+    const bundleAdd = device.bundledAccessories.reduce((sum, accId) => {
+      const spec = getAccessorySpec(accId);
+      return sum + Math.round(spec.recommendedPrice * 1.1);
+    }, 0);
+    val += bundleAdd;
   }
 
   if (dailyNews) {
@@ -643,26 +908,236 @@ export function calculateMarketValue(
   return roundPrice(Math.max(1500, val));
 }
 
+export interface DeviceValuationBreakdown {
+  /** Market value in current condition (only counting currently discovered defects when buying) */
+  asIsValue: number;
+  /** Market value after fixing all discovered REPAIRABLE defects (keeps unrepairable ones like imei_unregistered!) */
+  postRepairValue: number;
+  /** Estimated repair cost for discovered repairable defects */
+  estimatedRepairCost: number;
+  repairableDefects: DefectId[];
+  unrepairableDefects: DefectId[];
+  uninspectedCount: number;
+  usesExternalOutsource: boolean;
+  /** Projected net profit if bought at offerPrice, repaired, and resold at postRepairValue */
+  projectedNetProfit: number;
+}
+
+export function calculateDeviceValuationBreakdown(
+  device: PhoneDevice,
+  offerPrice: number,
+  upgrades: UpgradeId[],
+  dailyNews?: DailyMarketEvent,
+  shopLevel = 1,
+  legacyPath?: LegacyPathId,
+  onlyInspected = true
+): DeviceValuationBreakdown {
+  const visibleDefects = onlyInspected
+    ? device.defects.filter((d) => device.inspected[DEFECT_CATALOG[d].category])
+    : device.defects;
+  const repairableDefects = visibleDefects.filter((d) => DEFECT_CATALOG[d].repairable);
+  const unrepairableDefects = visibleDefects.filter((d) => !DEFECT_CATALOG[d].repairable);
+  const uninspectedCount = Object.values(device.inspected).filter((v) => !v).length;
+
+  const asIsValue = calculateMarketValue(device, onlyInspected, dailyNews, upgrades);
+
+  const usesExternalOutsource = !upgrades.includes('repair_bench');
+  const estimatedRepairCost =
+    repairableDefects.length > 0
+      ? getMultiRepairCost(
+          repairableDefects,
+          upgrades,
+          dailyNews,
+          usesExternalOutsource,
+          shopLevel,
+          legacyPath
+        )
+      : 0;
+
+  // Simulate device with discovered repairable defects fixed (unrepairable defects stay!)
+  const simulatedRepairedDevice: PhoneDevice = {
+    ...device,
+    defects: unrepairableDefects,
+    inspected: onlyInspected
+      ? device.inspected
+      : { screen: true, battery: true, imei: true, hardware: true },
+  };
+  const postRepairValue = calculateMarketValue(
+    simulatedRepairedDevice,
+    onlyInspected,
+    dailyNews,
+    upgrades
+  );
+
+  const projectedNetProfit = postRepairValue - offerPrice - estimatedRepairCost;
+
+  return {
+    asIsValue,
+    postRepairValue,
+    estimatedRepairCost,
+    repairableDefects,
+    unrepairableDefects,
+    uninspectedCount,
+    usesExternalOutsource,
+    projectedNetProfit,
+  };
+}
+
+export interface PostPurchaseSurpriseResult {
+  updatedDevice: PhoneDevice;
+  surpriseAlert?: string;
+  extraBenchCost: number;
+}
+
+/**
+ * Balanced realistic risk on 2nd-hand purchases (SELLER / TRADE_IN):
+ * 1) If player skipped inspection categories that hid real defects -> reveals what slipped past!
+ * 2) Modest, fair chance of a subtle shop-floor micro-scam or overlooked issue (mitigated by Pro Diag / Eski Çırak).
+ */
+export function evaluatePostPurchaseSurprise(
+  device: PhoneDevice,
+  archetypeId: CustomerArchetypeId,
+  upgrades: UpgradeId[],
+  legacyPath: LegacyPathId,
+  dailyNews?: DailyMarketEvent
+): PostPurchaseSurpriseResult {
+  if (device.isBrandNew) {
+    return { updatedDevice: device, extraBenchCost: 0 };
+  }
+
+  // 1. Did player skip inspecting categories that actually contained defects?
+  const missedDefects = device.defects.filter(
+    (d) => !device.inspected[DEFECT_CATALOG[d].category]
+  );
+  if (missedDefects.length > 0) {
+    const names = missedDefects.map((d) => DEFECT_CATALOG[d].shortLabel).join(', ');
+    const alert = `Gözden kaçan kusur atölyede ortaya çıktı: ${names}! Testleri tamamlamadan aldığın için ek masraf/değer kaybı doğdu.`;
+    return {
+      updatedDevice: {
+        ...device,
+        surpriseNote: `Ekspertiz atlandı → Gizli kusur: ${names}`,
+      },
+      surpriseAlert: alert,
+      extraBenchCost: 0,
+    };
+  }
+
+  // 2. Subtle, realistic micro-scam / overlooked shop-floor surprise (fair & rare!)
+  const baseRisk =
+    archetypeId === 'hustler'
+      ? 0.13
+      : archetypeId === 'uncle'
+      ? 0.06
+      : archetypeId === 'vip'
+      ? 0.02
+      : 0.045;
+  const diagFactor = upgrades.includes('pro_diagnostic') ? 0.5 : 1.0;
+  const legacyFactor = legacyPath === 'EX_APPRENTICE' ? 0.65 : 1.0;
+  const finalRisk = baseRisk * diagFactor * legacyFactor;
+
+  if (Math.random() >= finalRisk) {
+    return { updatedDevice: device, extraBenchCost: 0 };
+  }
+
+  // Pick a realistic, non-catastrophic esnaf surprise
+  const possibleTraps: ('FAKE_BOX' | 'FAKE_WARRANTY' | 'MINOR_FLAW' | 'BENCH_CLEAN')[] = [
+    'BENCH_CLEAN',
+  ];
+  if (device.hasBoxAndCharger) possibleTraps.push('FAKE_BOX');
+  if (device.warrantyMonths > 0) possibleTraps.push('FAKE_WARRANTY');
+  if (!device.defects.includes('cosmetic_worn') && device.defects.length <= 2) {
+    possibleTraps.push('MINOR_FLAW');
+  }
+
+  const chosen = pick(possibleTraps);
+
+  if (chosen === 'FAKE_BOX') {
+    const updated: PhoneDevice = {
+      ...device,
+      hasBoxAndCharger: false,
+      surpriseNote: 'Satıcının verdiği kutu başka cihaza ait, şarj kablosu sahte çıktı (Kutusuz sayıldı).',
+    };
+    const newVal = calculateMarketValue(updated, false, dailyNews, upgrades);
+    updated.askingPrice = roundPrice(newVal * 1.15);
+    return {
+      updatedDevice: updated,
+      surpriseAlert:
+        'Küçük Kutu Oyunu! Satıcının verdiği kutu başka seri numarasına ait, kablo da bozuk çıktı — cihaz kutusuz sayıldı.',
+      extraBenchCost: 0,
+    };
+  }
+
+  if (chosen === 'FAKE_WARRANTY') {
+    const updated: PhoneDevice = {
+      ...device,
+      warrantyMonths: 0,
+      surpriseNote: 'Fatura fotokopi çıktı, resmi TR garantisi geçersiz sayıldı.',
+    };
+    return {
+      updatedDevice: updated,
+      surpriseAlert:
+        'Sahte Fatura Sürprizi! Satıcının gösterdiği garanti belgesi sorguda geçersiz çıktı (Garantisiz sayıldı).',
+      extraBenchCost: 0,
+    };
+  }
+
+  if (chosen === 'MINOR_FLAW') {
+    const updated: PhoneDevice = {
+      ...device,
+      defects: [...device.defects, 'cosmetic_worn'],
+      surpriseNote: 'Atölyede detaylı ışıkta kasa içi darbe / soket gevşekliği fark edildi.',
+    };
+    const newVal = calculateMarketValue(updated, false, dailyNews, upgrades);
+    updated.askingPrice = roundPrice(newVal * 1.15);
+    return {
+      updatedDevice: updated,
+      surpriseAlert:
+        'Gözden Kaçan İnce Kusur! Tezgah ışığında belli olmuyordu ama atölyede kasa/soket gevşekliği çıktı (+tamir masrafı).',
+      extraBenchCost: 0,
+    };
+  }
+
+  // BENCH_CLEAN: small realistic cleanup / charging port contact fix (400-750 TL)
+  const benchCost = pick([400, 500, 650, 750]);
+  const updated: PhoneDevice = {
+    ...device,
+    repairSpend: device.repairSpend + benchCost,
+    surpriseNote: `Atölyede gizli şarj soketi oksiti temizlendi (+${formatTRY(benchCost)} maliyet).`,
+  };
+  return {
+    updatedDevice: updated,
+    surpriseAlert: `Küçük Esnaf Sürprizi! Şarj soketi temassız çıktı; atölye temizliği maliyetine +${formatTRY(benchCost)} eklendi.`,
+    extraBenchCost: benchCost,
+  };
+}
+
 export interface ConditionInfo {
   label: 'Hurda' | 'Hasarlı' | 'İdare Eder' | 'Temiz' | 'Sıfır Ayarında' | 'Sıfır · Kapalı Kutu';
   score: number;
   tone: 'danger' | 'warning' | 'neutral' | 'positive';
 }
 
-export function getConditionInfo(device: PhoneDevice): ConditionInfo {
-  if (device.isBrandNew && device.defects.length === 0) {
+export function getConditionInfo(
+  device: PhoneDevice,
+  onlyInspected = false
+): ConditionInfo {
+  const relevantDefects = onlyInspected
+    ? device.defects.filter((d) => device.inspected[DEFECT_CATALOG[d].category])
+    : device.defects;
+
+  if (device.isBrandNew && relevantDefects.length === 0) {
     return { label: 'Sıfır · Kapalı Kutu', score: 100, tone: 'positive' };
   }
-  const totalPenalty = device.defects.reduce(
+  const totalPenalty = relevantDefects.reduce(
     (sum, d) => sum + DEFECT_CATALOG[d].valuePenaltyRatio,
     0
   );
   const score = Math.max(15, Math.min(100, Math.round((1 - totalPenalty) * 100)));
 
-  if (device.defects.length === 0 && device.hasBoxAndCharger) {
+  if (relevantDefects.length === 0 && device.hasBoxAndCharger) {
     return { label: 'Sıfır Ayarında', score: 98, tone: 'positive' };
   }
-  if (device.defects.length === 0) {
+  if (relevantDefects.length === 0) {
     return { label: 'Temiz', score: 90, tone: 'positive' };
   }
   if (score >= 76) {
@@ -690,13 +1165,14 @@ export function getPatienceLabel(patience: number): {
 
 export function getListingDemand(
   device: PhoneDevice,
-  dailyNews?: DailyMarketEvent
+  dailyNews?: DailyMarketEvent,
+  upgrades?: UpgradeId[]
 ): {
   label: string;
   tone: 'positive' | 'warning' | 'danger';
   hint: string;
 } {
-  const fair = calculateMarketValue(device, false, dailyNews);
+  const fair = calculateMarketValue(device, false, dailyNews, upgrades);
   const ratio = device.askingPrice / fair;
   if (ratio <= 1.04) {
     return {
@@ -851,6 +1327,19 @@ export function generatePhoneDevice(
   };
 }
 
+function getOutfitEncounterBonuses(
+  outfitId: OutfitId | undefined,
+  archetypeId: CustomerArchetypeId
+): { moodBonus: number; patienceBonus: number; label: string } {
+  const spec = getOutfitSpec(outfitId ?? 'casual_hoodie');
+  const preferred = spec.preferredArchetypes.includes(archetypeId);
+  return {
+    moodBonus: spec.moodBonus + (preferred ? 5 : 0),
+    patienceBonus: spec.patienceBonus,
+    label: spec.name,
+  };
+}
+
 export function createSellerEncounter(state: ShopState): CustomerEncounter {
   const hasNeon = state.upgrades.includes('neon_sign');
   const prestige = calculatePrestige(state);
@@ -860,7 +1349,7 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
       : ['student', 'uncle', 'influencer', 'hustler'];
 
   const archetypeId =
-    (hasNeon || state.shopTier === 3) && Math.random() < 0.35
+    (hasNeon || state.shopTier >= 3) && Math.random() < 0.38
       ? pick(['influencer', 'hustler', 'vip'] as CustomerArchetypeId[])
       : pick(archetypePool);
 
@@ -876,31 +1365,48 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
 
   let apprenticeNote: string | null = null;
   if (state.staff.includes('apprentice')) {
-    const categories: InspectionCategory[] = ['screen', 'battery', 'imei', 'hardware'];
-    const autoCat = pick(categories);
-    device.inspected[autoCat] = true;
+    const appLvl = state.staffLevels?.apprentice ?? 1;
+    const autoCount = appLvl >= 8 ? 4 : appLvl >= 5 ? 3 : appLvl >= 2 ? 2 : 1;
+    const categories = shuffleArray<InspectionCategory>(['screen', 'battery', 'imei', 'hardware']).slice(
+      0,
+      autoCount
+    );
     const catNames: Record<InspectionCategory, string> = {
       screen: 'Ekran & Kasa',
       battery: 'Pil & Devir',
       imei: 'IMEI Sorgu',
       hardware: 'Sıvı & Sensör',
     };
-    apprenticeNote = `Çırak Emre hızlıca ${catNames[autoCat]} testini önceden yaptı.`;
+    categories.forEach((c) => {
+      device.inspected[c] = true;
+    });
+    apprenticeNote = `Çırak Emre (Sv.${appLvl}) ${categories.map((c) => catNames[c]).join(', ')} testini önceden tamamladı.`;
   }
 
-  const realValue = calculateMarketValue(device, false, state.dailyNews);
+  const realValue = calculateMarketValue(device, false, state.dailyNews, state.upgrades);
   const perceivedValue =
-    realValue + (device.baseValue - realValue) * (archetypeId === 'hustler' ? 0.72 : 0.45);
+    realValue + (device.baseValue - realValue) * (archetypeId === 'hustler' ? 0.78 : 0.5);
   const initialAsk = roundPrice(
-    perceivedValue * (0.98 + arch.markupTendency * (0.65 + Math.random() * 0.5))
+    perceivedValue * (1.03 + arch.markupTendency * (0.7 + Math.random() * 0.5))
   );
 
-  const minRatio = archetypeId === 'student' ? 0.62 : archetypeId === 'hustler' ? 0.66 : 0.7;
+  // Tighter, fierier seller secret limit + ~18% realistic "bad deal / stubborn seller" chance!
+  // Sharp players spot the loss risk in the valuation breakdown and walk away; careless buyers can lose money.
+  const isStubbornOverpriced =
+    Math.random() < (archetypeId === 'hustler' ? 0.24 : archetypeId === 'uncle' ? 0.2 : 0.12);
+  const minRatio = isStubbornOverpriced
+    ? 0.93 + Math.random() * 0.13
+    : archetypeId === 'student'
+    ? 0.69 + Math.random() * 0.09
+    : archetypeId === 'hustler'
+    ? 0.74 + Math.random() * 0.11
+    : 0.76 + Math.random() * 0.1;
   const secretLimit = roundPrice(
-    Math.min(initialAsk * 0.85, Math.max(1200, realValue * (minRatio + Math.random() * 0.12)))
+    Math.min(initialAsk * 0.91, Math.max(1200, realValue * minRatio))
   );
 
   const customerName = pick(arch.names);
+  const outfitBonus = getOutfitEncounterBonuses(state.equippedOutfit, archetypeId);
   const messages: CustomerEncounter['messages'] = [
     {
       id: makeId('msg'),
@@ -920,16 +1426,18 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
 
   const baseMood =
     archetypeId === 'uncle'
-      ? 52
+      ? 48
       : archetypeId === 'hustler'
-      ? 56
+      ? 52
       : archetypeId === 'student'
-      ? 66
-      : 60;
+      ? 62
+      : 56;
   const startingMoodScore = Math.min(
-    90,
-    baseMood + (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0)
+    94,
+    baseMood + (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) + outfitBonus.moodBonus
   );
+  const requiredRounds =
+    archetypeId === 'uncle' || archetypeId === 'hustler' || isStubbornOverpriced ? 3 : 2;
 
   return {
     id: makeId('enc'),
@@ -942,10 +1450,13 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
     customerPrice: initialAsk,
     initialCustomerPrice: initialAsk,
     secretLimit,
-    patience: arch.startingPatience,
+    patience: Math.min(100, arch.startingPatience + outfitBonus.patienceBonus),
     maxPatience: 100,
     moodScore: startingMoodScore,
     mood: deriveMoodFromScore(startingMoodScore),
+    negotiationHeat: 14,
+    requiredRounds,
+    lastMoodReason: `${outfitBonus.label} (+${outfitBonus.moodBonus})`,
     usedLeverageDefects: [],
     teaServed: false,
     bluffUsed: false,
@@ -965,8 +1476,18 @@ export function createBuyerEncounter(
   const hasNeon = state.upgrades.includes('neon_sign');
   const prestige = calculatePrestige(state);
 
+  const tierVipBase =
+    state.shopTier >= 5
+      ? 0.52
+      : state.shopTier === 4
+      ? 0.44
+      : state.shopTier === 3
+      ? 0.35
+      : state.shopTier === 2
+      ? 0.2
+      : 0.08;
   const vipChance =
-    (state.shopTier === 3 ? 0.35 : state.shopTier === 2 ? 0.2 : 0.08) +
+    tierVipBase +
     (prestige >= 60 ? 0.15 : 0) +
     (targetDevice.masterCrafted || targetDevice.isBrandNew ? 0.16 : 0) +
     (hasNeon ? 0.1 : 0) +
@@ -992,17 +1513,16 @@ export function createBuyerEncounter(
   const arch = CUSTOMER_ARCHETYPES[archetypeId];
   const customerName = pick(arch.names);
 
-  const realValue = calculateMarketValue(targetDevice, false, state.dailyNews);
+  const realValue = calculateMarketValue(targetDevice, false, state.dailyNews, state.upgrades);
   const reputationBoost = 1 + (state.reputation - 2.5) * 0.045;
-  const prestigeBoost = 1 + Math.min(0.18, prestige * 0.0012);
+  const prestigeBoost = 1 + Math.min(0.24, prestige * 0.001);
   const newsBudgetBoost = state.dailyNews.buyerBudgetMultiplier ?? 1;
   const levelPersuasionBoost =
     (state.level >= 2 ? 1.05 : 1) * (state.level >= 9 ? 1.06 : 1);
   const salesRepLvl = state.staff.includes('sales_rep')
     ? state.staffLevels?.sales_rep ?? 1
     : 0;
-  const salesRepBoost =
-    salesRepLvl >= 3 ? 1.13 : salesRepLvl === 2 ? 1.1 : salesRepLvl === 1 ? 1.06 : 1;
+  const salesRepBoost = salesRepLvl > 0 ? 1 + Math.min(0.22, 0.03 + salesRepLvl * 0.02) : 1;
 
   // Check if a happy past customer returns as a Regular (Müdavim)
   const happyPast = (state.soldHistory ?? []).filter((r) => r.wasHappy);
@@ -1014,6 +1534,7 @@ export function createBuyerEncounter(
   const finalArchId = returningRecord ? returningRecord.archetypeId : archetypeId;
   const finalArch = CUSTOMER_ARCHETYPES[finalArchId];
   const finalName = returningRecord ? returningRecord.customerName : customerName;
+  const outfitBonus = getOutfitEncounterBonuses(state.equippedOutfit, finalArchId);
 
   const vipBoost =
     finalArchId === 'vip'
@@ -1033,10 +1554,9 @@ export function createBuyerEncounter(
       ? targetDevice.askingPrice
       : roundPrice(realValue * (targetDevice.isBrandNew ? 1.08 : 1.15));
 
-  // Buyer's max willingness to pay (secretLimit) can reach up to stickerPrice (never forces raising above sticker!)
   const rawWillingness = roundPrice(
     realValue *
-      (targetDevice.isBrandNew ? 1.06 + Math.random() * 0.12 : 1.1 + Math.random() * 0.15) *
+      (targetDevice.isBrandNew ? 1.05 + Math.random() * 0.11 : 1.06 + Math.random() * 0.14) *
       reputationBoost *
       prestigeBoost *
       newsBudgetBoost *
@@ -1046,19 +1566,19 @@ export function createBuyerEncounter(
       vipBoost
   );
 
-  // Realistic initial haggle offer: always below stickerPrice (unless already cheap)
+  // Buyers open lower to trigger genuine heated back-and-forth haggling
   const haggleDiscount = targetDevice.isBrandNew
-    ? 0.89 + Math.random() * 0.08
-    : 0.78 + Math.random() * 0.12;
+    ? 0.85 + Math.random() * 0.08
+    : 0.72 + Math.random() * 0.12;
   const initialOffer = roundPrice(
     Math.min(
       stickerPrice,
-      Math.max(1000, Math.min(rawWillingness * 0.92, stickerPrice * haggleDiscount))
+      Math.max(1000, Math.min(rawWillingness * 0.88, stickerPrice * haggleDiscount))
     )
   );
   const cappedSecretLimit = Math.min(
     stickerPrice,
-    Math.max(initialOffer, rawWillingness)
+    Math.max(initialOffer + 500, rawWillingness)
   );
 
   const wantsInstallment = stickerPrice >= 14000 && Math.random() < 0.45;
@@ -1066,25 +1586,31 @@ export function createBuyerEncounter(
     ? ' Kredi kartına taksit geçersen bütçemi biraz daha yukarı çekerim!'
     : '';
 
+  const bundleNote =
+    targetDevice.bundledAccessories && targetDevice.bundledAccessories.length > 0
+      ? ` (${targetDevice.bundledAccessories.length} aksesuarlı kombin paket)`
+      : '';
+
   const openingLine = returningRecord
-    ? `Selam usta, beni tanıdın mı? Geçen senden aldığım ${returningRecord.deviceName} taş gibi çıktı! Şimdi bu ${targetDevice.brand} ${targetDevice.model} için geldim, etiket ${formatTRY(stickerPrice)} ama müdavim indirimiyle ${formatTRY(initialOffer)} yapalım!${installmentSuffix}`
+    ? `Selam usta, beni tanıdın mı? Geçen senden aldığım ${returningRecord.deviceName} taş gibi çıktı! Şimdi bu ${targetDevice.brand} ${targetDevice.model}${bundleNote} için geldim, etiket ${formatTRY(stickerPrice)} ama müdavim indirimiyle ${formatTRY(initialOffer)} yapalım!${installmentSuffix}`
     : targetDevice.isBrandNew
-    ? `Merhaba usta! Vitrindeki sıfır kapalı kutu ${targetDevice.brand} ${targetDevice.model} dikkatimi çekti. Etiketi ${formatTRY(stickerPrice)} ama ${formatTRY(initialOffer)} yaparsan hemen alırım!${installmentSuffix}`
+    ? `Merhaba usta! Vitrindeki sıfır kapalı kutu ${targetDevice.brand} ${targetDevice.model}${bundleNote} dikkatimi çekti. Etiketi ${formatTRY(stickerPrice)} ama ${formatTRY(initialOffer)} yaparsan hemen alırım!${installmentSuffix}`
     : `${pick(BUYER_OPENING_LINES[finalArchId])} Etiketin ${formatTRY(stickerPrice)}, ben ${formatTRY(initialOffer)} verebilirim.${installmentSuffix}`;
 
   const baseBuyerMood =
     finalArchId === 'uncle'
-      ? 54
+      ? 50
       : finalArchId === 'vip'
-      ? 62
+      ? 58
       : targetDevice.isBrandNew
-      ? 72
-      : 64;
+      ? 68
+      : 60;
   const startingMoodScore = Math.min(
     96,
     baseBuyerMood +
       (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) +
-      (isRegular ? 14 : 0)
+      (isRegular ? 14 : 0) +
+      outfitBonus.moodBonus
   );
 
   return {
@@ -1106,10 +1632,13 @@ export function createBuyerEncounter(
     customerPrice: initialOffer,
     initialCustomerPrice: initialOffer,
     secretLimit: cappedSecretLimit,
-    patience: finalArch.startingPatience + (isRegular ? 10 : 0),
+    patience: Math.min(100, finalArch.startingPatience + (isRegular ? 10 : 0) + outfitBonus.patienceBonus),
     maxPatience: 100,
     moodScore: startingMoodScore,
     mood: deriveMoodFromScore(startingMoodScore),
+    negotiationHeat: 14,
+    requiredRounds: finalArchId === 'uncle' || finalArchId === 'hustler' ? 3 : 2,
+    lastMoodReason: `${outfitBonus.label} (+${outfitBonus.moodBonus})`,
     usedLeverageDefects: [],
     teaServed: false,
     bluffUsed: false,
@@ -1118,6 +1647,8 @@ export function createBuyerEncounter(
     finalWarningGiven: false,
     rounds: 0,
     outcome: 'ACTIVE',
+    crossSellAttachments: [],
+    crossSellTriedIds: [],
     messages: [
       {
         id: makeId('msg'),
@@ -1147,6 +1678,7 @@ export function createTradeInEncounter(
   const finalArchId = returningRecord ? returningRecord.archetypeId : archetypeId;
   const finalArch = CUSTOMER_ARCHETYPES[finalArchId];
   const customerName = returningRecord ? returningRecord.customerName : pick(arch.names);
+  const outfitBonus = getOutfitEncounterBonuses(state.equippedOutfit, finalArchId);
 
   // Pick a lower-value trade-in phone so the customer pays cash on top!
   const cheaperSpecs = PHONE_CATALOG.filter(
@@ -1154,24 +1686,48 @@ export function createTradeInEncounter(
   );
   const tradeSpec =
     cheaperSpecs.length > 0 ? pick(cheaperSpecs) : PHONE_CATALOG[0];
-  const apprenticeLvl = state.staff.includes('apprentice')
-    ? state.staffLevels?.apprentice ?? 1
-    : 0;
-  const tradeInDevice = generatePhoneDevice(
-    tradeSpec,
-    finalArchId,
-    state.day,
-    apprenticeLvl
-  );
+
+  // FIX: Pass minDefects = 0 (NOT apprenticeLvl!) and run proper Çırak Emre auto-inspection!
+  const tradeInDevice = generatePhoneDevice(tradeSpec, finalArchId, state.day, 0);
+  let apprenticeNote: string | null = null;
+  if (state.staff.includes('apprentice')) {
+    const appLvl = state.staffLevels?.apprentice ?? 1;
+    const autoCount = appLvl >= 8 ? 4 : appLvl >= 5 ? 3 : appLvl >= 2 ? 2 : 1;
+    const categories = shuffleArray<InspectionCategory>([
+      'screen',
+      'battery',
+      'imei',
+      'hardware',
+    ]).slice(0, autoCount);
+    const catNames: Record<InspectionCategory, string> = {
+      screen: 'Ekran & Kasa',
+      battery: 'Pil & Devir',
+      imei: 'IMEI Sorgu',
+      hardware: 'Sıvı & Sensör',
+    };
+    categories.forEach((c) => {
+      tradeInDevice.inspected[c] = true;
+    });
+    apprenticeNote = `Çırak Emre (Sv.${appLvl}) takas cihazında ${categories.map((c) => catNames[c]).join(', ')} testini önceden tamamladı.`;
+  }
 
   const stickerPrice =
     targetDevice.askingPrice > 0
       ? targetDevice.askingPrice
-      : roundPrice(calculateMarketValue(targetDevice, false, state.dailyNews) * 1.15);
-  const tradeFairVal = calculateMarketValue(tradeInDevice, false, state.dailyNews);
+      : roundPrice(
+          calculateMarketValue(targetDevice, false, state.dailyNews, state.upgrades) * 1.15
+        );
+  const tradeFairVal = calculateMarketValue(
+    tradeInDevice,
+    false,
+    state.dailyNews,
+    state.upgrades
+  );
   const fairCashDiff = Math.max(1500, roundPrice(stickerPrice - tradeFairVal * 0.78));
 
-  const initialCashOffer = roundPrice(Math.max(1000, fairCashDiff * (0.72 + Math.random() * 0.14)));
+  const initialCashOffer = roundPrice(
+    Math.max(1000, fairCashDiff * (0.72 + Math.random() * 0.14))
+  );
   const maxCashLimit = roundPrice(
     Math.min(stickerPrice - 500, Math.max(initialCashOffer + 750, fairCashDiff * 1.12))
   );
@@ -1179,8 +1735,28 @@ export function createTradeInEncounter(
 
   const startingMoodScore = Math.min(
     94,
-    62 + (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) + (returningRecord ? 12 : 0)
+    60 +
+      (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) +
+      (returningRecord ? 12 : 0) +
+      outfitBonus.moodBonus
   );
+
+  const messages: CustomerEncounter['messages'] = [
+    {
+      id: makeId('msg'),
+      speaker: 'customer',
+      text: `${pick(TRADE_IN_OPENING_LINES[finalArchId])} Elimdeki ${tradeInDevice.brand} ${tradeInDevice.model} cihazı verip üstüne ${formatTRY(initialCashOffer)} nakit fark ödeyeyim, vitrindeki ${targetDevice.brand} ${targetDevice.model} benim olsun!`,
+      tone: 'neutral',
+    },
+  ];
+  if (apprenticeNote) {
+    messages.push({
+      id: makeId('msg'),
+      speaker: 'system',
+      text: apprenticeNote,
+      tone: 'positive',
+    });
+  }
 
   return {
     id: makeId('trade_enc'),
@@ -1198,10 +1774,13 @@ export function createTradeInEncounter(
     customerPrice: initialCashOffer,
     initialCustomerPrice: initialCashOffer,
     secretLimit: maxCashLimit,
-    patience: finalArch.startingPatience,
+    patience: Math.min(100, finalArch.startingPatience + outfitBonus.patienceBonus),
     maxPatience: 100,
     moodScore: startingMoodScore,
     mood: deriveMoodFromScore(startingMoodScore),
+    negotiationHeat: 14,
+    requiredRounds: finalArchId === 'uncle' || finalArchId === 'hustler' ? 3 : 2,
+    lastMoodReason: `${outfitBonus.label} (+${outfitBonus.moodBonus})`,
     usedLeverageDefects: [],
     teaServed: false,
     bluffUsed: false,
@@ -1210,14 +1789,7 @@ export function createTradeInEncounter(
     finalWarningGiven: false,
     rounds: 0,
     outcome: 'ACTIVE',
-    messages: [
-      {
-        id: makeId('msg'),
-        speaker: 'customer',
-        text: `${pick(TRADE_IN_OPENING_LINES[finalArchId])} Elimdeki ${tradeInDevice.brand} ${tradeInDevice.model} cihazı verip üstüne ${formatTRY(initialCashOffer)} nakit fark ödeyeyim, vitrindeki ${targetDevice.brand} ${targetDevice.model} benim olsun!`,
-        tone: 'neutral',
-      },
-    ],
+    messages,
   };
 }
 
@@ -1283,7 +1855,18 @@ export function createWarrantyClaimEncounter(
 export function createDataRecoveryEncounter(state: ShopState): CustomerEncounter {
   const archetypeId = pick(['student', 'uncle', 'influencer', 'vip'] as CustomerArchetypeId[]);
   const arch = CUSTOMER_ARCHETYPES[archetypeId];
-  const job = pick(DATA_RECOVERY_CASES);
+  const baseJob = pick(DATA_RECOVERY_CASES);
+  const hasCleanRoomLab = state.upgrades.includes('clean_room_lab');
+  const hasMicroSoldering = state.upgrades.includes('micro_soldering');
+  const payoutMult = hasCleanRoomLab ? 1.35 : 1;
+  const job = {
+    ...baseJob,
+    cleanRoomPayout: roundPrice(baseJob.cleanRoomPayout * payoutMult),
+    softwarePayout: roundPrice(baseJob.softwarePayout * payoutMult),
+    softwareSuccessRate: hasMicroSoldering
+      ? Math.max(baseJob.softwareSuccessRate, 0.95)
+      : baseJob.softwareSuccessRate,
+  };
   const spec = pickPhoneSpecForDay(state.day, state.cash, state.shopTier, archetypeId, false);
   const device = generatePhoneDevice(spec, archetypeId, state.day, 0);
 
@@ -1423,7 +2006,8 @@ export function createExpressRepairEncounter(state: ShopState): CustomerEncounte
     state.level,
     state.legacyPath
   );
-  const payout = roundPrice(partCost + 1800 + spec.baseValue * 0.06);
+  const cleanRoomMult = state.upgrades.includes('clean_room_lab') ? 1.35 : 1;
+  const payout = roundPrice((partCost + 1800 + spec.baseValue * 0.06) * cleanRoomMult);
 
   return {
     id: makeId('enc'),
@@ -1479,8 +2063,8 @@ export function createBulkAuctionEncounter(state: ShopState): CustomerEncounter 
   const d1 = generatePhoneDevice(spec1, 'hustler', state.day);
   const d2 = generatePhoneDevice(spec2, 'student', state.day);
   const realTotal =
-    calculateMarketValue(d1, false, state.dailyNews) +
-    calculateMarketValue(d2, false, state.dailyNews);
+    calculateMarketValue(d1, false, state.dailyNews, state.upgrades) +
+    calculateMarketValue(d2, false, state.dailyNews, state.upgrades);
   const bundlePrice = roundPrice(
     Math.max(4500, realTotal * (0.62 + Math.random() * 0.2))
   );
@@ -1521,75 +2105,75 @@ export function createBulkAuctionEncounter(state: ShopState): CustomerEncounter 
 
 export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
   const extraByLevel = (state.level >= 6 ? 1 : 0) + (state.level >= 10 ? 1 : 0);
-  const queueSize = SHOP_TIERS[state.shopTier].dailyCustomers + extraByLevel;
-  const listedPhones = state.inventory.filter((d) => d.listedForSale);
+  const queueSize = SHOP_TIERS[state.shopTier].dailyCustomers + extraByLevel; // 12 to 22 daily customers!
+  const listedPhones = state.inventory.filter((d) => d.listedForSale && !d.assignedToStaff);
   const usedBuyerPhoneIds = new Set<string>();
   const queue: CustomerEncounter[] = [];
 
   const hasRepairBench = state.upgrades.includes('repair_bench');
   const hasAccessoryStock = getTotalAccessoryStock(state.accessories) > 0;
-  const specialSlot = state.day >= 2 ? Math.min(queueSize - 1, 2) : -1;
-  const accessorySlot = hasAccessoryStock ? Math.min(queueSize - 1, 3) : -1;
-  let warrantyInjected = false;
-  let tradeInInjected = false;
 
-  for (let i = 0; i < queueSize; i++) {
-    // Inject a realistic Warranty Claim if a previous buyer had an issue
-    if (i === 1 && !warrantyInjected && state.day >= 2) {
-      const warEnc = createWarrantyClaimEncounter(state);
-      if (warEnc) {
-        warrantyInjected = true;
-        queue.push(warEnc);
-        continue;
-      }
-    }
+  // 1. Optional Warranty Claim (1 max per day if applicable)
+  if (state.day >= 2) {
+    const warEnc = createWarrantyClaimEncounter(state);
+    if (warEnc) queue.push(warEnc);
+  }
 
-    if (i === accessorySlot && hasAccessoryStock) {
+  // 2. Accessory Buyers (2 to 4 per day when stock exists — steady retail cashflow!)
+  if (hasAccessoryStock) {
+    const accCount = Math.min(4, 2 + (state.shopTier >= 3 ? 1 : 0) + (Math.random() < 0.45 ? 1 : 0));
+    for (let a = 0; a < accCount; a++) {
       const accEnc = createAccessoryBuyerEncounter(state);
-      if (accEnc) {
-        queue.push(accEnc);
-        continue;
-      }
+      if (accEnc) queue.push(accEnc);
     }
+  }
 
-    if (i === specialSlot) {
-      const roll = Math.random();
-      if (hasRepairBench && roll < 0.4) {
-        queue.push(createExpressRepairEncounter(state));
-        continue;
-      } else if (roll < 0.72) {
-        queue.push(createDataRecoveryEncounter(state));
-        continue;
-      } else if (state.cash >= 7000) {
-        queue.push(createBulkAuctionEncounter(state));
-        continue;
-      }
+  // 3. Express Repairs & Data Recovery & Bulk Auctions (2-3 varied service/special encounters)
+  if (hasRepairBench || state.staff.includes('master_tech')) {
+    const repairCount = state.shopTier >= 3 ? 2 : 1;
+    for (let r = 0; r < repairCount; r++) {
+      queue.push(createExpressRepairEncounter(state));
     }
+  }
+  if (state.day >= 2 || Math.random() < 0.65) {
+    queue.push(createDataRecoveryEncounter(state));
+  }
+  if (state.day >= 2 && state.cash >= 6500 && Math.random() < 0.65) {
+    queue.push(createBulkAuctionEncounter(state));
+  }
 
+  // 4. Fill remaining slots with a rich MIX of Buyers, Trade-Ins, and Sellers
+  let tradeInCount = 0;
+  const maxTradeIns = state.shopTier >= 3 ? 2 : 1;
+
+  while (queue.length < queueSize) {
     const availableListed = listedPhones.filter((p) => !usedBuyerPhoneIds.has(p.uid));
-    const shouldBeBuyer =
-      availableListed.length > 0 &&
-      (i % 2 === 1 || (availableListed.length >= 2 && Math.random() < 0.6));
+    const buyerChance =
+      availableListed.length >= 3 ? 0.62 : availableListed.length > 0 ? 0.48 : 0;
 
-    if (shouldBeBuyer) {
+    if (availableListed.length > 0 && Math.random() < buyerChance) {
       const target = pick(availableListed);
       usedBuyerPhoneIds.add(target.uid);
-      // 38% chance a buyer wants a Trade-In (Takas) if not yet injected today!
-      if (!tradeInInjected && target.baseValue >= 9500 && Math.random() < 0.38) {
-        tradeInInjected = true;
+      if (tradeInCount < maxTradeIns && target.baseValue >= 9000 && Math.random() < 0.35) {
+        tradeInCount += 1;
         queue.push(createTradeInEncounter(state, target));
       } else {
         queue.push(createBuyerEncounter(state, target));
       }
+    } else if (listedPhones.length > 0 && Math.random() < 0.28) {
+      // Even if a listed phone already has a buyer earlier, another shopper may inquire later in the day
+      const target = pick(listedPhones);
+      queue.push(createBuyerEncounter(state, target));
     } else {
       queue.push(createSellerEncounter(state));
     }
   }
 
-  return queue;
+  // Truly shuffle all encounters so every day is varied & unpredictable!
+  return shuffleArray(queue).slice(0, queueSize);
 }
 
-// === DAILY EMPIRE GENERATORS: ONLINE CLASSIFIEDS, SHIPPING ORDERS, CUSTOMS AUCTION ===
+// === DAILY EMPIRE GENERATORS: ONLINE CLASSIFIEDS, SHIPPING ORDERS, 2-3 DAILY AUCTIONS ===
 
 const CLASSIFIED_DISTRICTS = ['Kadıköy', 'Bakırköy', 'Şişli', 'Üsküdar', 'Beşiktaş', 'Bornova', 'Çankaya'];
 const CLASSIFIED_SELLERS = ['Mert K.', 'Ayşe T.', 'Burak S.', 'Ömer D.', 'Gizem Y.', 'Hakan B.', 'Tuğçe A.'];
@@ -1601,7 +2185,7 @@ export function generateOnlineClassifieds(state: ShopState): OnlineClassifiedLis
   for (let i = 0; i < count; i++) {
     const spec = pickPhoneSpecForDay(
       state.day,
-      Math.max(18000, state.cash * 1.1),
+      Math.max(18000, state.cash * 1.15),
       state.shopTier,
       i === 0 ? 'student' : i === 3 ? 'hustler' : 'influencer',
       false
@@ -1617,16 +2201,19 @@ export function generateOnlineClassifieds(state: ShopState): OnlineClassifiedLis
     if (isBargain && !isTrap && device.defects.length > 1) {
       device.defects = device.defects.slice(0, 1);
     }
-    const fairVal = calculateMarketValue(device, false, state.dailyNews);
+    const fairVal = calculateMarketValue(device, false, state.dailyNews, state.upgrades);
     const askingPrice = roundPrice(
       Math.max(
         2000,
         isBargain
-          ? fairVal * (0.76 + Math.random() * 0.1)
+          ? fairVal * (0.82 + Math.random() * 0.08)
           : isTrap
-          ? fairVal * (1.06 + Math.random() * 0.12)
-          : fairVal * (0.88 + Math.random() * 0.1)
+          ? fairVal * (1.08 + Math.random() * 0.14)
+          : fairVal * (0.92 + Math.random() * 0.1)
       )
+    );
+    const secretFloor = roundPrice(
+      Math.max(1500, Math.min(askingPrice * 0.9, fairVal * (isTrap ? 0.8 : 0.74)))
     );
     const riskTag: OnlineClassifiedListing['riskTag'] = isBargain
       ? 'Kelepir Fırsat'
@@ -1640,17 +2227,103 @@ export function generateOnlineClassifieds(state: ShopState): OnlineClassifiedLis
       district: pick(CLASSIFIED_DISTRICTS),
       title: `${device.brand} ${device.model} (${device.storage})`,
       sellerNote: isBargain
-        ? 'Acil nakit ihtiyacından piyasa altına bırakıyorum, ilk gelen alır!'
+        ? 'Acil nakit ihtiyacından bırakıyorum; yerinde bakıp test edebilirsin!'
         : isTrap
         ? 'Kutusu yok, ufak tefek detayları olabilir ama çalışıyor.'
-        : 'Kılıfla kullanıldı, elden veya kargoyla hemen teslim.',
+        : 'Kılıfla kullanıldı, gelip inceleyebilir veya kapıda kontrollü kargo isteyebilirsin.',
       askingPrice,
+      currentPrice: askingPrice,
+      secretFloor,
       device,
       riskTag,
       bought: false,
+      status: 'AVAILABLE',
+      haggleAttempts: 0,
     });
   }
   return listings;
+}
+
+export function evaluateClassifiedHaggle(
+  listing: OnlineClassifiedListing,
+  offerPrice: number
+): {
+  updatedListing: OnlineClassifiedListing;
+  accepted: boolean;
+  rejectedWalkout: boolean;
+  message: string;
+} {
+  const attempts = (listing.haggleAttempts ?? 0) + 1;
+  const current = listing.currentPrice ?? listing.askingPrice;
+  const floor = listing.secretFloor ?? roundPrice(listing.askingPrice * 0.8);
+  const defectsFound = listing.device.defects.length;
+
+  // Exposing real defects lowers the seller's effective floor!
+  const effectiveFloor = roundPrice(
+    Math.max(1200, floor * (1 - Math.min(0.18, defectsFound * 0.06)))
+  );
+
+  if (offerPrice >= current) {
+    return {
+      updatedListing: {
+        ...listing,
+        currentPrice: offerPrice,
+        haggleAttempts: attempts,
+        lastSellerReply: 'Tamamdır, el sıkıştık! Cihaz senin.',
+      },
+      accepted: true,
+      rejectedWalkout: false,
+      message: 'Satıcı teklifini kabul etti!',
+    };
+  }
+
+  if (offerPrice >= effectiveFloor && (attempts >= 2 || offerPrice >= current * 0.92)) {
+    return {
+      updatedListing: {
+        ...listing,
+        currentPrice: offerPrice,
+        haggleAttempts: attempts,
+        lastSellerReply: `Kusurları gördün haklısın, ${formatTRY(offerPrice)} olsun hayrını gör!`,
+      },
+      accepted: true,
+      rejectedWalkout: false,
+      message: `Pazarlık başarılı! ${formatTRY(offerPrice)} fiyata anlaştın!`,
+    };
+  }
+
+  if (attempts >= 3 || offerPrice < effectiveFloor * 0.72) {
+    return {
+      updatedListing: {
+        ...listing,
+        status: 'REJECTED',
+        haggleAttempts: attempts,
+        lastSellerReply: 'Çok ölü fiyat verdin usta, satmaktan vazgeçtim!',
+      },
+      accepted: false,
+      rejectedWalkout: true,
+      message: 'Satıcı pazarlıktan çekildi, ilan kapandı.',
+    };
+  }
+
+  const nextCounter = roundPrice(
+    Math.max(effectiveFloor, current - Math.max(250, (current - Math.max(effectiveFloor, offerPrice)) * 0.5))
+  );
+  const reply =
+    defectsFound > 0
+      ? `Haklısın ${defectsFound} kusuru çıktı ama ${formatTRY(offerPrice)} az! En son ${formatTRY(nextCounter)} bırakırım.`
+      : `Cihaz temiz usta, o kadar kıramam. Gel ortada ${formatTRY(nextCounter)} olsun.`;
+
+  return {
+    updatedListing: {
+      ...listing,
+      currentPrice: nextCounter,
+      haggleAttempts: attempts,
+      lastSellerReply: reply,
+    },
+    accepted: false,
+    rejectedWalkout: false,
+    message: reply,
+  };
 }
 
 export function generateShippingOrders(state: ShopState): ShippingOrder[] {
@@ -1680,41 +2353,340 @@ export function generateShippingOrders(state: ShopState): ShippingOrder[] {
   });
 }
 
-export function generateDailyAuctionLot(state: ShopState): CustomsAuctionLot {
-  const deviceCount = state.shopTier >= 2 ? 3 : 2;
+export function generateDailyAuctionLot(
+  state: ShopState,
+  sessionIndex = 0
+): CustomsAuctionLot {
+  const sessionLabels = ['Sabah İcra Seansı', 'Öğle Gümrük Paleti', 'Akşam VIP Konteyneri'];
+  const sessionLabel = sessionLabels[sessionIndex % sessionLabels.length];
+  const deviceCount =
+    sessionIndex === 2 ? Math.min(4, 2 + (state.shopTier >= 3 ? 2 : 1)) : state.shopTier >= 2 ? 3 : 2;
   const devices: PhoneDevice[] = [];
   let totalMarket = 0;
 
   for (let i = 0; i < deviceCount; i++) {
     const spec = pickPhoneSpecForDay(
       state.day,
-      Math.max(16000, state.cash * 0.9),
+      Math.max(16000, state.cash * (sessionIndex === 2 ? 1.2 : 0.9)),
       state.shopTier,
-      i === 0 ? 'vip' : 'hustler',
+      sessionIndex === 2 || i === 0 ? 'vip' : 'hustler',
       false
     );
     const dev = generatePhoneDevice(spec, 'hustler', state.day, 0);
     devices.push(dev);
-    totalMarket += calculateMarketValue(dev, false, state.dailyNews);
+    totalMarket += calculateMarketValue(dev, false, state.dailyNews, state.upgrades);
   }
 
-  const bonusAccessories: { id: AccessoryId; quantity: number }[] = [
-    { id: 'tempered_glass', quantity: 4 },
-    { id: 'magsafe_case', quantity: 2 },
-  ];
+  const bonusAccessories: { id: AccessoryId; quantity: number }[] =
+    sessionIndex === 1
+      ? [
+          { id: 'gan_charger', quantity: 2 },
+          { id: 'powerbank', quantity: 1 },
+        ]
+      : sessionIndex === 2
+      ? [
+          { id: 'tws_earbuds', quantity: 2 },
+          { id: 'magsafe_case', quantity: 3 },
+        ]
+      : [
+          { id: 'tempered_glass', quantity: 4 },
+          { id: 'magsafe_case', quantity: 2 },
+        ];
 
-  const startingBid = roundPrice(Math.max(4000, totalMarket * 0.52));
+  const startingBid = roundPrice(Math.max(4000, totalMarket * (0.48 + sessionIndex * 0.04)));
 
   return {
     id: makeId('auc_lot'),
-    lotTitle: `Gümrük Palet #${100 + state.day * 7} (${deviceCount} Cihaz + Aksesuar Kolisi)`,
-    description: `Mühürlü gümrük ve icra kolisi! İçerisinde ${devices.map((d) => `${d.brand} ${d.model}`).join(', ')} ve 6 parça aksesuar bulunuyor. Kusurları koli açılınca belli olur!`,
+    sessionLabel,
+    lotTitle: `${sessionLabel} #${100 + state.day * 7 + sessionIndex} (${deviceCount} Cihaz)`,
+    description: `Mühürlü koli! İçerisinde ${devices.map((d) => `${d.brand} ${d.model}`).join(', ')} ve bonus aksesuar kolisi var. Kusurları kazanınca ortaya çıkar!`,
     startingBid,
     devices,
     bonusAccessories,
     resolved: false,
     wonByPlayer: false,
     winningBid: startingBid,
+  };
+}
+
+export function generateDailyAuctionLots(state: ShopState): CustomsAuctionLot[] {
+  const count = state.shopTier >= 3 || Math.random() < 0.55 ? 3 : 2;
+  return Array.from({ length: count }, (_, idx) => generateDailyAuctionLot(state, idx));
+}
+
+// === TIMED PROJECTS, WHOLESALE CARGO, STAFF REPAIR QUEUE, RANDOM STORE EVENTS ===
+
+export function maybeTriggerRandomStoreEvent(
+  state: ShopState
+): RandomStoreEvent | null {
+  if (state.activeStoreEvent || state.storeEventsTriggeredToday >= 2) return null;
+  if (Math.random() > 0.36) return null;
+  const tpl = pick(RANDOM_STORE_EVENTS);
+  return {
+    ...tpl,
+    id: makeId('evt'),
+    resolved: false,
+  };
+}
+
+export function applyEventEffectToEncounter(
+  encounter: CustomerEncounter,
+  effect: NextCustomerEventEffect | null
+): CustomerEncounter {
+  if (!effect) return encounter;
+  const nextMood = Math.max(8, Math.min(100, encounter.moodScore + effect.moodDelta));
+  const nextPatience = Math.max(15, Math.min(100, encounter.patience + effect.patienceDelta));
+  let nextLimit = encounter.secretLimit;
+  let nextPrice = encounter.customerPrice;
+
+  if (encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') {
+    const cap = encounter.device.askingPrice;
+    nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * effect.budgetMultiplier));
+    nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * effect.budgetMultiplier));
+  } else if (encounter.type === 'SELLER' && effect.budgetMultiplier !== 1) {
+    // Better mood softens seller ask slightly
+    const inv = 2 - effect.budgetMultiplier;
+    nextLimit = roundPrice(Math.max(1000, encounter.secretLimit * inv));
+  }
+
+  return {
+    ...encounter,
+    moodScore: nextMood,
+    mood: deriveMoodFromScore(nextMood),
+    patience: nextPatience,
+    secretLimit: nextLimit,
+    customerPrice: nextPrice,
+    lastMoodReason: `Mağaza Olayı: ${effect.title} (${effect.moodDelta >= 0 ? '+' : ''}${effect.moodDelta})`,
+    messages: [
+      ...encounter.messages,
+      {
+        id: makeId('msg'),
+        speaker: 'system',
+        text: `Mağaza Atmosferi: ${effect.title} müşteriyi etkiledi (${effect.moodDelta >= 0 ? '+' : ''}${effect.moodDelta} Ruh Hali).`,
+        tone: effect.moodDelta >= 0 ? 'positive' : 'warning',
+      },
+    ],
+  };
+}
+
+export function advanceStaffRepairsOnTurn(state: ShopState): {
+  updatedQueue: StaffRepairJob[];
+  updatedInventory: PhoneDevice[];
+  completedPayoutGross: number;
+  completedTax: number;
+  completedCount: number;
+  completedExpressCount: number;
+  xpEarned: number;
+  notifications: string[];
+} {
+  if (!state.staffRepairQueue || state.staffRepairQueue.length === 0) {
+    return {
+      updatedQueue: [],
+      updatedInventory: state.inventory,
+      completedPayoutGross: 0,
+      completedTax: 0,
+      completedCount: 0,
+      completedExpressCount: 0,
+      xpEarned: 0,
+      notifications: [],
+    };
+  }
+
+  const nextQueue: StaffRepairJob[] = [];
+  let nextInventory = [...state.inventory];
+  let completedPayoutGross = 0;
+  let completedTax = 0;
+  let completedCount = 0;
+  let completedExpressCount = 0;
+  let xpEarned = 0;
+  const notifications: string[] = [];
+
+  for (const job of state.staffRepairQueue) {
+    const rem = job.turnsRemaining - 1;
+    if (rem > 0) {
+      nextQueue.push({ ...job, turnsRemaining: rem });
+      continue;
+    }
+
+    completedCount += 1;
+    if (job.mode === 'INVENTORY' && job.phoneUid) {
+      xpEarned += 35 + job.defectIds.length * 10;
+      nextInventory = nextInventory.map((p) => {
+        if (p.uid !== job.phoneUid) return p;
+        const fixedBattery =
+          job.defectIds.includes('battery_degraded') ||
+          job.defectIds.includes('battery_fake_chip');
+        const nextPhone: PhoneDevice = {
+          ...p,
+          defects: p.defects.filter((d) => !job.defectIds.includes(d)),
+          repairedDefects: [...p.repairedDefects, ...job.defectIds],
+          assignedToStaff: false,
+          masterCrafted: true,
+          batteryHealth: fixedBattery ? 100 : p.batteryHealth,
+          reportedBatteryHealth: fixedBattery ? 100 : p.reportedBatteryHealth,
+          batteryCycles: fixedBattery ? 1 : p.batteryCycles,
+        };
+        nextPhone.askingPrice = Math.max(
+          nextPhone.askingPrice,
+          roundPrice(calculateMarketValue(nextPhone, false, state.dailyNews, state.upgrades) * 1.15)
+        );
+        return nextPhone;
+      });
+      notifications.push(`Hasan Usta ${job.deviceName} tamirini Usta İşi bitirdi ve atölyeye bıraktı!`);
+    } else if (job.mode === 'EXPRESS_CUSTOMER') {
+      completedExpressCount += 1;
+      xpEarned += 45;
+      const { taxAmount, netAmount } = calculateSaleTax(
+        job.payout,
+        state.staff,
+        state.staffLevels
+      );
+      completedPayoutGross += job.payout;
+      completedTax += taxAmount;
+      notifications.push(
+        `Hasan Usta ${job.customerName ?? 'müşterinin'} ${job.deviceName} tamirini teslim etti! (+${formatTRY(netAmount)} net, ${formatTRY(taxAmount)} vergi)`
+      );
+    }
+  }
+
+  return {
+    updatedQueue: nextQueue,
+    updatedInventory: nextInventory,
+    completedPayoutGross,
+    completedTax,
+    completedCount,
+    completedExpressCount,
+    xpEarned,
+    notifications,
+  };
+}
+
+export function advanceDayTimers(
+  state: ShopState,
+  nextNews?: DailyMarketEvent
+): {
+  shopTier: ShopTier;
+  showcaseUpgradeLevel: number;
+  upgrades: UpgradeId[];
+  branches: BranchId[];
+  staffLevels: Record<StaffId, number>;
+  pendingProjects: TimedProject[];
+  pendingWholesaleOrders: PendingWholesaleOrder[];
+  accessories: Record<AccessoryId, AccessoryStockItem>;
+  inventory: PhoneDevice[];
+  onlineListings: OnlineClassifiedListing[];
+  arrivedSpecIds: string[];
+  notifications: string[];
+} {
+  let shopTier = state.shopTier;
+  let showcaseUpgradeLevel = state.showcaseUpgradeLevel ?? 0;
+  const upgrades = [...state.upgrades];
+  const branches = [...state.branches];
+  const staffLevels = { ...state.staffLevels };
+  const remainingProjects: TimedProject[] = [];
+  const notifications: string[] = [];
+
+  for (const proj of state.pendingProjects ?? []) {
+    const rem = proj.daysRemaining - 1;
+    if (rem > 0) {
+      remainingProjects.push({ ...proj, daysRemaining: rem });
+      continue;
+    }
+    if (proj.kind === 'SHOP_TIER') {
+      const nextTier = Number(proj.targetId) as ShopTier;
+      if (nextTier > shopTier) {
+        shopTier = nextTier;
+        notifications.push(`Tadilat bitti! Yeni dükkanın "${SHOP_TIERS[nextTier].name}" açıldı!`);
+      }
+    } else if (proj.kind === 'UPGRADE') {
+      const uId = proj.targetId as UpgradeId;
+      if (!upgrades.includes(uId)) {
+        upgrades.push(uId);
+        notifications.push(`Kurulum tamamlandı: ${proj.label} artık aktif!`);
+      }
+    } else if (proj.kind === 'BRANCH') {
+      const bId = proj.targetId as BranchId;
+      if (!branches.includes(bId)) {
+        branches.push(bId);
+        notifications.push(`İnşaat bitti! Yeni şuben "${proj.label}" günlük kazanç üretmeye başladı!`);
+      }
+    } else if (proj.kind === 'STAFF_TRAIN') {
+      const sId = proj.targetId as StaffId;
+      const nextLvl = Math.min(10, (staffLevels[sId] ?? 1) + 1);
+      staffLevels[sId] = nextLvl;
+      notifications.push(`Eğitim tamamlandı: ${proj.label} artık Sv.${nextLvl} oldu!`);
+    } else if (proj.kind === 'SHOWCASE_UPGRADE') {
+      showcaseUpgradeLevel += 1;
+      notifications.push(
+        `Vitrin genişletme bitti! Vitrin Rafı Sv.${showcaseUpgradeLevel} (+2 yuva eklendi).`
+      );
+    }
+  }
+
+  // Advance pending wholesale cargo orders
+  const accessories = { ...state.accessories };
+  const inventory = [...state.inventory];
+  const remainingOrders: PendingWholesaleOrder[] = [];
+  const arrivedSpecIds: string[] = [];
+  const pricingNews = nextNews ?? state.dailyNews;
+
+  for (const ord of state.pendingWholesaleOrders ?? []) {
+    const rem = ord.daysRemaining - 1;
+    if (rem > 0) {
+      remainingOrders.push({ ...ord, daysRemaining: rem });
+      continue;
+    }
+    if (ord.kind === 'ACCESSORY' && ord.accessoryId && ord.quantity) {
+      const cur = accessories[ord.accessoryId];
+      if (cur) {
+        accessories[ord.accessoryId] = {
+          ...cur,
+          quantity: cur.quantity + ord.quantity,
+        };
+      }
+      notifications.push(`Toptan kargo ulaştı: ${ord.label} raflara dizildi!`);
+    } else if (ord.kind === 'PHONE' && ord.specId) {
+      const spec = PHONE_CATALOG.find((p) => p.id === ord.specId);
+      if (spec) {
+        const phone = generateBrandNewPhone(spec, ord.wholesaleCost, pricingNews);
+        inventory.push(phone);
+        arrivedSpecIds.push(spec.id);
+        notifications.push(`Distribütör kargosu geldi: Sıfır ${spec.brand} ${spec.model} stoğa girdi!`);
+      }
+    }
+  }
+
+  // Keep any COD classifieds in transit & mark them ARRIVED_COD for inspection!
+  const arrivedCodListings: OnlineClassifiedListing[] = (state.onlineListings ?? [])
+    .filter((l) => l.status === 'SHIPPING_IN_TRANSIT')
+    .map((l) => {
+      notifications.push(
+        `Kapıda Kontrollü Kargo geldi: ${l.title} — Piyasa sekmesinden kutuyu açıp test et!`
+      );
+      return {
+        ...l,
+        status: 'ARRIVED_COD' as const,
+        deliveryDaysLeft: 0,
+        device: {
+          ...l.device,
+          inspected: { screen: true, battery: true, imei: true, hardware: true },
+        },
+      };
+    });
+
+  return {
+    shopTier,
+    showcaseUpgradeLevel,
+    upgrades,
+    branches,
+    staffLevels,
+    pendingProjects: remainingProjects,
+    pendingWholesaleOrders: remainingOrders,
+    accessories,
+    inventory,
+    onlineListings: arrivedCodListings,
+    arrivedSpecIds,
+    notifications,
   };
 }
 
@@ -1783,6 +2755,8 @@ export function processEmpireEndOfDay(state: ShopState): {
   loanPayments: number;
   updatedLoans: ActiveLoan[];
   newWeeklyTaxDue: number;
+  overdueTaxRepDelta: number;
+  overdueTaxNotice: string | null;
   updatedRival: ShopState['rival'];
 } {
   let branchIncome = 0;
@@ -1811,11 +2785,25 @@ export function processEmpireEndOfDay(state: ShopState): {
   }
 
   const nextDay = state.day + 1;
-  const taxAdd =
+  const prevTaxDue = state.weeklyTaxDue ?? 0;
+  let overdueTaxFee = 0;
+  let overdueTaxRepDelta = 0;
+  let overdueTaxNotice: string | null = null;
+  if (nextDay % 7 === 0 && prevTaxDue > 0) {
+    overdueTaxFee = Math.max(250, Math.round((prevTaxDue * 0.1) / 50) * 50);
+    overdueTaxRepDelta = -0.15;
+    overdueTaxNotice = `Maliye Gecikme İhbarı: Ödenmemiş ${formatTRY(prevTaxDue)} vergi borcuna +${formatTRY(overdueTaxFee)} gecikme faizi eklendi (-0.15★).`;
+  }
+
+  const rawTaxAdd =
     nextDay % 7 === 0
-      ? 1800 + state.shopTier * 1200 + (state.branches?.length ?? 0) * 1400
+      ? 1800 + state.shopTier * 1400 + (state.branches?.length ?? 0) * 1600
       : 0;
-  const newWeeklyTaxDue = (state.weeklyTaxDue ?? 0) + taxAdd;
+  // Mali Müşavir Selma Hanım reduces weekly tax burden by 15%..55%
+  const accLvl = state.staff.includes('accountant') ? state.staffLevels?.accountant ?? 1 : 0;
+  const accTaxMult = accLvl > 0 ? Math.max(0.45, 0.9 - accLvl * 0.045) : 1;
+  const taxAdd = Math.round((rawTaxAdd * accTaxMult) / 50) * 50;
+  const newWeeklyTaxDue = prevTaxDue + overdueTaxFee + taxAdd;
 
   const salesRepLvl = state.staff.includes('sales_rep')
     ? state.staffLevels?.sales_rep ?? 1
@@ -1823,7 +2811,7 @@ export function processEmpireEndOfDay(state: ShopState): {
   const rivalShareDrift = state.rival.boughtOut
     ? 0
     : salesRepLvl >= 2
-    ? -3
+    ? -Math.min(6, 2 + Math.floor(salesRepLvl / 2))
     : state.todayStats.phonesSold >= 2
     ? -2
     : 2;
@@ -1842,6 +2830,8 @@ export function processEmpireEndOfDay(state: ShopState): {
     loanPayments,
     updatedLoans,
     newWeeklyTaxDue,
+    overdueTaxRepDelta,
+    overdueTaxNotice,
     updatedRival: {
       ...state.rival,
       marketShare: nextRivalShare,
@@ -1868,17 +2858,19 @@ export function simulateEndOfDayAccessorySales(state: ShopState): {
   let revenue = 0;
   let profit = 0;
 
+  const appLvl = state.staff.includes('apprentice') ? state.staffLevels?.apprentice ?? 1 : 0;
+  const tierFactor = 1 + (state.shopTier - 1) * 0.42;
   const trafficMultiplier =
-    (state.shopTier === 3 ? 2.0 : state.shopTier === 2 ? 1.45 : 1.0) *
+    tierFactor *
     (state.upgrades.includes('neon_sign') ? 1.25 : 1.0) *
-    (state.staff.includes('apprentice') ? 1.2 : 1.0) *
-    (state.level >= 4 ? 1.25 : 1.0);
+    (state.upgrades.includes('barcode_automation') ? 1.35 : 1.0) *
+    (appLvl > 0 ? 1 + 0.12 + appLvl * 0.08 : 1.0) *
+    (state.level >= 4 ? 1.2 : 1.0);
 
   for (const spec of ACCESSORY_CATALOG) {
     const stock = updated[spec.id];
     if (!stock || stock.quantity <= 0) continue;
 
-    // Price sensitivity: cheaper than recommended sells faster; overpriced slows down
     const priceRatio = stock.retailPrice / spec.recommendedPrice;
     const priceFactor =
       priceRatio <= 0.9
@@ -1940,6 +2932,7 @@ export function createEmptyDayStats(
     posCommission: 0,
     loanPayments: 0,
     taxPaid: 0,
+    salesTaxPaid: 0,
     reputationDelta: 0,
     dealsLost: 0,
   };
@@ -1965,7 +2958,8 @@ export function buildDayHistoryEntry(
     stats.staffWages +
     (stats.posCommission ?? 0) +
     (stats.loanPayments ?? 0) +
-    (stats.taxPaid ?? 0);
+    (stats.taxPaid ?? 0) +
+    (stats.salesTaxPaid ?? 0);
   return {
     day: stats.day,
     headline,
@@ -2027,13 +3021,14 @@ export function createInitialShopState(): ShopState {
     dealStreak: 0,
     bestDealStreak: 0,
     shopTier: 1,
+    showcaseUpgradeLevel: 0,
     inventory: [starterPhone],
     accessories: createInitialAccessories(),
     upgrades: [],
     decorations: [],
     activeDecorations: [],
     staff: [],
-    staffLevels: { apprentice: 1, master_tech: 1, sales_rep: 1 },
+    staffLevels: { apprentice: 1, master_tech: 1, sales_rep: 1, accountant: 1 },
     branches: [],
     museumItems: [],
     activeLoans: [],
@@ -2051,6 +3046,22 @@ export function createInitialShopState(): ShopState {
     onlineListings: [],
     shippingOrders: [],
     dailyAuctionLot: null,
+    dailyAuctionLots: [],
+    pendingProjects: [],
+    pendingWholesaleOrders: [],
+    staffRepairQueue: [],
+    morningNotifications: [],
+    flashWholesaleDeal: generateFlashWholesaleDeal(1, 1),
+    ownedOutfits: ['casual_hoodie'],
+    equippedOutfit: 'casual_hoodie',
+    activeStoreEvent: null,
+    nextCustomerEventEffect: null,
+    storeEventsTriggeredToday: 0,
+    privacyAccepted: true,
+    hapticsEnabled: true,
+    textSpeed: 'fast',
+    ratedApp: false,
+    feedbackNotes: [],
     weeklyTaxDue: 0,
     loginStreak: 1,
     lastLoginDateStr: getTodayDateString(),
@@ -2084,7 +3095,8 @@ export function createInitialShopState(): ShopState {
   baseState.dailyQueue = generateDailyQueue(baseState);
   baseState.onlineListings = generateOnlineClassifieds(baseState);
   baseState.shippingOrders = generateShippingOrders(baseState);
-  baseState.dailyAuctionLot = generateDailyAuctionLot(baseState);
+  baseState.dailyAuctionLots = generateDailyAuctionLots(baseState);
+  baseState.dailyAuctionLot = baseState.dailyAuctionLots[0] ?? null;
   return baseState;
 }
 
@@ -2101,6 +3113,8 @@ export interface OfferEvaluationOptions {
   elapsedSec?: number;
   legacyPath?: LegacyPathId;
   instantAcceptRequested?: boolean;
+  dailyNews?: DailyMarketEvent;
+  upgrades?: UpgradeId[];
 }
 
 export function evaluatePlayerOffer(
@@ -2118,7 +3132,30 @@ export function evaluatePlayerOffer(
   const pace: NegotiationPace =
     elapsedSec < 2.2 ? 'rushed' : elapsedSec > 16 ? 'slow' : 'steady';
 
-  const inspectedCount = Object.values(encounter.device.inspected).filter(Boolean).length;
+  const inspectedCount = Object.values(
+    encounter.type === 'TRADE_IN' && encounter.tradeInDevice
+      ? encounter.tradeInDevice.inspected
+      : encounter.device.inspected
+  ).filter(Boolean).length;
+
+  const fairMarketVal = calculateMarketValue(
+    encounter.device,
+    false,
+    options.dailyNews,
+    options.upgrades
+  );
+
+  // Determine how many counter-offer rounds this customer insists on before folding:
+  // Stubborn/low-mood customers resist for 3 rounds; relaxed/high-mood or Koz-softened customers resist for at least 2 rounds.
+  const baseRequired =
+    encounter.requiredRounds ??
+    (encounter.archetypeId === 'uncle' || encounter.archetypeId === 'hustler' ? 3 : 2);
+  const leverageSoften = encounter.usedLeverageDefects.length > 0 ? 1 : 0;
+  const moodRoundPenalty = encounter.moodScore < 42 ? 1 : 0;
+  const minRoundsToClose = Math.max(
+    2,
+    Math.min(3, baseRequired + moodRoundPenalty - leverageSoften)
+  );
 
   let moodDelta = 0;
   let pacePatiencePenalty = 0;
@@ -2132,18 +3169,17 @@ export function evaluatePlayerOffer(
     pacePatiencePenalty += 6;
     reasonParts.push('Bekletme (-8)');
   } else {
-    // Rushed pace: aggressive offers feel rude, generous offers feel snappy
     const feelsAggressive =
       encounter.type === 'SELLER'
-        ? playerOffer < encounter.customerPrice * 0.85
-        : playerOffer > encounter.customerPrice * 1.06;
+        ? playerOffer < encounter.customerPrice * 0.86
+        : playerOffer > encounter.customerPrice * 1.05;
     if (feelsAggressive) {
-      moodDelta -= 7;
-      pacePatiencePenalty += 4;
-      reasonParts.push('Aceleci Kırma (-7)');
+      moodDelta -= 8;
+      pacePatiencePenalty += 5;
+      reasonParts.push('Aceleci Kırma (-8)');
     } else {
-      moodDelta += 3;
-      reasonParts.push('Hızlı Esnaf (+3)');
+      moodDelta += 2;
+      reasonParts.push('Seri Esnaf (+2)');
     }
   }
 
@@ -2153,15 +3189,18 @@ export function evaluatePlayerOffer(
       legacyPath === 'SOCIAL_HUSTLER' ? 'Samimi Üslup (+8)' : 'Samimi Üslup (+6)'
     );
   } else if (tone === 'analytical') {
+    const allInspected = inspectedCount >= 4;
     const hasEvidence =
-      inspectedCount >= 2 || encounter.device.isBrandNew || encounter.device.defects.length === 0;
+      inspectedCount >= 2 ||
+      encounter.device.isBrandNew ||
+      (encounter.type === 'BUYER' && encounter.device.defects.length === 0) ||
+      (allInspected && encounter.device.defects.length === 0);
     const bonus = hasEvidence ? 5 : 1;
     moodDelta += bonus;
     reasonParts.push(hasEvidence ? 'Analitik Veri (+5)' : 'Analitik (+1)');
   } else {
-    // Firm tone: drops mood more on Uncle & VIP
     const firmPenalty =
-      encounter.archetypeId === 'uncle' || encounter.archetypeId === 'vip' ? -11 : -7;
+      encounter.archetypeId === 'uncle' || encounter.archetypeId === 'vip' ? -12 : -8;
     moodDelta += firmPenalty;
     reasonParts.push(`Sert Üslup (${firmPenalty})`);
   }
@@ -2169,7 +3208,7 @@ export function evaluatePlayerOffer(
   const clampMood = (val: number) => Math.max(0, Math.min(100, Math.round(val)));
 
   if (encounter.type === 'SELLER') {
-    // Direct acceptance of seller's exact asking price always succeeds immediately
+    // Only direct acceptance of seller's exact asking price closes immediately on any round
     if (options.instantAcceptRequested || playerOffer >= encounter.customerPrice) {
       const nextMoodScore = clampMood(encounter.moodScore + 18);
       const msg = pick(DEAL_ACCEPTED_LINES.SELLER);
@@ -2201,42 +3240,67 @@ export function evaluatePlayerOffer(
       };
     }
 
+    // Distance to BOTH seller's secret limit AND true market value
     const underLimitRatio = Math.max(
       0,
       (encounter.secretLimit - playerOffer) / Math.max(1, encounter.secretLimit)
     );
+    const marketOfferRatio = playerOffer / Math.max(1, fairMarketVal);
+    const isMarketLowball = marketOfferRatio < 0.68;
+
     const offerMoodShift =
-      playerOffer >= encounter.secretLimit
-        ? 6
-        : underLimitRatio > 0.22
-        ? -14
-        : underLimitRatio > 0.1
-        ? -6
-        : -2;
+      isMarketLowball
+        ? -16
+        : underLimitRatio > 0.2
+        ? -13
+        : underLimitRatio > 0.08
+        ? -7
+        : playerOffer >= encounter.secretLimit
+        ? 4
+        : -3;
+
+    if (isMarketLowball) {
+      reasonParts.push('Piyasa Altı Ölü Teklif (-16)');
+    }
 
     const nextMoodScore = clampMood(encounter.moodScore + moodDelta + offerMoodShift);
     const nextMood = deriveMoodFromScore(nextMoodScore);
     const moodReason = reasonParts.join(' · ');
 
-    // Effective limit flexes slightly with high mood or analytical/firm leverage
-    const moodFlex = nextMoodScore >= 75 ? 0.97 : nextMoodScore <= 28 ? 1.04 : 1.0;
+    // Mood-driven resistance: grumpy seller stiffens their floor (+6%); happy seller softens slightly (-4%)
+    const moodFlex =
+      nextMoodScore >= 78
+        ? 0.96
+        : nextMoodScore >= 60
+        ? 0.99
+        : nextMoodScore <= 30
+        ? 1.06
+        : 1.02;
     const effectiveLimit = roundPrice(encounter.secretLimit * moodFlex);
 
     const playerLine =
       tone === 'friendly'
         ? `Kardeşim cihaz güzel ama gel şu işi ${formatTRY(playerOffer)} nakit bağlayalım, ikimizin de yüzü gülsün.`
         : tone === 'analytical'
-        ? `Test verileri ve güncel piyasa ortalaması ortada: bu cihaza nakit ${formatTRY(playerOffer)} yazabiliyorum.`
+        ? `Ekspertiz ve güncel piyasa ortalaması ortada: bu cihaza nakit ${formatTRY(playerOffer)} yazabiliyorum.`
         : `Net konuşayım, kasadan çıkacak rakam ${formatTRY(playerOffer)}. İşine geliyorsa hemen sayayım.`;
 
-    // REALISTIC MULTI-ROUND RULE:
-    // On Round 1, even if offer >= effectiveLimit, sellers counter-offer closer instead of caving instantly!
-    const isNearlyAsking = playerOffer >= encounter.customerPrice * 0.96;
+    const nextHeat = Math.min(
+      100,
+      (encounter.negotiationHeat ?? 15) +
+        (tone === 'firm' ? 22 : tone === 'analytical' ? 15 : 12) +
+        (isMarketLowball ? 20 : underLimitRatio > 0.12 ? 14 : 8)
+    );
+
+    // RESISTANT MULTI-ROUND SELLER CLOSING RULE:
+    // Must reach minRoundsToClose (2-3 rounds) unless paying >= 97% of seller's current ask AND above effectiveLimit.
+    const almostAsking = playerOffer >= encounter.customerPrice * 0.97 && nextRounds >= 2;
+    const metRoundRequirement = nextRounds >= minRoundsToClose;
     const canCloseThisRound =
       playerOffer >= effectiveLimit &&
-      (isNearlyAsking ||
-        nextRounds >= 3 ||
-        (nextRounds >= 2 && (nextMoodScore >= 52 || playerOffer >= encounter.customerPrice * 0.91)));
+      (almostAsking ||
+        (metRoundRequirement &&
+          (nextMoodScore >= 36 || playerOffer >= effectiveLimit * 1.03)));
 
     if (canCloseThisRound) {
       const closedMood = clampMood(nextMoodScore + 14);
@@ -2245,13 +3309,14 @@ export function evaluatePlayerOffer(
         updatedEncounter: {
           ...encounter,
           rounds: nextRounds,
+          negotiationHeat: nextHeat,
           outcome: 'DEAL_CLOSED',
           finalPrice: playerOffer,
           moodScore: closedMood,
           mood: deriveMoodFromScore(closedMood),
           negotiationPace: pace,
           lastToneUsed: tone,
-          lastMoodReason: `${moodReason} · El Sıkışıldı!`,
+          lastMoodReason: `${moodReason} · ${nextRounds}. Turda El Sıkışıldı!`,
           messages: [
             ...encounter.messages,
             { id: makeId('msg'), speaker: 'player', text: playerLine },
@@ -2265,23 +3330,28 @@ export function evaluatePlayerOffer(
       };
     }
 
-    // Patience drain modulated by tone, pace, and fairness
     const tonePatienceMult =
-      tone === 'friendly' ? 0.78 : tone === 'analytical' ? 0.9 : 1.24;
+      tone === 'friendly' ? 0.78 : tone === 'analytical' ? 0.88 : 1.24;
+    const moodPatienceMult = nextMoodScore <= 32 ? 1.25 : nextMoodScore >= 72 ? 0.82 : 1.0;
     const rawLoss =
-      (11 + underLimitRatio * (46 + (1 - arch.bluffTolerance) * 26)) * tonePatienceMult +
+      (9 +
+        underLimitRatio * (46 + (1 - arch.bluffTolerance) * 26) +
+        (isMarketLowball ? 10 : 0)) *
+        tonePatienceMult *
+        moodPatienceMult +
       pacePatiencePenalty;
     const patienceLoss = Math.max(
-      6,
-      Math.round(playerOffer >= effectiveLimit ? rawLoss * 0.45 : rawLoss)
+      5,
+      Math.round(playerOffer >= effectiveLimit ? rawLoss * 0.36 : rawLoss)
     );
     const nextPatience = Math.max(0, encounter.patience - patienceLoss);
 
-    if (nextPatience <= 0 || nextMoodScore <= 5) {
+    if (nextPatience <= 0 || nextMoodScore <= 4) {
       return {
         updatedEncounter: {
           ...encounter,
           rounds: nextRounds,
+          negotiationHeat: 100,
           patience: 0,
           moodScore: 0,
           mood: 'angry',
@@ -2307,39 +3377,54 @@ export function evaluatePlayerOffer(
       };
     }
 
-    // Calculate realistic counter-offer concession based on mood & tone
+    // Gritty, mood-dependent concession step: angry/stubborn sellers barely budge; Koz-softened or happy sellers step down faster
+    const moodConcessionMult =
+      nextMoodScore >= 75 ? 1.18 : nextMoodScore <= 34 ? 0.55 : 0.92;
+    const leverageConcessionBoost = encounter.usedLeverageDefects.length > 0 ? 1.15 : 1.0;
     const concessionFactor =
-      (tone === 'firm' ? 0.56 : tone === 'analytical' ? 0.52 : 0.44) *
-      (nextMoodScore >= 68 ? 1.15 : nextMoodScore <= 30 ? 0.72 : 1.0);
-    const targetFloor = Math.max(effectiveLimit, playerOffer + 250);
-    const dropStep = Math.max(
-      250,
-      (encounter.customerPrice - targetFloor) * concessionFactor
-    );
+      (tone === 'analytical' ? 0.36 : tone === 'firm' ? 0.34 : 0.31) *
+      moodConcessionMult *
+      leverageConcessionBoost;
+
+    // Keep seller's counter above player's offer during required sparring rounds so real back-and-forth happens!
+    const sparringBuffer = nextRounds < minRoundsToClose ? 500 : 250;
+    const targetFloor = Math.max(effectiveLimit, playerOffer + sparringBuffer);
+    const rawDrop = (encounter.customerPrice - targetFloor) * concessionFactor;
+    const minDrop = nextMoodScore <= 30 ? 0 : 250;
+    const dropStep = Math.max(minDrop, rawDrop);
     const nextAsk = roundPrice(
-      Math.max(effectiveLimit, Math.min(encounter.customerPrice - 250, encounter.customerPrice - dropStep))
+      Math.max(
+        Math.min(encounter.customerPrice, Math.max(effectiveLimit, playerOffer + 250)),
+        encounter.customerPrice - dropStep
+      )
     );
 
     const isAtFinalFloor = nextAsk <= effectiveLimit * 1.03 && nextRounds >= 2;
     let reaction: string;
-    if (playerOffer >= effectiveLimit && nextRounds === 1) {
-      reaction = `İlk teklifin fena değil usta ama hemen el sıkışmayalım! Gel ortada ${formatTRY(nextAsk)} olsun, ikimiz de mutlu olalım.`;
+    if (isMarketLowball) {
+      reaction = `Usta piyasa değerinin çok altında ölü fiyat çektin! Bu telefonun ederi belli, ${formatTRY(nextAsk)} aşağısına hayatta bırakmam!`;
+    } else if (playerOffer >= effectiveLimit && nextRounds < minRoundsToClose) {
+      reaction =
+        nextRounds === 1
+          ? `İlk turdan hemen tamam diyecek halim yok usta, pazarlık sünnettir! Gel ${formatTRY(nextAsk)} yapalım da gönlüm razı olsun.`
+          : `Güzel yaklaştın ama beni biraz daha terletmeden bırakmam! Bak ${formatTRY(nextAsk)} diyorum, bir adım daha çık el sıkışalım!`;
+    } else if (nextMoodScore <= 32) {
+      reaction = `Üslubun ve teklifin hiç hoşuma gitmedi usta... Moralim bozuldu, en fazla ${formatTRY(nextAsk)} inerim, yoksa kalkıyorum!`;
     } else if (pace === 'slow') {
       reaction = `Abi biraz hızlanalım vaktim dar... Son ${formatTRY(nextAsk)} diyorum, ne diyorsun?`;
-    } else if (pace === 'rushed' && underLimitRatio > 0.16) {
-      reaction = `Dur be usta nefes almadan fiyat kırdın! En fazla ${formatTRY(nextAsk)} seviyesine inerim.`;
     } else if (isAtFinalFloor) {
-      reaction = `Bak usta son sözüm ${formatTRY(nextAsk)}! Bir kuruş daha inmem, ya el sıkışalım ya helalleşelim.`;
-    } else if (underLimitRatio > 0.22) {
-      reaction = `Aman usta öldürdün cihazı! ${formatTRY(nextAsk)} aşağısı beni hiç kurtarmaz.`;
+      reaction = `Kırmızı çizgim ${formatTRY(nextAsk)} usta! Tek kuruş inmem, ya nakiti çıkar ya cihazı cebime koyayım!`;
+    } else if (underLimitRatio > 0.18) {
+      reaction = `Aman usta cihazı resmen bedavaya istedin! ${formatTRY(nextAsk)} aşağısı kurtarmaz, biraz gerçekçi gel!`;
     } else {
-      reaction = `Biraz daha yukarı çık be abi, ${formatTRY(nextAsk)} yapalım orta yolu bulalım.`;
+      reaction = `Yok abi öyle kolay değil, pazarlık daha yeni ısındı! Ben ${formatTRY(nextAsk)} yapayım, sen de biraz yukarı çık!`;
     }
 
     return {
       updatedEncounter: {
         ...encounter,
         rounds: nextRounds,
+        negotiationHeat: nextHeat,
         patience: nextPatience,
         customerPrice: nextAsk,
         moodScore: nextMoodScore,
@@ -2356,7 +3441,7 @@ export function evaluatePlayerOffer(
             speaker: 'customer',
             text: reaction,
             tone:
-              isAtFinalFloor || underLimitRatio > 0.22
+              isMarketLowball || isAtFinalFloor || nextMoodScore <= 32
                 ? 'warning'
                 : playerOffer >= effectiveLimit
                 ? 'positive'
@@ -2370,11 +3455,11 @@ export function evaluatePlayerOffer(
       reputationDelta: 0,
     };
   } else {
-    // BUYER: Player NEVER raises above their own showcase askingPrice!
+    // BUYER / TRADE-IN: Player NEVER raises above their own showcase askingPrice!
     const clampedOffer = Math.min(encounter.device.askingPrice, playerOffer);
     const isHoldingSticker = clampedOffer >= encounter.device.askingPrice;
 
-    // Accepting buyer's exact offer closes immediately
+    // Direct acceptance of buyer's exact current offer closes immediately
     if (options.instantAcceptRequested || clampedOffer <= encounter.customerPrice) {
       const nextMoodScore = clampMood(encounter.moodScore + 20);
       const msg = pick(DEAL_ACCEPTED_LINES.BUYER);
@@ -2410,24 +3495,60 @@ export function evaluatePlayerOffer(
       0,
       (clampedOffer - encounter.secretLimit) / Math.max(1, encounter.secretLimit)
     );
+    const discountFromSticker = encounter.device.askingPrice - clampedOffer;
+    const isStingyDrop =
+      encounter.type === 'BUYER' &&
+      discountFromSticker > 0 &&
+      discountFromSticker <= 400 &&
+      encounter.device.askingPrice >= 6000;
+    const overMarketRatio =
+      encounter.type === 'BUYER'
+        ? clampedOffer / Math.max(1, fairMarketVal)
+        : 1.0;
+    const isOverpricedVsMarket = encounter.type === 'BUYER' && overMarketRatio > 1.24;
+
     const offerMoodShift =
-      clampedOffer <= encounter.secretLimit
-        ? 6
-        : isHoldingSticker && overLimitRatio > 0.1
-        ? -11
-        : overLimitRatio > 0.15
-        ? -12
-        : -4;
+      isStingyDrop
+        ? -10
+        : isOverpricedVsMarket
+        ? -14
+        : clampedOffer <= encounter.secretLimit
+        ? 4
+        : isHoldingSticker && overLimitRatio > 0.08
+        ? -13
+        : overLimitRatio > 0.14
+        ? -14
+        : -6;
+
+    if (isOverpricedVsMarket) {
+      reasonParts.push('Piyasa Üstü Etiket (-14)');
+    }
 
     const nextMoodScore = clampMood(encounter.moodScore + moodDelta + offerMoodShift);
     const nextMood = deriveMoodFromScore(nextMoodScore);
-    const moodReason = reasonParts.join(' · ');
+    const moodReason = isStingyDrop
+      ? `${reasonParts.join(' · ')} · Sembolik İndirim (-10)`
+      : reasonParts.join(' · ');
 
-    // Mood stretches buyer's hidden max slightly (up to stickerPrice)
-    const moodStretch = nextMoodScore >= 75 ? 1.03 : nextMoodScore <= 28 ? 0.96 : 1.0;
+    // Mood-based stretch: happy buyer stretches +4%; annoyed buyer shrinks -5%
+    const moodStretch =
+      nextMoodScore >= 78
+        ? 1.04
+        : nextMoodScore >= 60
+        ? 1.01
+        : nextMoodScore <= 32
+        ? 0.95
+        : 0.99;
     const effectiveLimit = Math.min(
       encounter.device.askingPrice,
       roundPrice(encounter.secretLimit * moodStretch)
+    );
+
+    const nextHeat = Math.min(
+      100,
+      (encounter.negotiationHeat ?? 15) +
+        (isStingyDrop || isOverpricedVsMarket ? 24 : tone === 'firm' ? 22 : 14) +
+        (overLimitRatio > 0.1 ? 15 : 8)
     );
 
     const playerLine =
@@ -2443,14 +3564,17 @@ export function evaluatePlayerOffer(
         ? `Etiket fiyatım ${formatTRY(clampedOffer)} net ve sabit. Cihazın temizliğini görüyorsun.`
         : `Son indirimim ${formatTRY(clampedOffer)}, bunun altına inmem mümkün değil.`;
 
-    // REALISTIC MULTI-ROUND RULE FOR BUYER:
-    // On Round 1, unless player offered nearly buyer's initial bid, buyer always counters once first!
-    const isNearlyBuyerBid = clampedOffer <= encounter.customerPrice * 1.03;
+    // RESISTANT MULTI-ROUND BUYER / TRADE-IN CLOSING RULE:
+    // Never folds on Round 1 (unless player accepts buyer's exact price). Requires 2-3 rounds!
+    const isVeryCloseToBuyerBid =
+      clampedOffer <= encounter.customerPrice * 1.02 && nextRounds >= 2;
+    const metRoundRequirement = nextRounds >= minRoundsToClose;
     const canCloseThisRound =
       clampedOffer <= effectiveLimit &&
-      (isNearlyBuyerBid ||
-        nextRounds >= 3 ||
-        (nextRounds >= 2 && (nextMoodScore >= 52 || clampedOffer <= encounter.customerPrice * 1.08)));
+      !isStingyDrop &&
+      (isVeryCloseToBuyerBid ||
+        (metRoundRequirement &&
+          (nextMoodScore >= 36 || clampedOffer <= effectiveLimit * 0.97)));
 
     if (canCloseThisRound) {
       const closedMood = clampMood(nextMoodScore + 14);
@@ -2459,13 +3583,14 @@ export function evaluatePlayerOffer(
         updatedEncounter: {
           ...encounter,
           rounds: nextRounds,
+          negotiationHeat: nextHeat,
           outcome: 'DEAL_CLOSED',
           finalPrice: clampedOffer,
           moodScore: closedMood,
           mood: deriveMoodFromScore(closedMood),
           negotiationPace: pace,
           lastToneUsed: tone,
-          lastMoodReason: `${moodReason} · Satış Bağlandı!`,
+          lastMoodReason: `${moodReason} · ${nextRounds}. Turda Satış Bağlandı!`,
           messages: [
             ...encounter.messages,
             { id: makeId('msg'), speaker: 'player', text: playerLine },
@@ -2480,21 +3605,28 @@ export function evaluatePlayerOffer(
     }
 
     const tonePatienceMult =
-      tone === 'friendly' ? 0.78 : tone === 'analytical' ? 0.9 : 1.24;
+      tone === 'friendly' ? 0.78 : tone === 'analytical' ? 0.88 : 1.24;
+    const moodPatienceMult = nextMoodScore <= 32 ? 1.25 : nextMoodScore >= 72 ? 0.82 : 1.0;
     const rawLoss =
-      (11 + overLimitRatio * (48 + (1 - arch.bluffTolerance) * 24)) * tonePatienceMult +
+      (10 +
+        overLimitRatio * (48 + (1 - arch.bluffTolerance) * 24) +
+        (isStingyDrop ? 9 : 0) +
+        (isOverpricedVsMarket ? 8 : 0)) *
+        tonePatienceMult *
+        moodPatienceMult +
       pacePatiencePenalty;
     const patienceLoss = Math.max(
-      6,
-      Math.round(clampedOffer <= effectiveLimit ? rawLoss * 0.45 : rawLoss)
+      5,
+      Math.round(clampedOffer <= effectiveLimit && !isStingyDrop ? rawLoss * 0.38 : rawLoss)
     );
     const nextPatience = Math.max(0, encounter.patience - patienceLoss);
 
-    if (nextPatience <= 0 || nextMoodScore <= 5) {
+    if (nextPatience <= 0 || nextMoodScore <= 4) {
       return {
         updatedEncounter: {
           ...encounter,
           rounds: nextRounds,
+          negotiationHeat: 100,
           patience: 0,
           moodScore: 0,
           mood: 'angry',
@@ -2520,39 +3652,57 @@ export function evaluatePlayerOffer(
       };
     }
 
+    const moodConcessionMult =
+      nextMoodScore >= 75 ? 1.18 : nextMoodScore <= 34 ? 0.55 : 0.92;
     const concessionFactor =
-      (tone === 'firm' ? 0.56 : tone === 'analytical' ? 0.54 : 0.46) *
-      (nextMoodScore >= 68 ? 1.16 : nextMoodScore <= 30 ? 0.72 : 1.0);
-    const targetCeiling = Math.min(effectiveLimit, clampedOffer - 250);
+      (isStingyDrop
+        ? 0.18
+        : tone === 'analytical'
+        ? 0.38
+        : tone === 'firm'
+        ? 0.36
+        : 0.33) * moodConcessionMult;
+    const sparringBuffer = nextRounds < minRoundsToClose ? 500 : 250;
+    const targetCeiling = Math.min(effectiveLimit, clampedOffer - sparringBuffer);
     const bumpStep = Math.max(
-      250,
+      isStingyDrop || nextMoodScore <= 30 ? 0 : 250,
       (targetCeiling - encounter.customerPrice) * concessionFactor
     );
     const nextOffer = roundPrice(
       Math.min(
         effectiveLimit,
-        Math.max(encounter.customerPrice + 250, encounter.customerPrice + bumpStep)
+        Math.max(encounter.customerPrice, encounter.customerPrice + bumpStep)
       )
     );
 
     const isAtFinalCeiling = nextOffer >= effectiveLimit * 0.97 && nextRounds >= 2;
     let reaction: string;
-    if (clampedOffer <= effectiveLimit && nextRounds === 1) {
-      reaction = `Fiyat güzel yaklaştı ama pazarlık sünnettir usta! Ben ${formatTRY(nextOffer)} çıkarayım, hemen paketle.`;
+    if (isStingyDrop) {
+      reaction = `Usta ${formatTRY(discountFromSticker)} indirip buna pazarlık mı diyorsun?! Ciddi bir esnaf indirimi yap yoksa ben ${formatTRY(nextOffer)} üstüne çıkmam!`;
+    } else if (isOverpricedVsMarket) {
+      reaction = `Usta bu modelin piyasa fiyatı internette ortada, etiketin çok yüksek! Ben en fazla ${formatTRY(nextOffer)} çıkarabilirim.`;
+    } else if (clampedOffer <= effectiveLimit && nextRounds < minRoundsToClose) {
+      reaction =
+        nextRounds === 1
+          ? `Güzel yaklaştın usta ama ilk turdan pes etmek yok! Ben ${formatTRY(nextOffer)} çıkarayım, hadi biraz daha kır!`
+          : `Az kaldı usta, pazarlık iyice kızıştı! Bütçemi zorlayıp ${formatTRY(nextOffer)} yaptım, bir adım daha in el sıkışalım!`;
+    } else if (nextMoodScore <= 32) {
+      reaction = `Pek sıcak yaklaşmıyorsun usta... Moralim kaçtı, en fazla ${formatTRY(nextOffer)} veririm, kabul etmezsen çıkarım!`;
     } else if (pace === 'slow') {
       reaction = `Usta biraz seri olalım işim var... Ben ${formatTRY(nextOffer)} verebilirim, oluyor mu?`;
     } else if (isAtFinalCeiling) {
       reaction = `Cebimdeki son kuruş ${formatTRY(nextOffer)} usta! Bundan bir lira yukarı çıkamam, el sıkışalım mı?`;
-    } else if (overLimitRatio > 0.16) {
-      reaction = `Usta hiç esnemedin ki! Bütçemi zorlayıp ${formatTRY(nextOffer)} yapabiliyorum.`;
+    } else if (overLimitRatio > 0.14) {
+      reaction = `Hiç esnemiyorsun usta, yan dükkan daha ucuz! En fazla ${formatTRY(nextOffer)} çıkarabilirim.`;
     } else {
-      reaction = `Hadi biraz daha in be abi... Ben ${formatTRY(nextOffer)} çıkarayım, hemen sar paketi!`;
+      reaction = `O rakam hala yüksek abi! Ben ${formatTRY(nextOffer)} veriyorum, biraz daha fedakarlık yap!`;
     }
 
     return {
       updatedEncounter: {
         ...encounter,
         rounds: nextRounds,
+        negotiationHeat: nextHeat,
         patience: nextPatience,
         customerPrice: nextOffer,
         moodScore: nextMoodScore,
@@ -2569,7 +3719,7 @@ export function evaluatePlayerOffer(
             speaker: 'customer',
             text: reaction,
             tone:
-              isAtFinalCeiling || overLimitRatio > 0.16
+              isStingyDrop || isOverpricedVsMarket || isAtFinalCeiling || nextMoodScore <= 32
                 ? 'warning'
                 : clampedOffer <= effectiveLimit
                 ? 'positive'
@@ -2778,7 +3928,8 @@ export function applyPosInstallmentTactic(
 
 export function applyDefectLeverage(
   encounter: CustomerEncounter,
-  defectId: DefectId
+  defectId: DefectId,
+  equippedOutfit?: OutfitId
 ): CustomerEncounter {
   if (
     (encounter.type !== 'SELLER' && encounter.type !== 'TRADE_IN') ||
@@ -2789,70 +3940,109 @@ export function applyDefectLeverage(
   }
 
   const def = DEFECT_CATALOG[defectId];
-  const nextMoodScore = Math.max(20, encounter.moodScore - 6);
+  const isSevereCatch =
+    defectId === 'imei_unregistered' ||
+    defectId === 'battery_fake_chip' ||
+    defectId === 'liquid_damage' ||
+    defectId === 'screen_aftermarket';
+
+  const moodHit = isSevereCatch ? 11 : 7;
+  const rawPatienceHit = isSevereCatch ? 8 : 5;
+  const patienceHit =
+    equippedOutfit === 'tech_esd_coat' ? Math.max(2, Math.round(rawPatienceHit * 0.5)) : rawPatienceHit;
+  const nextMoodScore = Math.max(18, encounter.moodScore - moodHit);
+  const nextHeat = Math.min(100, (encounter.negotiationHeat ?? 15) + (isSevereCatch ? 24 : 15));
+  const reactionText = pick(
+    (isSevereCatch ? SEVERE_LEVERAGE_REACTIONS : LEVERAGE_REACTIONS)[encounter.archetypeId]
+  );
+
+  // Strong Koz breaks stubbornness — softens requiredRounds down to minimum 2
+  const softenedRequiredRounds = Math.max(2, (encounter.requiredRounds ?? 2) - 1);
 
   if (encounter.type === 'TRADE_IN') {
-    // Exposing a defect on their trade-in phone RAISES the cash difference they must pay you!
-    const cap = encounter.device.askingPrice;
-    const nextCashOffer = Math.min(
-      cap,
-      roundPrice(encounter.customerPrice * (1 + def.leverageDropRatio * 0.9))
+    // Exposing a defect on their trade-in phone SHARPLY raises the cash difference they must pay you!
+    const cap = Math.max(encounter.customerPrice, encounter.device.askingPrice - 500);
+    const tradeBoostMult = isSevereCatch ? 1.4 : 1.22;
+    const minJump = isSevereCatch ? 1000 : 500;
+    const rawNextCash = Math.max(
+      encounter.customerPrice + minJump,
+      encounter.customerPrice * (1 + def.leverageDropRatio * tradeBoostMult)
     );
+    const nextCashOffer = Math.min(cap, roundPrice(rawNextCash));
     const nextLimit = Math.min(
-      cap,
-      roundPrice(Math.max(nextCashOffer, encounter.secretLimit * (1 + def.leverageDropRatio * 0.75)))
+      encounter.device.askingPrice,
+      roundPrice(
+        Math.max(
+          nextCashOffer + 500,
+          encounter.secretLimit * (1 + def.leverageDropRatio * (isSevereCatch ? 1.05 : 0.85))
+        )
+      )
     );
+    const gainedDiff = Math.max(0, nextCashOffer - encounter.customerPrice);
+
     return {
       ...encounter,
       customerPrice: nextCashOffer,
       secretLimit: nextLimit,
+      negotiationHeat: nextHeat,
+      requiredRounds: softenedRequiredRounds,
       usedLeverageDefects: [...encounter.usedLeverageDefects, defectId],
-      patience: Math.max(10, encounter.patience - 5),
+      patience: Math.max(12, encounter.patience - patienceHit),
       moodScore: nextMoodScore,
       mood: deriveMoodFromScore(nextMoodScore),
-      lastMoodReason: `Takas Kusuru İspatı: ${def.shortLabel} (-6)`,
+      lastMoodReason: `Güçlü Takas Kozu: ${def.shortLabel} (+${formatTRY(gainedDiff)} fark)`,
       messages: [
         ...encounter.messages,
-        { id: makeId('msg'), speaker: 'player', text: `Takasa getirdiğin cihazda sorun var: ${def.leverageLine}` },
+        {
+          id: makeId('msg'),
+          speaker: 'player',
+          text: `Takasa getirdiğin cihazda ciddi sorun yakaladım: ${def.leverageLine}`,
+        },
         {
           id: makeId('msg'),
           speaker: 'customer',
-          text: `${pick(LEVERAGE_REACTIONS[encounter.archetypeId])} Üstüne vereceğim nakit farkı ${formatTRY(nextCashOffer)} yapıyorum.`,
+          text: `${reactionText} Üstüne vereceğim nakit farkı ${formatTRY(nextCashOffer)} (+${formatTRY(gainedDiff)}) yapıyorum!`,
           tone: 'positive',
         },
       ],
     };
   }
 
-  const nextAsk = roundPrice(
-    Math.max(1000, encounter.customerPrice * (1 - def.leverageDropRatio))
+  // SELLER: Dramatic Koz price drop + meaningful secretLimit drop!
+  const dropMult = isSevereCatch ? 1.42 : 1.25;
+  const minDrop = isSevereCatch ? 1000 : 500;
+  const rawNextAsk = Math.min(
+    encounter.customerPrice - minDrop,
+    encounter.customerPrice * (1 - def.leverageDropRatio * dropMult)
   );
+  const nextAsk = roundPrice(Math.max(1000, rawNextAsk));
+  const limitDropRatio = Math.min(0.45, def.leverageDropRatio * (isSevereCatch ? 1.0 : 0.82));
   const nextLimit = roundPrice(
     Math.max(
       900,
-      Math.min(
-        nextAsk * 0.9,
-        encounter.secretLimit * (1 - def.leverageDropRatio * 0.55)
-      )
+      Math.min(nextAsk * 0.88, encounter.secretLimit * (1 - limitDropRatio))
     )
   );
+  const droppedAmount = Math.max(0, encounter.customerPrice - nextAsk);
 
   return {
     ...encounter,
     customerPrice: nextAsk,
     secretLimit: nextLimit,
+    negotiationHeat: nextHeat,
+    requiredRounds: softenedRequiredRounds,
     usedLeverageDefects: [...encounter.usedLeverageDefects, defectId],
-    patience: Math.max(10, encounter.patience - 6),
+    patience: Math.max(12, encounter.patience - patienceHit),
     moodScore: nextMoodScore,
     mood: deriveMoodFromScore(nextMoodScore),
-    lastMoodReason: `Kusur İspatı: ${def.shortLabel} (-6)`,
+    lastMoodReason: `${isSevereCatch ? 'Ağır Koz' : 'Kusur Kozu'}: ${def.shortLabel} (-${formatTRY(droppedAmount)})`,
     messages: [
       ...encounter.messages,
       { id: makeId('msg'), speaker: 'player', text: def.leverageLine },
       {
         id: makeId('msg'),
         speaker: 'customer',
-        text: `${pick(LEVERAGE_REACTIONS[encounter.archetypeId])} Yeni fiyatım ${formatTRY(nextAsk)}.`,
+        text: `${reactionText} Yeni fiyatım ${formatTRY(nextAsk)} (-${formatTRY(droppedAmount)})!`,
         tone: 'positive',
       },
     ],
@@ -3062,7 +4252,8 @@ export function evaluateCrossSellPitch(
   accessoryId: AccessoryId,
   stock: AccessoryStockItem,
   shopLevel: number,
-  legacyPath?: LegacyPathId
+  legacyPath?: LegacyPathId,
+  extraChanceBonus = 0
 ): {
   updatedEncounter: CustomerEncounter;
   accepted: boolean;
@@ -3071,20 +4262,39 @@ export function evaluateCrossSellPitch(
 } {
   const spec = getAccessorySpec(accessoryId);
   const wholesaleCost = getAccessoryWholesaleCost(accessoryId, legacyPath);
+  const existingAttachments = encounter.crossSellAttachments ?? [];
+  const triedIds = encounter.crossSellTriedIds ?? [];
   const priceRatio = stock.retailPrice / spec.recommendedPrice;
   const baseChance =
     priceRatio <= 1.0 ? 0.78 : priceRatio <= 1.18 ? 0.6 : 0.36;
+  // Slightly harder for each additional accessory stacked on the same buyer
+  const stackPenalty = existingAttachments.length * 0.11;
   const levelBonus = shopLevel >= 4 ? 0.08 : 0;
   const teaBonus = encounter.teaServed ? 0.08 : 0;
   const moodBonus = encounter.moodScore >= 70 ? 0.1 : encounter.moodScore <= 35 ? -0.15 : 0;
   const legacyBonus = legacyPath === 'SOCIAL_HUSTLER' ? 0.18 : 0;
   const accepted =
     Math.random() <
-    Math.max(0.15, Math.min(0.96, baseChance + levelBonus + teaBonus + moodBonus + legacyBonus));
+    Math.max(
+      0.14,
+      Math.min(
+        0.96,
+        baseChance + levelBonus + extraChanceBonus + teaBonus + moodBonus + legacyBonus - stackPenalty
+      )
+    );
+
+  const nextTried = triedIds.includes(accessoryId) ? triedIds : [...triedIds, accessoryId];
 
   if (accepted) {
     const profit = stock.retailPrice - wholesaleCost;
-    const nextMoodScore = Math.min(100, encounter.moodScore + 6);
+    const nextMoodScore = Math.min(100, encounter.moodScore + 5);
+    const newItem = {
+      id: accessoryId,
+      name: spec.name,
+      retailPrice: stock.retailPrice,
+      profit,
+    };
+    const nextAttachments = [...existingAttachments, newItem];
     return {
       accepted: true,
       retailPrice: stock.retailPrice,
@@ -3092,26 +4302,26 @@ export function evaluateCrossSellPitch(
       updatedEncounter: {
         ...encounter,
         crossSellAttempted: true,
-        crossSellAttached: {
-          id: accessoryId,
-          name: spec.name,
-          retailPrice: stock.retailPrice,
-          profit,
-        },
+        crossSellAttached: newItem,
+        crossSellAttachments: nextAttachments,
+        crossSellTriedIds: nextTried,
         moodScore: nextMoodScore,
         mood: deriveMoodFromScore(nextMoodScore),
-        lastMoodReason: 'Aksesuar Kombini Beğenildi (+6)',
+        lastMoodReason: `Aksesuar Sepeti (${nextAttachments.length} ürün) (+5)`,
         messages: [
           ...encounter.messages,
           {
             id: makeId('msg'),
             speaker: 'player',
-            text: `Telefonun yanına hemen bir ${spec.name} (${formatTRY(stock.retailPrice)}) de ekleyelim mi, cihazı korusun?`,
+            text: `Telefonun yanına hemen bir ${spec.name} (${formatTRY(stock.retailPrice)}) de ekleyelim mi?`,
           },
           {
             id: makeId('msg'),
             speaker: 'customer',
-            text: `Çok mantıklı abi, yeni cihaza şart! Onu da hesaba ekle, alıyorum!`,
+            text:
+              nextAttachments.length > 1
+                ? `Harika kombin oldu usta, bunu da poşete ekle alıyorum!`
+                : `Çok mantıklı abi, yeni cihaza şart! Onu da hesaba ekle, alıyorum!`,
             tone: 'positive',
           },
         ],
@@ -3126,6 +4336,7 @@ export function evaluateCrossSellPitch(
     updatedEncounter: {
       ...encounter,
       crossSellAttempted: true,
+      crossSellTriedIds: nextTried,
       messages: [
         ...encounter.messages,
         {
@@ -3136,7 +4347,7 @@ export function evaluateCrossSellPitch(
         {
           id: makeId('msg'),
           speaker: 'customer',
-          text: 'Yok usta sağ olasın, evde var zaten. Biz sadece telefonu bağlayalım.',
+          text: 'Yok usta o kalsın, başka bir ürün varsa ona bakabilirim.',
           tone: 'neutral',
         },
       ],
@@ -3171,8 +4382,8 @@ export function applyMasterTechEndOfDay(state: ShopState): {
     return { updatedInventory: state.inventory, cost: 0, fixedCount: 0 };
   }
   const techLevel = state.staffLevels?.master_tech ?? 1;
-  const maxRepairs = techLevel >= 2 ? 2 : 1;
-  const costFactor = techLevel >= 3 ? 0.25 : 0.5;
+  const specs = getMasterTechSpecs(techLevel, state.upgrades);
+  const maxRepairs = Math.min(4, 1 + Math.floor(techLevel / 3));
   let runningCash = state.cash;
   let totalCost = 0;
   let fixedCount = 0;
@@ -3181,6 +4392,7 @@ export function applyMasterTechEndOfDay(state: ShopState): {
 
   for (let i = 0; i < nextInv.length && fixedCount < maxRepairs; i++) {
     const phone = nextInv[i];
+    if (phone.assignedToStaff) continue;
     const fixable = phone.defects.find((d) => DEFECT_CATALOG[d].repairable);
     if (fixable) {
       const discountedCost =
@@ -3193,7 +4405,7 @@ export function applyMasterTechEndOfDay(state: ShopState): {
             state.level,
             state.legacyPath
           ) *
-            costFactor) /
+            specs.partCostFactor) /
             50
         ) * 50;
       if (runningCash >= discountedCost) {
@@ -3221,7 +4433,7 @@ export function applyMasterTechEndOfDay(state: ShopState): {
         };
         updatedPhone.askingPrice = Math.max(
           updatedPhone.askingPrice,
-          roundPrice(calculateMarketValue(updatedPhone, false, state.dailyNews) * 1.15)
+          roundPrice(calculateMarketValue(updatedPhone, false, state.dailyNews, state.upgrades) * 1.15)
         );
         nextInv[i] = updatedPhone;
         notes.push(`${phone.brand} ${phone.model} (${DEFECT_CATALOG[fixable].shortLabel})`);
@@ -3244,7 +4456,7 @@ export function checkVictoryCondition(state: ShopState): boolean {
   return (
     state.cash >= VICTORY_CASH_GOAL &&
     state.reputation >= VICTORY_REPUTATION_GOAL &&
-    state.shopTier === 3
+    state.shopTier >= 6
   );
 }
 
@@ -3278,7 +4490,7 @@ export function loadShopState(): ShopState | null {
     }
 
     const day = parsed.day ?? 1;
-    const shopTier = (parsed.shopTier ?? 1) as ShopTier;
+    const shopTier = Math.max(1, Math.min(6, parsed.shopTier ?? 1)) as ShopTier;
     const staff = parsed.staff ?? [];
     const upgrades = parsed.upgrades ?? [];
 
@@ -3291,6 +4503,8 @@ export function loadShopState(): ShopState | null {
         p.imeiNumber ?? generateImeiNumber(p.imeiStatus === 'TR_REGISTERED'),
       warrantyMonths: p.warrantyMonths ?? 0,
       isBrandNew: p.isBrandNew ?? false,
+      bundledAccessories: Array.isArray(p.bundledAccessories) ? p.bundledAccessories : [],
+      assignedToStaff: p.assignedToStaff ?? false,
     }));
 
     const defaultAcc = createInitialAccessories();
@@ -3305,6 +4519,7 @@ export function loadShopState(): ShopState | null {
         : pickDailyNewspaper(day);
 
     const xp = parsed.xp ?? 0;
+    const level = getLevelFromXp(xp);
     const migratedQuests: DailyQuest[] =
       Array.isArray(parsed.dailyQuests) &&
       parsed.dailyQuests.length > 0 &&
@@ -3329,11 +4544,12 @@ export function loadShopState(): ShopState | null {
       cash: parsed.cash,
       reputation: parsed.reputation ?? 3.0,
       xp,
-      level: getLevelFromXp(xp),
+      level,
       legacyPath: parsed.legacyPath ?? 'EX_APPRENTICE',
       dealStreak: parsed.dealStreak ?? 0,
       bestDealStreak: parsed.bestDealStreak ?? 0,
       shopTier,
+      showcaseUpgradeLevel: parsed.showcaseUpgradeLevel ?? 0,
       inventory: migratedInventory,
       accessories: migratedAccessories,
       upgrades,
@@ -3344,6 +4560,7 @@ export function loadShopState(): ShopState | null {
         apprentice: 1,
         master_tech: 1,
         sales_rep: 1,
+        accountant: 1,
         ...(parsed.staffLevels ?? {}),
       },
       branches: Array.isArray(parsed.branches) ? parsed.branches : [],
@@ -3360,9 +4577,41 @@ export function loadShopState(): ShopState | null {
         promoUsedToday: false,
       },
       soldHistory: Array.isArray(parsed.soldHistory) ? parsed.soldHistory : [],
-      onlineListings: Array.isArray(parsed.onlineListings) ? parsed.onlineListings : [],
+      onlineListings: Array.isArray(parsed.onlineListings)
+        ? parsed.onlineListings.map((l) => ({
+            ...l,
+            status: l.status ?? (l.bought ? 'BOUGHT' : 'AVAILABLE'),
+            currentPrice: l.currentPrice ?? l.askingPrice,
+          }))
+        : [],
       shippingOrders: Array.isArray(parsed.shippingOrders) ? parsed.shippingOrders : [],
       dailyAuctionLot: parsed.dailyAuctionLot ?? null,
+      dailyAuctionLots: Array.isArray(parsed.dailyAuctionLots) ? parsed.dailyAuctionLots : [],
+      pendingProjects: Array.isArray(parsed.pendingProjects) ? parsed.pendingProjects : [],
+      pendingWholesaleOrders: Array.isArray(parsed.pendingWholesaleOrders)
+        ? parsed.pendingWholesaleOrders
+        : [],
+      staffRepairQueue: Array.isArray(parsed.staffRepairQueue) ? parsed.staffRepairQueue : [],
+      morningNotifications: Array.isArray(parsed.morningNotifications)
+        ? parsed.morningNotifications
+        : [],
+      flashWholesaleDeal:
+        parsed.flashWholesaleDeal !== undefined
+          ? parsed.flashWholesaleDeal
+          : generateFlashWholesaleDeal(day, level),
+      ownedOutfits:
+        Array.isArray(parsed.ownedOutfits) && parsed.ownedOutfits.length > 0
+          ? parsed.ownedOutfits
+          : ['casual_hoodie'],
+      equippedOutfit: parsed.equippedOutfit ?? 'casual_hoodie',
+      activeStoreEvent: parsed.activeStoreEvent ?? null,
+      nextCustomerEventEffect: parsed.nextCustomerEventEffect ?? null,
+      storeEventsTriggeredToday: parsed.storeEventsTriggeredToday ?? 0,
+      privacyAccepted: parsed.privacyAccepted ?? true,
+      hapticsEnabled: parsed.hapticsEnabled ?? true,
+      textSpeed: parsed.textSpeed ?? 'fast',
+      ratedApp: parsed.ratedApp ?? false,
+      feedbackNotes: Array.isArray(parsed.feedbackNotes) ? parsed.feedbackNotes : [],
       weeklyTaxDue: parsed.weeklyTaxDue ?? 0,
       loginStreak: nextLoginStreak,
       lastLoginDateStr: todayStr,
@@ -3385,7 +4634,16 @@ export function loadShopState(): ShopState | null {
         ? parsed.dailyQueue.map((enc) => ({
             ...enc,
             moodScore: enc.moodScore ?? 60,
+            negotiationHeat: enc.negotiationHeat ?? 15,
             legacyDialogueUsed: enc.legacyDialogueUsed ?? false,
+            crossSellAttachments: Array.isArray(enc.crossSellAttachments)
+              ? enc.crossSellAttachments
+              : enc.crossSellAttached
+              ? [enc.crossSellAttached]
+              : [],
+            crossSellTriedIds: Array.isArray(enc.crossSellTriedIds)
+              ? enc.crossSellTriedIds
+              : [],
             device: {
               ...enc.device,
               brand: enc.device.brand === 'LeicaCam' ? 'LuminaCam' : enc.device.brand,
@@ -3403,6 +4661,7 @@ export function loadShopState(): ShopState | null {
       todayStats: {
         ...createEmptyDayStats(day, shopTier, staff),
         ...(parsed.todayStats ?? {}),
+        salesTaxPaid: parsed.todayStats?.salesTaxPaid ?? 0,
       },
       history: Array.isArray(parsed.history) ? parsed.history : [],
       reviews: Array.isArray(parsed.reviews) ? parsed.reviews : [],
@@ -3430,8 +4689,11 @@ export function loadShopState(): ShopState | null {
     if (migrated.shippingOrders.length === 0) {
       migrated.shippingOrders = generateShippingOrders(migrated);
     }
-    if (!migrated.dailyAuctionLot) {
-      migrated.dailyAuctionLot = generateDailyAuctionLot(migrated);
+    if (migrated.dailyAuctionLots.length === 0) {
+      migrated.dailyAuctionLots = migrated.dailyAuctionLot
+        ? [migrated.dailyAuctionLot, generateDailyAuctionLot(migrated, 1)]
+        : generateDailyAuctionLots(migrated);
+      migrated.dailyAuctionLot = migrated.dailyAuctionLots[0] ?? null;
     }
     return migrated;
   } catch {

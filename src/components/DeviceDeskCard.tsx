@@ -15,13 +15,19 @@ import {
   getConditionInfo,
 } from '../game/engine';
 import { soundFX } from '../game/sound';
-import { DailyMarketEvent, EncounterType, PhoneDevice } from '../game/types';
+import {
+  DailyMarketEvent,
+  EncounterType,
+  PhoneDevice,
+  UpgradeId,
+} from '../game/types';
 import { PhoneInspectSVG } from './PhoneInspectSVG';
 
 interface DeviceDeskCardProps {
   device: PhoneDevice;
   encounterType: EncounterType;
   dailyNews: DailyMarketEvent;
+  upgrades?: UpgradeId[];
   expanded: boolean;
   onToggleExpand: () => void;
 }
@@ -30,13 +36,14 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
   device,
   encounterType,
   dailyNews,
+  upgrades,
   expanded,
   onToggleExpand,
 }) => {
   const isSeller = encounterType === 'SELLER';
   const inspectedCount = Object.values(device.inspected).filter(Boolean).length;
-  const estimatedValue = calculateMarketValue(device, isSeller, dailyNews);
-  const condition = getConditionInfo(device);
+  const estimatedValue = calculateMarketValue(device, isSeller, dailyNews, upgrades);
+  const condition = getConditionInfo(device, isSeller);
 
   const showCondition = !isSeller || inspectedCount > 0;
   const conditionText = !showCondition
@@ -74,32 +81,32 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
         type="button"
         onClick={handleToggle}
         aria-expanded={expanded}
-        className="w-full text-left px-3.5 py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition-colors cursor-pointer"
+        className="w-full text-left px-2.5 py-2 lg:px-3.5 lg:py-3 flex items-center justify-between gap-2 lg:gap-3 hover:bg-white/[0.03] transition-colors cursor-pointer"
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0">
           {/* Miniature Device Silhouette Swatch */}
           <div
-            className="h-11 w-8 rounded-lg border flex flex-col items-center justify-between p-1 shrink-0"
+            className="h-9 w-6 lg:h-11 lg:w-8 rounded-lg border flex flex-col items-center justify-between p-0.5 lg:p-1 shrink-0"
             style={{
               backgroundColor: device.bodyColor,
               borderColor: device.isBrandNew ? '#34D399' : device.accentColor,
             }}
           >
-            <span className="h-1 w-3 rounded-full bg-black/50" />
-            <Smartphone className="w-3.5 h-3.5 text-white/85" />
-            <span className="h-0.5 w-2.5 rounded-full bg-white/30" />
+            <span className="h-0.5 lg:h-1 w-2.5 lg:w-3 rounded-full bg-black/50" />
+            <Smartphone className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white/85" />
+            <span className="h-0.5 w-2 lg:w-2.5 rounded-full bg-white/30" />
           </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h3 className="font-display text-base font-bold text-slate-50 truncate leading-tight">
+              <h3 className="font-display text-xs sm:text-sm lg:text-base font-bold text-slate-50 truncate leading-tight">
                 {device.brand} {device.model}
               </h3>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] tabular-nums">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[10px] lg:text-[11px] tabular-nums">
               <span className="text-slate-400">{device.storage}</span>
               <span aria-hidden="true" className="text-white/20">·</span>
-              <span className={`font-semibold ${conditionToneClass}`}>
+              <span className={`font-semibold truncate ${conditionToneClass}`}>
                 {conditionText}
               </span>
               {device.masterCrafted && (
@@ -112,21 +119,21 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 tabular-nums">
+        <div className="flex items-center gap-1.5 lg:gap-2.5 shrink-0 tabular-nums">
           {encounterType !== 'EXPRESS_REPAIR' && (
             <div className="text-right">
-              <div className="text-[10px] text-slate-500">
-                {isSeller ? 'Tahmini Piyasa' : 'Piyasa Değeri'}
+              <div className="text-[9px] lg:text-[10px] text-slate-500 leading-none">
+                {isSeller ? 'Mevcut Değer' : 'Piyasa'}
               </div>
-              <div className="font-mono text-sm font-extrabold text-amber-400">
+              <div className="font-mono text-xs lg:text-sm font-extrabold text-amber-400">
                 {formatTRY(estimatedValue)}
               </div>
             </div>
           )}
 
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-[#1B2533] text-slate-300">
+          <div className="flex h-6 w-6 lg:h-7 lg:w-7 items-center justify-center rounded-lg border border-white/10 bg-[#1B2533] text-slate-300">
             <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 lg:w-4 lg:h-4 transition-transform duration-200 ${
                 expanded ? 'rotate-180' : ''
               }`}
             />
@@ -145,14 +152,19 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden border-t border-white/8"
           >
-            <div className="p-3.5 space-y-3">
-              {/* Illustrated Interactive Device Preview */}
-              <PhoneInspectSVG device={device} revealAll={!isSeller} />
+            <div className="p-2.5 lg:p-3.5 space-y-2 lg:space-y-3">
+              {/* Illustrated Interactive Device Preview (Compact on short landscape screens) */}
+              <div className="lg:hidden">
+                <PhoneInspectSVG device={device} revealAll={!isSeller} compact />
+              </div>
+              <div className="hidden lg:block">
+                <PhoneInspectSVG device={device} revealAll={!isSeller} />
+              </div>
 
               {/* Condition Bar */}
               <div>
-                <div className="flex items-center justify-between text-[11px] mb-1 tabular-nums">
-                  <span className="text-slate-400">Cihaz Kondisyon Skoru</span>
+                <div className="flex items-center justify-between text-[10px] lg:text-[11px] mb-1 tabular-nums">
+                  <span className="text-slate-400">Kondisyon</span>
                   <span className={`font-mono font-semibold ${conditionToneClass}`}>
                     {showCondition ? `${condition.score} / 100` : 'Test Edilmedi'}
                   </span>
@@ -176,9 +188,9 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
               </div>
 
               {/* 4-Cell Technical Dossier */}
-              <div className="grid grid-cols-2 gap-2 text-[11px] tabular-nums">
-                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500 mb-0.5">
+              <div className="grid grid-cols-2 gap-1.5 lg:gap-2 text-[10px] lg:text-[11px] tabular-nums">
+                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2 py-1.5 lg:px-2.5 lg:py-2">
+                  <div className="flex items-center gap-1 text-[9.5px] lg:text-[10px] text-slate-500 mb-0.5">
                     <ScanLine className="w-3 h-3 text-slate-400" />
                     <span>IMEI & Kayıt</span>
                   </div>
@@ -189,8 +201,8 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500 mb-0.5">
+                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2 py-1.5 lg:px-2.5 lg:py-2">
+                  <div className="flex items-center gap-1 text-[9.5px] lg:text-[10px] text-slate-500 mb-0.5">
                     <BatteryCharging className="w-3 h-3 text-slate-400" />
                     <span>Pil & Devir</span>
                   </div>
@@ -201,8 +213,8 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500 mb-0.5">
+                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2 py-1.5 lg:px-2.5 lg:py-2">
+                  <div className="flex items-center gap-1 text-[9.5px] lg:text-[10px] text-slate-500 mb-0.5">
                     <ShieldCheck className="w-3 h-3 text-slate-400" />
                     <span>Garanti</span>
                   </div>
@@ -217,8 +229,8 @@ export const DeviceDeskCard: React.FC<DeviceDeskCardProps> = ({
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2.5 py-2">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500 mb-0.5">
+                <div className="rounded-lg border border-white/6 bg-[#17202D] px-2 py-1.5 lg:px-2.5 lg:py-2">
+                  <div className="flex items-center gap-1 text-[9.5px] lg:text-[10px] text-slate-500 mb-0.5">
                     <PackageCheck className="w-3 h-3 text-slate-400" />
                     <span>Kutu & İçerik</span>
                   </div>
