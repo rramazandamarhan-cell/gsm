@@ -15,10 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup Java 21 (required by Capacitor 7 / Android Gradle)
         uses: actions/setup-java@v4
@@ -45,10 +45,10 @@ jobs:
       - name: Configure Landscape Fullscreen, Store Icons & Version Stamping
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i 's/<activity/<activity android:screenOrientation="sensorLandscape"/' "$MANIFEST"
-            echo "Forced sensorLandscape in AndroidManifest.xml"
+          if [ -f "$MANIFEST" ] && ! grep -q 'android:screenOrientation' "$MANIFEST"; then
+            python3 -c 'import xml.etree.ElementTree as ET; p="android/app/src/main/AndroidManifest.xml"; txt=open(p,encoding="utf-8").read().replace("<activity","<activity android:screenOrientation=\"sensorLandscape\"",1); open(p,"w",encoding="utf-8").write(txt); ET.parse(p); print("Configured sensorLandscape OK")'
           fi
+
           # Stamp semantic versionName and auto-incrementing versionCode for Google Play Console
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
@@ -57,14 +57,19 @@ jobs:
             sed -i 's/versionName "[^"]*"/versionName "2.2.0"/' "$GRADLE_FILE"
             echo "Stamped versionCode=${VERSION_CODE} versionName=2.2.0"
           fi
+
           # Copy custom GSM Simulator 512px icon into Android mipmap launcher resources
           if [ -f "public/pwa-512x512.png" ]; then
+            FG_ICON="public/pwa-maskable-512x512.png"
+            if [ ! -f "$FG_ICON" ]; then
+              FG_ICON="public/pwa-512x512.png"
+            fi
             for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
               DIR="android/app/src/main/res/mipmap-${density}"
               mkdir -p "$DIR"
               cp public/pwa-512x512.png "$DIR/ic_launcher.png"
               cp public/pwa-512x512.png "$DIR/ic_launcher_round.png"
-              cp public/pwa-512x512.png "$DIR/ic_launcher_foreground.png"
+              cp "$FG_ICON" "$DIR/ic_launcher_foreground.png"
             done
             echo "Copied custom GSM Simulator launcher icons"
           fi
@@ -82,8 +87,19 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
+      - name: Check Play Store Signing Keystore
+        id: signing_check
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build Signed Google Play Release AAB (when Keystore Secrets are configured)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: steps.signing_check.outputs.has_keystore == 'true'
         working-directory: android
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -100,7 +116,7 @@ jobs:
           rm -f app/release-keystore.jks
 
       - name: Upload Signed Play Store AAB Artifact
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: steps.signing_check.outputs.has_keystore == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: GSM-Simulator-PlayStore-AAB
