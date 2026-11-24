@@ -991,7 +991,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   </span>
                   {bonusAwarded && (
                     <span className="font-mono text-[10.5px] font-extrabold text-amber-300 shrink-0">
-                      +25 XP
+                      {bi('✓ Dedektif', '✓ Detective')}
                     </span>
                   )}
                 </div>

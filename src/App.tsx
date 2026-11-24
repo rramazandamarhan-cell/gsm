@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   BarChart3,
   Building2,
-  Lock,
   Newspaper,
   Package,
   Pause,
@@ -122,7 +121,6 @@ import {
   getDailyStaffWages,
   getEffectiveLoanTerms,
   getLevelFromXp,
-  getLevelProgress,
   getMasterCraftBonusPercent,
   getMasterTechSpecs,
   getMilestoneCurrentValue,
@@ -131,12 +129,10 @@ import {
   getShopRank,
   getStoryChapterCurrentValue,
   getStreakBonusCash,
-  getTabUnlockLevel,
   hasAccessoryLicense,
   hasBrandNewLicense,
   inspectPhoneCategory,
   isAccessoryUnlocked,
-  isTabUnlocked,
   loadShopState,
   maybeTriggerRandomStoreEvent,
   pickDailyNewspaper,
@@ -379,19 +375,13 @@ export default function App() {
         : xpDelta;
       const nextXp = state.xp + crmBoosted;
       const nextLevel = getLevelFromXp(nextXp);
-      if (nextLevel > state.level) {
-        window.setTimeout(() => {
-          soundFX.playLevelUp();
-          pushFeedback(`SEVİYE ATLADIN! Esnaf Sv. ${nextLevel}`, 'positive');
-        }, 220);
-      }
       return {
         ...state,
         xp: nextXp,
         level: nextLevel,
       };
     },
-    [pushFeedback]
+    []
   );
 
   const applyQuestProgress = useCallback(
@@ -694,8 +684,8 @@ export default function App() {
     soundFX.playQuestClaim();
     pushFeedback(
       bi(
-        '+25 XP · Dedektif Gözü (Fiziksel Büyüteç Ekspertizi)!',
-        '+25 XP · Detective Eye (Physical Loupe Inspection)!'
+        'Dedektif Gözü · Fiziksel Büyüteç Ekspertizi Tamamlandı!',
+        'Detective Eye · Physical Loupe Inspection Complete!'
       ),
       'amber'
     );
@@ -2023,12 +2013,12 @@ export default function App() {
       );
       return;
     }
-    if (!isAccessoryUnlocked(accessoryId, shop.level, shop.upgrades)) {
+    if (!isAccessoryUnlocked(accessoryId, shop.shopTier, shop.upgrades)) {
       soundFX.playScanDefect();
       pushFeedback(
         bi(
-          `${locSpec.name} Seviye ${spec.minLevel} ile açılır!`,
-          `${locSpec.name} unlocks at Level ${spec.minLevel}!`
+          `${locSpec.name} ${spec.minShopTier}. Dükkan kademesinde açılır!`,
+          `${locSpec.name} unlocks at Shop Tier ${spec.minShopTier}!`
         ),
         'amber'
       );
@@ -2213,7 +2203,7 @@ export default function App() {
     }
     soundFX.playQuestClaim();
     pushFeedback(
-      `Hikaye Bölümü Tamam! +${formatTRY(ch.rewardCash)} · +${ch.rewardXp} XP`,
+      `Hikaye Bölümü Tamam! +${formatTRY(ch.rewardCash)}`,
       'positive'
     );
     setShop((prev) => {
@@ -2696,7 +2686,7 @@ export default function App() {
     if (!quest || quest.claimed || quest.progress < quest.target) return;
     soundFX.playQuestClaim();
     pushFeedback(
-      `+${formatTRY(quest.reward)} · +${quest.xpReward} XP Görev Ödülü!`,
+      `+${formatTRY(quest.reward)} Görev Ödülü!`,
       'positive'
     );
     setShop((prev) => {
@@ -2720,7 +2710,6 @@ export default function App() {
     const ms = CAREER_MILESTONES.find((m) => m.id === milestoneId);
     if (
       !ms ||
-      shop.level < (ms.minLevel ?? 1) ||
       shop.claimedMilestoneIds.includes(milestoneId) ||
       getMilestoneCurrentValue(shop, ms) < ms.target
     ) {
@@ -2728,7 +2717,7 @@ export default function App() {
     }
     soundFX.playQuestClaim();
     pushFeedback(
-      `Kariyer Ödülü: +${formatTRY(ms.rewardCash)} · +${ms.rewardXp} XP!`,
+      `Kariyer Ödülü: +${formatTRY(ms.rewardCash)}!`,
       'positive'
     );
     setShop((prev) => {
@@ -2822,7 +2811,6 @@ export default function App() {
     if (
       !upg ||
       shop.upgrades.includes(upgradeId) ||
-      shop.level < (upg.minLevel ?? 1) ||
       shop.cash < upg.cost ||
       (shop.pendingProjects ?? []).some(
         (p) => p.kind === 'UPGRADE' && p.targetId === upgradeId
@@ -2894,7 +2882,6 @@ export default function App() {
       targetTier !== shop.shopTier + 1 ||
       shop.cash < info.cost ||
       shop.reputation < info.minReputation ||
-      shop.level < (info.minLevel ?? 1) ||
       (shop.pendingProjects ?? []).some((p) => p.kind === 'SHOP_TIER')
     ) {
       return;
@@ -2940,7 +2927,6 @@ export default function App() {
     if (
       !dec ||
       shop.decorations.includes(decorId) ||
-      shop.level < (dec.minLevel ?? 1) ||
       shop.cash < dec.cost
     ) {
       return;
@@ -2974,7 +2960,6 @@ export default function App() {
     if (
       !member ||
       shop.staff.includes(staffId) ||
-      shop.level < (member.minLevel ?? 1) ||
       shop.cash < member.hireCost
     ) {
       return;
@@ -3086,7 +3071,6 @@ export default function App() {
     if (
       !outfit ||
       (shop.ownedOutfits ?? []).includes(outfitId) ||
-      shop.level < (outfit.minLevel ?? 1) ||
       shop.cash < outfit.cost
     ) {
       return;
@@ -3149,7 +3133,7 @@ export default function App() {
     const reward = DAILY_STREAK_REWARDS[idx];
     soundFX.playQuestClaim();
     pushFeedback(
-      `Günlük Giriş Serisi #${reward.day}: +${formatTRY(reward.cash)} · +${reward.xp} XP!`,
+      `Günlük Giriş Serisi #${reward.day}: +${formatTRY(reward.cash)}!`,
       'positive'
     );
     setShop((prev) => {
@@ -3453,7 +3437,6 @@ export default function App() {
       !spec ||
       shop.branches.includes(branchId) ||
       shop.cash < spec.unlockCost ||
-      shop.level < spec.minLevel ||
       shop.reputation < spec.minReputation ||
       (shop.pendingProjects ?? []).some(
         (p) => p.kind === 'BRANCH' && p.targetId === branchId
@@ -3486,7 +3469,7 @@ export default function App() {
   };
 
   const handleRunRivalPromo = () => {
-    const promoCost = 1500;
+    const promoCost = 4500;
     if (shop.rival.boughtOut || shop.rival.promoUsedToday || shop.cash < promoCost) {
       return;
     }
@@ -3538,8 +3521,7 @@ export default function App() {
   const handleTakeLoan = (offer: BankLoanOffer) => {
     if (
       (shop.activeLoans?.length ?? 0) >= 2 ||
-      shop.shopTier < offer.minShopTier ||
-      shop.level < offer.minLevel
+      shop.shopTier < offer.minShopTier
     ) {
       return;
     }
@@ -3800,185 +3782,107 @@ export default function App() {
               </span>
             </button>
 
-            {(() => {
-              const wholesaleUnlocked = isTabUnlocked(shop, 'WHOLESALE');
-              const empireUnlocked = isTabUnlocked(shop, 'EMPIRE');
-              const upgradesUnlocked = isTabUnlocked(shop, 'UPGRADES');
-              const handleSelectTab = (tab: ShopTab, label: string) => {
-                if (!isTabUnlocked(shop, tab)) {
-                  soundFX.playScanDefect();
-                  const reqLvl = getTabUnlockLevel(tab);
-                  pushFeedback(
-                    bi(
-                      `${label} sekmesi Seviye ${reqLvl} ile açılır! Anlaşma yaparak XP kazan.`,
-                      `${label} unlocks at Level ${reqLvl}! Close deals to earn XP.`
-                    ),
-                    'amber'
-                  );
-                  return;
-                }
+            <button
+              type="button"
+              onClick={() => {
                 soundFX.playClick();
-                setActiveTab(tab);
-              };
+                setActiveTab('WHOLESALE');
+              }}
+              title={bi('Toptancı, Aksesuar & Sıfır Bayilik', 'Wholesale, Accessories & Flagship Supply')}
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+                activeTab === 'WHOLESALE'
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
+              }`}
+            >
+              <Package className="w-[14px] h-[14px] shrink-0" />
+              <span className="truncate">{bi('Toptan', 'Supply')}</span>
+            </button>
 
-              return (
-                <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleSelectTab('WHOLESALE', bi('Toptancı', 'Wholesale'))
-                    }
-                    title={
-                      wholesaleUnlocked
-                        ? bi('Toptancı & Distribütör', 'Wholesale & Distributors')
-                        : bi('Seviye 2 ile Açılır', 'Unlocks at Level 2')
-                    }
-                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
-                      activeTab === 'WHOLESALE'
-                        ? 'bg-amber-500 text-slate-950'
-                        : wholesaleUnlocked
-                        ? 'text-slate-300 hover:text-slate-50 active:bg-white/10'
-                        : 'text-slate-500 opacity-75 hover:opacity-100'
-                    }`}
-                  >
-                    {wholesaleUnlocked ? (
-                      <Package className="w-[14px] h-[14px] shrink-0" />
-                    ) : (
-                      <Lock className="w-[13px] h-[13px] shrink-0 text-amber-400/80" />
-                    )}
-                    <span className="truncate">{bi('Toptan', 'Supply')}</span>
-                    {!wholesaleUnlocked && (
-                      <span className="hidden md:inline font-mono text-[10px] text-amber-300/80">
-                        {bi('Sv.2', 'L2')}
-                      </span>
-                    )}
-                  </button>
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setActiveTab('EMPIRE');
+              }}
+              title={bi('Sarı İlan, İhale, Şube, Banka & Müze', 'Classifieds, Auctions, Branches, Bank & Museum')}
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+                activeTab === 'EMPIRE'
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
+              }`}
+            >
+              <Building2 className="w-[14px] h-[14px] shrink-0" />
+              <span className="truncate">{bi('Piyasa', 'Market')}</span>
+              {shop.weeklyTaxDue > 0 && (
+                <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-rose-500 text-white">
+                  !
+                </span>
+              )}
+            </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleSelectTab('EMPIRE', bi('Piyasa & Banka', 'Market & Bank'))
-                    }
-                    title={
-                      empireUnlocked
-                        ? bi('Piyasa, Sarı İlan, Banka & Şube', 'Market, Listings, Bank & Branches')
-                        : bi('Seviye 4 ile Açılır', 'Unlocks at Level 4')
-                    }
-                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
-                      activeTab === 'EMPIRE'
-                        ? 'bg-amber-500 text-slate-950'
-                        : empireUnlocked
-                        ? 'text-slate-300 hover:text-slate-50 active:bg-white/10'
-                        : 'text-slate-500 opacity-75 hover:opacity-100'
-                    }`}
-                  >
-                    {empireUnlocked ? (
-                      <Building2 className="w-[14px] h-[14px] shrink-0" />
-                    ) : (
-                      <Lock className="w-[13px] h-[13px] shrink-0 text-amber-400/80" />
-                    )}
-                    <span className="truncate">{bi('Piyasa', 'Market')}</span>
-                    {!empireUnlocked && (
-                      <span className="hidden md:inline font-mono text-[10px] text-amber-300/80">
-                        {bi('Sv.4', 'L4')}
-                      </span>
-                    )}
-                    {empireUnlocked && shop.weeklyTaxDue > 0 && (
-                      <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-rose-500 text-white">
-                        !
-                      </span>
-                    )}
-                  </button>
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setActiveTab('MISSIONS');
+              }}
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+                activeTab === 'MISSIONS'
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
+              }`}
+            >
+              <Target className="w-[14px] h-[14px] shrink-0" />
+              <span className="truncate">{bi('Görev', 'Quests')}</span>
+              {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
+                <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                  +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
+                </span>
+              )}
+            </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundFX.playClick();
-                      setActiveTab('MISSIONS');
-                    }}
-                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
-                      activeTab === 'MISSIONS'
-                        ? 'bg-amber-500 text-slate-950'
-                        : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
-                    }`}
-                  >
-                    <Target className="w-[14px] h-[14px] shrink-0" />
-                    <span className="truncate">{bi('Görev', 'Quests')}</span>
-                    {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
-                      <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
-                        +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleSelectTab('UPGRADES', bi('Büyütme & Ekip', 'Upgrades & Staff'))
-                    }
-                    title={
-                      upgradesUnlocked
-                        ? bi('Ekipman, Ekip, Gardırop & Dekor', 'Equipment, Staff, Wardrobe & Decor')
-                        : bi('Seviye 2 ile Açılır', 'Unlocks at Level 2')
-                    }
-                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
-                      activeTab === 'UPGRADES'
-                        ? 'bg-amber-500 text-slate-950'
-                        : upgradesUnlocked
-                        ? 'text-slate-300 hover:text-slate-50 active:bg-white/10'
-                        : 'text-slate-500 opacity-75 hover:opacity-100'
-                    }`}
-                  >
-                    {upgradesUnlocked ? (
-                      <Sparkles className="w-[14px] h-[14px] shrink-0" />
-                    ) : (
-                      <Lock className="w-[13px] h-[13px] shrink-0 text-amber-400/80" />
-                    )}
-                    <span className="truncate">{bi('Büyüt', 'Upgrade')}</span>
-                    {!upgradesUnlocked && (
-                      <span className="hidden md:inline font-mono text-[10px] text-amber-300/80">
-                        {bi('Sv.2', 'L2')}
-                      </span>
-                    )}
-                  </button>
-                </>
-              );
-            })()}
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setActiveTab('UPGRADES');
+              }}
+              title={bi('Ekipman, Dükkan, Dekor, Ekip & Gardırop', 'Equipment, Shops, Decor, Staff & Wardrobe')}
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+                activeTab === 'UPGRADES'
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
+              }`}
+            >
+              <Sparkles className="w-[14px] h-[14px] shrink-0" />
+              <span className="truncate">{bi('Büyüt', 'Upgrade')}</span>
+            </button>
           </nav>
         </div>
 
-        {/* Compact Tabular HUD Readouts — Level + XP Bar always visible */}
-        {(() => {
-          const lvlProg = getLevelProgress(shop.xp);
-          return (
-            <div className="flex items-center justify-between sm:justify-end gap-[6px] sm:gap-2 lg:gap-3 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
-              <button
-                type="button"
-                onClick={() => {
-                  soundFX.playClick();
-                  setActiveTab('MISSIONS');
-                }}
-                title={bi(
-                  `Seviye ${shop.level} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP) · Tıkla ve kilitleri gör`,
-                  `Level ${shop.level} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP) · Tap to view unlocks`
-                )}
-                className="inline-flex items-center gap-1.5 min-h-[32px] rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
-              >
-                <span className="font-mono text-[11px] font-extrabold text-amber-300 whitespace-nowrap">
-                  {bi('Sv.', 'Lv.')}
-                  {shop.level}
-                </span>
-                <div className="w-[36px] h-[6px] rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full bg-amber-400 transition-all duration-300"
-                    style={{ width: `${lvlProg.percent}%` }}
-                  />
-                </div>
-                <span className="hidden xl:inline text-[10px] text-slate-400 font-mono">
-                  {bi('G', 'D')}
-                  {shop.day}
-                </span>
-              </button>
+        {/* Compact Tabular HUD Readouts — Day + Shop Tier (No Level/XP clutter) */}
+        <div className="flex items-center justify-between sm:justify-end gap-[6px] sm:gap-2 lg:gap-3 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
+          <button
+            type="button"
+            onClick={() => {
+              soundFX.playClick();
+              setActiveTab('UPGRADES');
+            }}
+            title={bi(
+              `Gün ${shop.day} · Dükkan Kademesi ${shop.shopTier}/6 · Büyütme seçeneklerini gör`,
+              `Day ${shop.day} · Shop Tier ${shop.shopTier}/6 · View expansion options`
+            )}
+            className="inline-flex items-center gap-1.5 min-h-[32px] rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
+          >
+            <span className="font-mono text-[11px] font-extrabold text-amber-300 whitespace-nowrap">
+              {bi(`Gün ${shop.day}`, `Day ${shop.day}`)}
+            </span>
+            <span aria-hidden="true" className="text-amber-300/40">·</span>
+            <span className="font-mono text-[10.5px] font-bold text-slate-200 whitespace-nowrap">
+              {bi(`Dük.${shop.shopTier}/6`, `T${shop.shopTier}/6`)}
+            </span>
+          </button>
 
               <div className="hidden xl:flex items-center gap-2 text-xs text-slate-400">
                 <span className="inline-flex items-center gap-1">
@@ -4084,8 +3988,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-          );
-        })()}
       </header>
 
       {/* Non-blocking Portrait Orientation Helper Banner (Mobile Browser Fallback) */}
@@ -4160,17 +4062,6 @@ export default function App() {
               setActiveTab('MISSIONS');
             }}
             onOpenWardrobe={() => {
-              if (!isTabUnlocked(shop, 'UPGRADES')) {
-                soundFX.playScanDefect();
-                pushFeedback(
-                  bi(
-                    'Gardırop & Büyütme sekmesi Seviye 2 ile açılır!',
-                    'Wardrobe & Upgrades unlock at Level 2!'
-                  ),
-                  'amber'
-                );
-                return;
-              }
               soundFX.playClick();
               setActiveTab('UPGRADES');
             }}
@@ -4235,17 +4126,6 @@ export default function App() {
               setActiveTab('COUNTER');
             }}
             onGoToUpgrades={() => {
-              if (!isTabUnlocked(shop, 'UPGRADES')) {
-                soundFX.playScanDefect();
-                pushFeedback(
-                  bi(
-                    'Büyütme & Vitrin Rafı Seviye 2 ile açılır!',
-                    'Upgrades & Showcase Rack unlock at Level 2!'
-                  ),
-                  'amber'
-                );
-                return;
-              }
               soundFX.playClick();
               setActiveTab('UPGRADES');
             }}
@@ -4283,6 +4163,7 @@ export default function App() {
             onRepayLoanEarly={handleRepayLoanEarly}
             onPayWeeklyTax={handlePayWeeklyTax}
             onBuyMuseumItem={handleBuyMuseumItem}
+            onBuyUpgrade={handleBuyUpgrade}
             onGoToStaff={() => {
               soundFX.playClick();
               setActiveTab('UPGRADES');

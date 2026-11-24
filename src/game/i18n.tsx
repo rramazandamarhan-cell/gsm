@@ -329,22 +329,22 @@ export function getLocalizedDistributor(id: string, lang: Language): BrandDistri
   const enMap: Record<string, { name: string; tagline: string; description: string }> = {
     dist_budget: {
       name: 'Anatolia GSM Wholesale (RedMix & PocoPop)',
-      tagline: 'Unlocks at Lv. 2 · Factory Sealed',
+      tagline: 'Open with Dealership License · Sealed',
       description: 'Your first official dealer line. Factory-sealed entry devices with 24-month warranty.',
     },
     dist_samxung: {
       name: 'Samxung Official Regional Distributor',
-      tagline: 'Unlocks at Lv. 3 & 3.1★ Rep',
+      tagline: 'Shop Tier 2 & 3.4★ Rep',
       description: 'Order factory-sealed Galax A & S Ultra stock directly for high-margin retail.',
     },
     dist_aphone: {
       name: 'aPhone Authorized Dealer Channel',
-      tagline: 'Unlocks at Lv. 4 & 3.5★ Rep',
+      tagline: 'Shop Tier 3 & 3.9★ Rep',
       description: 'Direct distributor pricing on the city’s most sought-after sealed aPhone lineup.',
     },
     dist_luxury: {
       name: 'Global Luxury & Foldables Import',
-      tagline: 'Unlocks at Lv. 6 & 4.0★ Rep',
+      tagline: 'Shop Tier 4 & 4.3★ Rep',
       description: 'Exclusive supply channel for ultra-luxury foldables and flagship collector units.',
     },
   };
@@ -387,13 +387,23 @@ export function getLocalizedUpgrade(id: UpgradeId, lang: Language): ShopUpgrade 
     },
     neon_sign: {
       name: 'Social Media & Arcade Signage',
-      benefitText: 'Boosts VIP customer flow, passive accessory sales & reputation speed.',
+      benefitText: '+1 extra daily customer, more VIPs & stronger shelf sales.',
       summary: 'Turn your stall into the most talked-about tech & mobile spot in town.',
+    },
+    classifieds_license: {
+      name: 'Classifieds & Intercity Cargo Permit',
+      benefitText: 'Unlocks Yellow Classifieds hunting & high-margin Intercity Cargo orders!',
+      summary: 'Access local bargain listings and verified nationwide COD cargo deals.',
     },
     cctv_security: {
       name: '4K Security & Fake IMEI Radar',
       benefitText: 'Cuts warranty claim risk by 40% & deters stubborn shady sellers.',
       summary: 'Smart entrance cameras & IMEI verification shield your shop from bad stock.',
+    },
+    auction_license: {
+      name: 'Official Customs & Liquidation Auction Pass',
+      benefitText: 'Unlocks the 6-tier Daily Auction Hall & sealed bulk device lots!',
+      summary: 'Earn official bidding credentials for customs, telecom & VIP airport crates.',
     },
     brand_new_license: {
       name: 'Sealed Brand-New Dealership License',
@@ -432,7 +442,7 @@ export function getLocalizedUpgrade(id: UpgradeId, lang: Language): ShopUpgrade 
     },
     cloud_crm: {
       name: 'Cloud Customer Loyalty CRM',
-      benefitText: 'Higher returning regular rate & +15% bonus XP on all deals!',
+      benefitText: 'Higher returning regular rate & +1 extra daily customer!',
       summary: 'Automated loyalty outreach brings satisfied buyers back to your counter.',
     },
     clean_room_lab: {
@@ -442,7 +452,7 @@ export function getLocalizedUpgrade(id: UpgradeId, lang: Language): ShopUpgrade 
     },
     vip_concierge: {
       name: 'VIP Desk & Concierge Consulting',
-      benefitText: '+6% permanent buyer budgets & surged VIP collector arrivals!',
+      benefitText: '+6% permanent buyer budgets & +2 daily VIP collector arrivals!',
       summary: 'Private flagship & foldable consulting lounge for high-net-worth buyers.',
     },
   };
@@ -555,26 +565,61 @@ export function getLocalizedBranch(id: BranchId, lang: Language): BranchSpec {
 export function getLocalizedMuseumItem(id: MuseumItemId, lang: Language): MuseumItemSpec {
   const base = MUSEUM_ITEMS.find((m) => m.id === id) ?? MUSEUM_ITEMS[0];
   if (lang === 'tr') return base;
-  const enMap: Record<MuseumItemId, { name: string; description: string }> = {
+  const enMap: Record<
+    MuseumItemId,
+    {
+      name: string;
+      eraTag: string;
+      rarityLabel: string;
+      story: string;
+      fullHistory: string;
+      collectorPerk: string;
+    }
+  > = {
     nokya_3310: {
       name: 'Nokya 3310 (Indestructible)',
-      description: 'The legendary brick phone. Survives concrete drops and still runs Snake.',
+      eraTag: '2000 · Golden GSM Era',
+      rarityLabel: 'Classic Relic',
+      story: 'The legendary brick phone that cracks concrete before its shell — still boots straight into Snake.',
+      fullHistory:
+        'Rescued from a retired technician’s iron safe complete with its original thick-pin charger. Legend says it tumbled three stories onto a construction slab, snapped right back together, and resumed a high-score Snake session without losing a bar of battery. Customers of all ages pause at your glass counter to share their 3310 memories.',
+      collectorPerk: 'Sparks counter nostalgia · +20 Prestige · +1,200 ₺/day showcase draw',
     },
     eriksun_t28: {
-      name: 'ErikSun T28 Flip',
-      description: 'Iconic spring-loaded active flip classic from the golden GSM era.',
+      name: 'ErikSun T28 Active Flip',
+      eraTag: '1999 · Spring-Flip Revolution',
+      rarityLabel: 'Rare Archive',
+      story: 'Iconic side-button spring flip classic whose crisp "snap" turned every café head in the late 90s.',
+      fullHistory:
+        'Weighing just 83 grams with a magnesium frame, the T28 was a miracle of pocket engineering in 1999. Business executives would tap the side release button and flip it open one-handed to instant admiration. This preserved unit came from a watchmaker’s personal vault with its original slim battery and intact stub antenna.',
+      collectorPerk: 'Attracts vintage collectors · +30 Prestige · +2,600 ₺/day showcase income',
     },
     motorazr_v3: {
-      name: 'MotoRazr V3 Ultra-Slim',
-      description: 'Laser-etched anodized aluminum flip icon that defined 2000s luxury.',
+      name: 'MotoRazr V3 Razor-Thin',
+      eraTag: '2004 · Anodized Aluminum Icon',
+      rarityLabel: 'Design Legend',
+      story: 'Aircraft-grade anodized aluminum clamshell with a laser-etched sapphire-blue electroluminescent keypad.',
+      fullHistory:
+        'When it debuted at 13.9 mm thin in 2004, critics couldn’t believe a real phone could look like precision jewelry. Chemically etched from a single metal sheet, its glowing blue keypad lit up runways and movie screens alike. Displayed in your shop, its crisp hinge turns your vitrine into an industrial design gallery.',
+      collectorPerk: 'Design & influencer magnet · +45 Prestige · +4,800 ₺/day gallery draw',
     },
     blakberi_bold: {
-      name: 'BlakBeri Bold 9900',
-      description: 'Tactile QWERTY executive legend with trackpad precision.',
+      name: 'BlakBeri Bold Q-Keyboard',
+      eraTag: '2008 · Executive & Trading Era',
+      rarityLabel: 'VIP Archive Piece',
+      story: 'Leatherette back, tactile sculpted QWERTY keys, and the unmistakable blinking red email LED.',
+      fullHistory:
+        'In 2008, that steady red pulse every three seconds across office towers meant a market-moving email had arrived. Executives typed entire memos with two thumbs faster than laptops. Sourced from a retired bank director complete with its leather holster and magnetic charging dock.',
+      collectorPerk: 'Executive VIP trust · +65 Prestige · +8,500 ₺/day prestige bonus',
     },
     aphone_2g: {
-      name: 'aPhone 2G First Edition',
-      description: 'Mint-box collector masterpiece that sparked the smartphone revolution.',
+      name: 'aPhone 2G First Edition (Sealed)',
+      eraTag: '2007 · Touch Revolution',
+      rarityLabel: 'Mythic · 1/1 Factory Sealed',
+      story: 'Unopened factory-sealed 2007 first-batch masterpiece that sparked the modern smartphone era.',
+      fullHistory:
+        'From the historic June 29, 2007 launch batch, this 8 GB original still carries its unbroken factory cellophane wrap. Fetching fortunes at international collector auctions, placing this centerpiece under glass transforms your business from a neighborhood shop into the city’s most prestigious GSM landmark.',
+      collectorPerk: 'Citywide museum landmark · +110 Prestige · +16,500 ₺/day',
     },
   };
   return { ...base, ...(enMap[id] ?? {}) };
@@ -708,10 +753,10 @@ export function getLocalizedStoryChapter(ch: StoryChapter, lang: Language): Stor
       title: 'Chapter 1: First Shutter (Age 23)',
       subtitle: 'From 5 years as an apprentice to your own 12 m² stall',
       narrative:
-        'After 5 years learning under Master Cemal, you opened your own arcade shutter. First step: inspect 2nd-hand phones, haggle hard, and close your first showcase sales!',
+        'After 5 years learning under Master Cemal, you opened your own arcade shutter. First step: inspect 2nd-hand phones, haggle hard, and grow your starting capital!',
       mentorNote:
-        'Master Cemal: "Kid, warm up your instincts on 2nd-hand phones first. Spot defects, cut the price, sell 2 phones to hit Lv. 2 — then we’ll unlock wholesale cases & glass!"',
-      objectiveText: 'Sell a total of 2 phones from your showcase',
+        'Master Cemal: "Kid, warm up your instincts on 2nd-hand phones first. Spot defects, cut the price, build up your register — once you save 45,000 ₺ we’ll open the accessory rack!"',
+      objectiveText: 'Sell a total of 3 phones from your showcase',
     },
     ch_2_own_bench: {
       title: 'Chapter 2: Your Own Screwdriver',
@@ -720,31 +765,31 @@ export function getLocalizedStoryChapter(ch: StoryChapter, lang: Language): Stor
         'Time to turn the board & screen skills you learned into real cash. Restore faulty phones in your workshop or express counter for big resale jumps.',
       mentorNote:
         'Master Cemal: "Everyone runs from cracked screens — a real technician sees the margin hiding inside. Steady heat, don’t tear the flex!"',
-      objectiveText: 'Complete 2 phone repairs at your workshop or express counter',
+      objectiveText: 'Complete 3 phone repairs at your workshop or express counter',
     },
     ch_3_accessory_shelf: {
       title: 'Chapter 3: The Accessory Rack',
       subtitle: 'Tempered glass, cases & chargers keep cash flowing',
       narrative:
-        'As you level up, wholesale doors swing open! Stock glass & cases at Lv. 2, then unlock car mounts, GaN chargers, powerbanks & earbuds for lucrative cross-sales.',
+        'Buy the 45,000 ₺ Accessory License to swing open wholesale doors! Expand your store tier to unlock car mounts, GaN chargers, powerbanks & ANC earbuds.',
       mentorNote:
         'Master Cemal: "Phones bring the glory, kid, but cases and screen protectors always pay the rent. Never let the rack run dry!"',
-      objectiveText: 'Sell a total of 5 phone accessories',
+      objectiveText: 'Sell a total of 8 phone accessories',
     },
     ch_4_brand_dealer: {
       title: 'Chapter 4: Sealed-Box Dealership',
       subtitle: 'Step beyond 2nd-hand into official factory-sealed stock',
       narrative:
-        'You’re no longer just flipping used devices. Order brand-new 24-month warranty sealed phones from distributors and elevate your showcase.',
+        'Purchase the 220,000 ₺ Official Dealership License to stock 24-month warranty sealed phones directly from distributors and elevate your showcase.',
       mentorNote:
         'Master Cemal: "Factory-sealed boxes build instant credibility. Bundle a case and fast charger alongside one and they’ll be customers for life!"',
-      objectiveText: 'Sell 2 factory-sealed Brand-New phones from distributors',
+      objectiveText: 'Sell 3 factory-sealed Brand-New phones from distributors',
     },
     ch_5_showroom_boss: {
       title: 'Chapter 5: GSM Empire',
       subtitle: 'High-Street Showroom & Technical Service Leader',
       narrative:
-        'Appraisal, micro-soldering, a stacked accessory rack, and official brand distribution under one roof! Upgrade to a Tier 3 High-Street Store or higher.',
+        'Appraisal, micro-soldering, customs auctions, city branches, and official brand distribution under one roof! Upgrade to Shop Tier 3 "High-Street GSM Store".',
       mentorNote:
         'Master Cemal: "There’s nothing left I can teach you. You’re the new king of the arcade — may your shutter always open to abundance!"',
       objectiveText: 'Upgrade your shop to Tier 3 "High-Street GSM Store" or higher',

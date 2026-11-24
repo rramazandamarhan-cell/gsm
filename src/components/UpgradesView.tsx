@@ -15,12 +15,13 @@ import {
   Eye,
   EyeOff,
   FlaskConical,
+  Gavel,
   Lamp,
   LayoutGrid,
-  Lock,
   Megaphone,
   Microscope,
   PackageCheck,
+  Search,
   ShieldCheck,
   Shirt,
   ShoppingBag,
@@ -105,9 +106,11 @@ const UPGRADE_ICONS: Record<UpgradeId, React.ReactNode> = {
   accessory_license: <ShoppingBag className="w-4 h-4 text-emerald-400" />,
   pro_diagnostic: <Cpu className="w-4 h-4 text-sky-400" />,
   display_cabinet: <LayoutGrid className="w-4 h-4 text-emerald-400" />,
+  classifieds_license: <Search className="w-4 h-4 text-amber-400" />,
   parts_wholesale: <PackageCheck className="w-4 h-4 text-emerald-400" />,
   neon_sign: <Megaphone className="w-4 h-4 text-pink-400" />,
   cctv_security: <ShieldCheck className="w-4 h-4 text-sky-300" />,
+  auction_license: <Gavel className="w-4 h-4 text-amber-400" />,
   brand_new_license: <Store className="w-4 h-4 text-amber-300" />,
   ultrasonic_cleaner: <Waves className="w-4 h-4 text-sky-400" />,
   laser_backglass: <Zap className="w-4 h-4 text-amber-300" />,
@@ -187,7 +190,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {(
             [
-              ['EQUIPMENT', Wrench, bi('Ekipman', 'Equipment')],
+              ['EQUIPMENT', Wrench, bi(`Ekipman & Lisans (${SHOP_UPGRADES.length})`, `Gear & Permits (${SHOP_UPGRADES.length})`)],
               ['EXPANSION', Building2, bi('Dükkanlar (6)', 'Shops (6)')],
               ['DECOR', Lamp, bi('Dekor', 'Decor')],
               ['STAFF', Users, bi('Ekip', 'Staff')],
@@ -242,7 +245,6 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 <span className="text-[11px] font-bold text-slate-100">
                   {bi('Vitrin Rafı', 'Showcase Rack')}{' '}
                   <strong className="font-mono text-amber-300">
-                    {bi('Sv.', 'Lv.')}
                     {showcaseUpgradeLevel}/{SHOWCASE_UPGRADE_MAX_LEVEL}
                   </strong>
                 </span>
@@ -277,7 +279,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
             )}
           </div>
 
-          {/* 3x2 Equipment Grid */}
+          {/* 3x2 Equipment Grid — Pure Cash Unlocks */}
           <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
             {visibleUpgrades.map((up) => {
               const loc = getLocalizedUpgrade(up.id, lang);
@@ -285,9 +287,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
               const pending = pendingProjects.find(
                 (p) => p.kind === 'UPGRADE' && p.targetId === up.id
               );
-              const levelLocked = level < (up.minLevel ?? 1);
-              const canBuy =
-                !owned && !pending && !levelLocked && cash >= up.cost;
+              const canBuy = !owned && !pending && cash >= up.cost;
 
               return (
                 <div
@@ -297,6 +297,8 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       ? 'border-emerald-500/35 bg-emerald-500/8'
                       : pending
                       ? 'border-sky-400/35 bg-sky-500/8'
+                      : up.highlightTag === 'İş Kolu'
+                      ? 'border-amber-400/30 bg-[#1A1E2B]'
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
@@ -333,10 +335,6 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-300">
                         <Clock className="w-3 h-3" /> {pending.daysRemaining}{' '}
                         {bi('gün', 'd')}
-                      </span>
-                    ) : levelLocked ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-300">
-                        <Lock className="w-3 h-3" /> {bi(`Sv.${up.minLevel}`, `Lv.${up.minLevel}`)}
                       </span>
                     ) : (
                       <button
@@ -383,7 +381,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: 6 SHOP TIERS (3x2 ZERO SCROLL) */}
+      {/* TAB 2: 6 SHOP TIERS (3x2 ZERO SCROLL — CASH & REPUTATION ONLY) */}
       {subTab === 'EXPANSION' && (
         <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
           {ALL_TIERS.map((tier) => {
@@ -396,9 +394,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
               (p) => p.kind === 'SHOP_TIER' && p.targetId === String(tier)
             );
             const meetsRep = reputation >= raw.minReputation;
-            const meetsLevel = level >= raw.minLevel;
-            const canMove =
-              isNext && !pending && meetsRep && meetsLevel && cash >= raw.cost;
+            const canMove = isNext && !pending && meetsRep && cash >= raw.cost;
 
             return (
               <div
@@ -432,7 +428,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                   <span className="text-[9.5px] font-mono text-slate-400 truncate">
                     {tier === 1
                       ? bi('Başlangıç', 'Starter')
-                      : `${bi(`Sv.${raw.minLevel}`, `L${raw.minLevel}`)} · ${raw.minReputation.toFixed(1)}★ · ${raw.renovationDays}${bi('g', 'd')}`}
+                      : `${raw.minReputation.toFixed(1)}★ · ${raw.renovationDays}${bi('g', 'd')}`}
                   </span>
 
                   {isCurrent ? (
@@ -449,23 +445,19 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       {bi('g', 'd')}
                     </span>
                   ) : isNext ? (
-                    !meetsLevel ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-300 whitespace-nowrap">
-                        <Lock className="w-3 h-3" /> {bi(`Sv.${raw.minLevel}`, `Lv.${raw.minLevel}`)}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={!canMove}
-                        onClick={() => onUpgradeShopTier(tier)}
-                        className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                      >
-                        {formatTRY(raw.cost)}
-                      </button>
-                    )
+                    <button
+                      type="button"
+                      disabled={!canMove}
+                      onClick={() => onUpgradeShopTier(tier)}
+                      className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                    >
+                      {!meetsRep
+                        ? `${raw.minReputation.toFixed(1)}★`
+                        : formatTRY(raw.cost)}
+                    </button>
                   ) : (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 whitespace-nowrap">
-                      <Lock className="w-3 h-3" /> {bi(`Sv.${raw.minLevel}`, `Lv.${raw.minLevel}`)}
+                    <span className="text-[10px] font-mono text-slate-500 whitespace-nowrap">
+                      {formatTRY(raw.cost)}
                     </span>
                   )}
                 </div>
@@ -475,22 +467,19 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: DECORATIONS (3x2 ZERO SCROLL) */}
+      {/* TAB 3: DECORATIONS (3x2 ZERO SCROLL — PURE CASH) */}
       {subTab === 'DECOR' && (
         <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
           {SHOP_DECORATIONS.map((dec) => {
             const loc = getLocalizedDecoration(dec.id, lang);
             const owned = ownedDecorations.includes(dec.id);
             const active = activeDecorations.includes(dec.id);
-            const levelLocked = !owned && level < (dec.minLevel ?? 1);
             return (
               <div
                 key={dec.id}
                 className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                   active
                     ? 'border-amber-400/50 bg-amber-500/10'
-                    : levelLocked
-                    ? 'border-white/8 bg-[#121923] opacity-80'
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
@@ -506,7 +495,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 <div className="flex-1 min-h-0 my-1.5 rounded-lg border border-white/8 bg-[#0D131C] p-1.5 flex items-center justify-center overflow-hidden">
                   <DecorPreviewArt
                     id={dec.id}
-                    className={`w-full h-full max-h-24 object-contain ${levelLocked ? 'opacity-50' : ''}`}
+                    className="w-full h-full max-h-24 object-contain"
                   />
                 </div>
 
@@ -514,10 +503,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                   {loc.summary}
                 </p>
 
-                <div className="flex items-center justify-between pt-1 border-t border-white/8 tabular-nums">
-                  <span className="font-mono text-[9.5px] text-slate-400">
-                    {bi(`Sv.${dec.minLevel}`, `Lv.${dec.minLevel}`)}
-                  </span>
+                <div className="flex items-center justify-end pt-1 border-t border-white/8 tabular-nums">
                   {owned ? (
                     <button
                       type="button"
@@ -538,10 +524,6 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                         </>
                       )}
                     </button>
-                  ) : levelLocked ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300">
-                      <Lock className="w-3 h-3" /> {bi(`Seviye ${dec.minLevel}`, `Level ${dec.minLevel}`)}
-                    </span>
                   ) : (
                     <button
                       type="button"
@@ -559,13 +541,12 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 4: STAFF TEAM (2x2 ZERO SCROLL) */}
+      {/* TAB 4: STAFF TEAM (2x2 ZERO SCROLL — PURE CASH HIRE + RANK TRAINING) */}
       {subTab === 'STAFF' && (
         <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2 overflow-hidden">
           {SHOP_STAFF.map((member) => {
             const loc = getLocalizedStaff(member.id, lang);
             const hired = hiredStaff.includes(member.id);
-            const staffLocked = !hired && level < (member.minLevel ?? 1);
             const stLvl = staffLevels[member.id] ?? 1;
             const trainCost = getStaffTrainingCost(stLvl);
             const trainDays = getStaffTrainingDays(stLvl);
@@ -579,8 +560,6 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
                   hired
                     ? 'border-emerald-400/35 bg-[#16222C]'
-                    : staffLocked
-                    ? 'border-white/8 bg-[#121923] opacity-80'
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
@@ -600,14 +579,9 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       {loc.role} · {loc.benefitText}
                     </div>
                   </div>
-                  {hired ? (
+                  {hired && (
                     <span className="font-mono text-[10px] font-extrabold rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-300 shrink-0">
-                      {bi('Sv.', 'Lv.')}
-                      {stLvl}/{STAFF_MAX_LEVEL}
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[10px] font-bold rounded bg-white/8 px-1.5 py-0.5 text-amber-300 shrink-0">
-                      {bi(`Sv.${member.minLevel}`, `Lv.${member.minLevel}`)}
+                      {bi('Kademe', 'Rank')} {stLvl}/{STAFF_MAX_LEVEL}
                     </span>
                   )}
                 </div>
@@ -622,20 +596,14 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                   </span>
 
                   {!hired ? (
-                    staffLocked ? (
-                      <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-amber-300">
-                        <Lock className="w-3.5 h-3.5" /> {bi(`Seviye ${member.minLevel}`, `Level ${member.minLevel}`)}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={cash < member.hireCost}
-                        onClick={() => onHireStaff(member.id)}
-                        className="rounded-lg bg-amber-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                      >
-                        {bi('İşe Al', 'Hire')} · {formatTRY(member.hireCost)}
-                      </button>
-                    )
+                    <button
+                      type="button"
+                      disabled={cash < member.hireCost}
+                      onClick={() => onHireStaff(member.id)}
+                      className="rounded-lg bg-amber-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                    >
+                      {bi('İşe Al', 'Hire')} · {formatTRY(member.hireCost)}
+                    </button>
                   ) : stLvl >= STAFF_MAX_LEVEL ? (
                     <span className="text-[10.5px] font-extrabold text-emerald-400">
                       MAX {bi('USTALIK', 'MASTERY')} ✓
@@ -664,14 +632,13 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 5: BOSS WARDROBE (3x2 ZERO SCROLL) */}
+      {/* TAB 5: BOSS WARDROBE (3x2 ZERO SCROLL — PURE CASH) */}
       {subTab === 'WARDROBE' && (
         <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
           {PLAYER_OUTFITS.map((outfit) => {
             const loc = getLocalizedOutfit(outfit.id, lang);
             const owned = ownedOutfits.includes(outfit.id);
             const equipped = equippedOutfit === outfit.id;
-            const outfitLocked = !owned && level < (outfit.minLevel ?? 1);
 
             return (
               <div
@@ -679,8 +646,6 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                   equipped
                     ? 'border-amber-400 bg-amber-500/12'
-                    : outfitLocked
-                    ? 'border-white/8 bg-[#121923] opacity-80'
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
@@ -698,7 +663,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 <div className="flex-1 min-h-0 my-1.5 rounded-lg border border-white/8 bg-[#0D131C] px-2.5 py-1.5 flex items-center justify-center gap-3 overflow-hidden">
                   <OutfitAvatarArt
                     id={outfit.id}
-                    className={`h-full max-h-20 w-auto shrink-0 ${outfitLocked ? 'opacity-50' : ''}`}
+                    className="h-full max-h-20 w-auto shrink-0"
                   />
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="text-[10px] font-bold text-emerald-300 line-clamp-2 leading-snug">
@@ -710,10 +675,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-white/8 tabular-nums">
-                  <span className="font-mono text-[9.5px] text-slate-400">
-                    {bi(`Sv.${outfit.minLevel}`, `Lv.${outfit.minLevel}`)}
-                  </span>
+                <div className="flex items-center justify-end pt-1 border-t border-white/8 tabular-nums">
                   {equipped ? (
                     <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
                       {bi('Giyili ✓', 'Worn ✓')}
@@ -726,10 +688,6 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                     >
                       {bi('Giy', 'Equip')}
                     </button>
-                  ) : outfitLocked ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300">
-                      <Lock className="w-3 h-3" /> {bi(`Seviye ${outfit.minLevel}`, `Level ${outfit.minLevel}`)}
-                    </span>
                   ) : (
                     <button
                       type="button"

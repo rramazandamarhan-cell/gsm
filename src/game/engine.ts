@@ -280,18 +280,26 @@ export function hasAccessoryLicense(upgrades?: UpgradeId[]): boolean {
   return Boolean(upgrades?.includes('accessory_license'));
 }
 
+export function hasClassifiedsLicense(upgrades?: UpgradeId[]): boolean {
+  return Boolean(upgrades?.includes('classifieds_license'));
+}
+
+export function hasAuctionLicense(upgrades?: UpgradeId[]): boolean {
+  return Boolean(upgrades?.includes('auction_license'));
+}
+
 export function hasBrandNewLicense(upgrades?: UpgradeId[]): boolean {
   return Boolean(upgrades?.includes('brand_new_license'));
 }
 
 export function isAccessoryUnlocked(
   id: AccessoryId,
-  level: number,
+  shopTier: number,
   upgrades?: UpgradeId[]
 ): boolean {
   if (upgrades && !hasAccessoryLicense(upgrades)) return false;
   const spec = getAccessorySpec(id);
-  return level >= (spec.minLevel ?? 1);
+  return shopTier >= (spec.minShopTier ?? 1);
 }
 
 export function getTotalAccessoryStock(
@@ -308,14 +316,14 @@ export function getDistributorForBrand(brand: string) {
 
 export function isDistributorUnlocked(
   distributorId: string,
-  level: number,
+  shopTier: number,
   reputation: number,
   upgrades?: UpgradeId[]
 ): boolean {
   if (upgrades && !hasBrandNewLicense(upgrades)) return false;
   const dist = BRAND_DISTRIBUTORS.find((d) => d.id === distributorId);
   if (!dist) return false;
-  return level >= dist.minLevel && reputation >= dist.minReputation;
+  return shopTier >= (dist.minShopTier ?? 1) && reputation >= dist.minReputation;
 }
 
 export function deriveMoodFromScore(score: number): CustomerMood {
@@ -529,7 +537,7 @@ export function getAccessoryWholesaleCost(
 
 export function getDistributorWholesalePrice(
   spec: PhoneModelSpec,
-  shopLevel: number,
+  shopTier: number,
   dailyDiscountBrand?: string,
   legacyPath?: LegacyPathId,
   loyaltyUnits = 0,
@@ -537,8 +545,8 @@ export function getDistributorWholesalePrice(
 ): number {
   const dist = getDistributorForBrand(spec.brand);
   let mult = dist.wholesaleRatio;
-  if (shopLevel >= 7) mult -= 0.04;
-  if (shopLevel >= 10) mult -= 0.04;
+  if (shopTier >= 4) mult -= 0.04;
+  if (shopTier >= 6) mult -= 0.04;
   if (legacyPath === 'BORN_MERCHANT') {
     mult -= 0.06;
   }
@@ -669,7 +677,6 @@ export function countClaimableRewards(state: ShopState): number {
   ).length;
   const readyMilestones = CAREER_MILESTONES.filter(
     (m) =>
-      state.level >= (m.minLevel ?? 1) &&
       !state.claimedMilestoneIds.includes(m.id) &&
       getMilestoneCurrentValue(state, m) >= m.target
   ).length;
@@ -1028,27 +1035,17 @@ export function getMultiRepairCost(
   return raw;
 }
 
-export function getTabUnlockLevel(tab: ShopTab): number {
-  switch (tab) {
-    case 'COUNTER':
-    case 'WORKSHOP':
-    case 'MISSIONS':
-      return 1;
-    case 'WHOLESALE':
-    case 'UPGRADES':
-      return 2;
-    case 'EMPIRE':
-      return 4;
-  }
+export function getTabUnlockLevel(_tab: ShopTab): number {
+  return 1;
 }
 
-export function getTabUnlockDay(tab: ShopTab): number {
-  return getTabUnlockLevel(tab);
+export function getTabUnlockDay(_tab: ShopTab): number {
+  return 1;
 }
 
-export function isTabUnlocked(state: ShopState, tab: ShopTab): boolean {
-  if (state.allTabsUnlockedEarly) return true;
-  return state.level >= getTabUnlockLevel(tab);
+export function isTabUnlocked(_state: ShopState, _tab: ShopTab): boolean {
+  // All tabs are open from Day 1; business verticals unlock via cash licenses & shop growth!
+  return true;
 }
 
 export interface StockAgingInfo {
@@ -2272,7 +2269,7 @@ export function createAccessoryBuyerEncounter(
 ): CustomerEncounter | null {
   if (!hasAccessoryLicense(state.upgrades)) return null;
   const available = Object.values(state.accessories).filter(
-    (a) => a.quantity > 0 && isAccessoryUnlocked(a.id, state.level, state.upgrades)
+    (a) => a.quantity > 0 && isAccessoryUnlocked(a.id, state.shopTier, state.upgrades)
   );
   if (available.length === 0) return null;
 
@@ -2470,10 +2467,20 @@ export function createBulkAuctionEncounter(state: ShopState): CustomerEncounter 
 }
 
 export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
-  const extraByLevel = (state.level >= 6 ? 1 : 0) + (state.level >= 10 ? 1 : 0);
-  const isDay1Guided = state.day === 1 && !state.allTabsUnlockedEarly;
-  const baseQueueSize = SHOP_TIERS[state.shopTier].dailyCustomers + extraByLevel; // 12 to 22 daily customers!
-  const queueSize = isDay1Guided ? Math.min(8, baseQueueSize) : baseQueueSize;
+  // Dynamic bustle: start calm at Tier 1 (6/day) and grow livelier as you expand shop, hire staff, and upgrade!
+  const staffBustle =
+    (state.staff.includes('apprentice') ? 1 : 0) +
+    (state.staff.includes('sales_rep') ? 1 : 0);
+  const upgradeBustle =
+    (state.upgrades.includes('neon_sign') ? 1 : 0) +
+    (state.upgrades.includes('cloud_crm') ? 1 : 0) +
+    (state.upgrades.includes('vip_concierge') ? 2 : 0);
+  const decorBustle = state.activeDecorations.length >= 3 ? 1 : 0;
+  const queueSize = Math.min(
+    26,
+    SHOP_TIERS[state.shopTier].dailyCustomers + staffBustle + upgradeBustle + decorBustle
+  );
+  const isDay1Guided = state.day === 1;
   const listedPhones = state.inventory.filter((d) => d.listedForSale && !d.assignedToStaff);
   const usedBuyerPhoneIds = new Set<string>();
   const queue: CustomerEncounter[] = [];
@@ -2482,19 +2489,14 @@ export function generateDailyQueue(state: ShopState): CustomerEncounter[] {
   const hasAccessoryStock = getTotalAccessoryStock(state.accessories) > 0;
 
   if (isDay1Guided) {
-    // Focused Day 1 onboarding pace: core Buy/Inspect + Sell + 1 easy Accessory retail customer
-    // First customer is always a Seller so the player immediately practices detective inspection & haggling!
+    // Calm Day 1 opening in a small 12m² stall: 6 focused 2nd-hand encounters
     const firstSeller = createSellerEncounter(state);
     if (listedPhones.length > 0) {
       usedBuyerPhoneIds.add(listedPhones[0].uid);
       queue.push(createBuyerEncounter(state, listedPhones[0]));
     }
-    if (hasAccessoryStock) {
-      const accEnc = createAccessoryBuyerEncounter(state);
-      if (accEnc) queue.push(accEnc);
-    }
     while (queue.length < queueSize - 1) {
-      if (listedPhones.length > 0 && Math.random() < 0.35) {
+      if (listedPhones.length > 0 && Math.random() < 0.38) {
         queue.push(createBuyerEncounter(state, pick(listedPhones)));
       } else {
         queue.push(createSellerEncounter(state));
@@ -2743,23 +2745,117 @@ export function generateShippingOrders(state: ShopState): ShippingOrder[] {
   });
 }
 
+const AUCTION_TIER_PRESETS: Array<{
+  sessionLabel: string;
+  minShopTier: ShopTier;
+  deviceCount: number;
+  budgetFloor: number;
+  startRatio: number;
+  riskTag: string;
+  manifestHint: string;
+  archetype: CustomerArchetypeId;
+  bonusAccessories: { id: AccessoryId; quantity: number }[];
+}> = [
+  {
+    sessionLabel: 'Pasaj İcra Kolisi',
+    minShopTier: 1,
+    deviceCount: 2,
+    budgetFloor: 14000,
+    startRatio: 0.5,
+    riskTag: 'Düşük Risk',
+    manifestHint: 'Giriş & orta segment 2. el koli · Hızlı nakit dönüşü',
+    archetype: 'student',
+    bonusAccessories: [
+      { id: 'tempered_glass', quantity: 4 },
+      { id: 'magsafe_case', quantity: 2 },
+    ],
+  },
+  {
+    sessionLabel: 'Semt İkinci El Sandığı',
+    minShopTier: 1,
+    deviceCount: 2,
+    budgetFloor: 28000,
+    startRatio: 0.52,
+    riskTag: 'Orta Risk',
+    manifestHint: 'Karma vitrin cihazları · Kozmetik kusur ihtimali var',
+    archetype: 'hustler',
+    bonusAccessories: [
+      { id: 'car_mount', quantity: 2 },
+      { id: 'magsafe_case', quantity: 3 },
+    ],
+  },
+  {
+    sessionLabel: 'Gümrük Kapalı Paleti',
+    minShopTier: 2,
+    deviceCount: 3,
+    budgetFloor: 58000,
+    startRatio: 0.54,
+    riskTag: 'Orta-Yüksek Risk',
+    manifestHint: 'Gümrük mühürlü 3 cihaz · Yurt dışı & amiral karışımı',
+    archetype: 'influencer',
+    bonusAccessories: [
+      { id: 'gan_charger', quantity: 3 },
+      { id: 'powerbank', quantity: 2 },
+    ],
+  },
+  {
+    sessionLabel: 'Telekom Tasfiye Kasası',
+    minShopTier: 3,
+    deviceCount: 3,
+    budgetFloor: 115000,
+    startRatio: 0.56,
+    riskTag: 'Yüksek Risk',
+    manifestHint: 'Kurumsal filo iade cihazları · Yüksek kâr marjı potansiyeli',
+    archetype: 'vip',
+    bonusAccessories: [
+      { id: 'tws_earbuds', quantity: 2 },
+      { id: 'gan_charger', quantity: 3 },
+    ],
+  },
+  {
+    sessionLabel: 'Havalimanı VIP Konteyneri',
+    minShopTier: 4,
+    deviceCount: 4,
+    budgetFloor: 240000,
+    startRatio: 0.58,
+    riskTag: 'Yüksek Bahis',
+    manifestHint: '4 üst segment amiral & VIP cihaz · Sert rakip çekişmesi',
+    archetype: 'vip',
+    bonusAccessories: [
+      { id: 'tws_earbuds', quantity: 3 },
+      { id: 'powerbank', quantity: 3 },
+    ],
+  },
+  {
+    sessionLabel: 'İthalatçı Amiral Kasası',
+    minShopTier: 5,
+    deviceCount: 4,
+    budgetFloor: 480000,
+    startRatio: 0.6,
+    riskTag: 'VIP Büyük İhale',
+    manifestHint: 'Amiral gemisi & katlanabilir lüks seri · Dev sermaye mezatı',
+    archetype: 'vip',
+    bonusAccessories: [
+      { id: 'tws_earbuds', quantity: 4 },
+      { id: 'gan_charger', quantity: 4 },
+    ],
+  },
+];
+
 export function generateDailyAuctionLot(
   state: ShopState,
   sessionIndex = 0
 ): CustomsAuctionLot {
-  const sessionLabels = ['Sabah İcra Seansı', 'Öğle Gümrük Paleti', 'Akşam VIP Konteyneri'];
-  const sessionLabel = sessionLabels[sessionIndex % sessionLabels.length];
-  const deviceCount =
-    sessionIndex === 2 ? Math.min(4, 2 + (state.shopTier >= 3 ? 2 : 1)) : state.shopTier >= 2 ? 3 : 2;
+  const preset = AUCTION_TIER_PRESETS[sessionIndex % AUCTION_TIER_PRESETS.length];
   const devices: PhoneDevice[] = [];
   let totalMarket = 0;
 
-  for (let i = 0; i < deviceCount; i++) {
+  for (let i = 0; i < preset.deviceCount; i++) {
     const spec = pickPhoneSpecForDay(
-      state.day,
-      Math.max(16000, state.cash * (sessionIndex === 2 ? 1.2 : 0.9)),
-      state.shopTier,
-      sessionIndex === 2 || i === 0 ? 'vip' : 'hustler',
+      Math.max(state.day, preset.minShopTier * 3),
+      Math.max(preset.budgetFloor, state.cash * (0.65 + sessionIndex * 0.14)),
+      Math.max(state.shopTier, preset.minShopTier) as ShopTier,
+      preset.archetype,
       false
     );
     const dev = generatePhoneDevice(spec, 'hustler', state.day, 0);
@@ -2767,32 +2863,19 @@ export function generateDailyAuctionLot(
     totalMarket += calculateMarketValue(dev, false, state.dailyNews, state.upgrades);
   }
 
-  const bonusAccessories: { id: AccessoryId; quantity: number }[] =
-    sessionIndex === 1
-      ? [
-          { id: 'gan_charger', quantity: 2 },
-          { id: 'powerbank', quantity: 1 },
-        ]
-      : sessionIndex === 2
-      ? [
-          { id: 'tws_earbuds', quantity: 2 },
-          { id: 'magsafe_case', quantity: 3 },
-        ]
-      : [
-          { id: 'tempered_glass', quantity: 4 },
-          { id: 'magsafe_case', quantity: 2 },
-        ];
-
-  const startingBid = roundPrice(Math.max(4000, totalMarket * (0.48 + sessionIndex * 0.04)));
+  const startingBid = roundPrice(Math.max(6000, totalMarket * preset.startRatio));
 
   return {
     id: makeId('auc_lot'),
-    sessionLabel,
-    lotTitle: `${sessionLabel} #${100 + state.day * 7 + sessionIndex} (${deviceCount} Cihaz)`,
+    sessionLabel: preset.sessionLabel,
+    lotTitle: `${preset.sessionLabel} #${100 + state.day * 9 + sessionIndex} (${preset.deviceCount} Cihaz)`,
     description: `Mühürlü koli! İçerisinde ${devices.map((d) => `${d.brand} ${d.model}`).join(', ')} ve bonus aksesuar kolisi var. Kusurları kazanınca ortaya çıkar!`,
     startingBid,
+    minShopTier: preset.minShopTier,
+    riskTag: preset.riskTag,
+    manifestHint: preset.manifestHint,
     devices,
-    bonusAccessories,
+    bonusAccessories: preset.bonusAccessories,
     resolved: false,
     wonByPlayer: false,
     winningBid: startingBid,
@@ -2800,8 +2883,7 @@ export function generateDailyAuctionLot(
 }
 
 export function generateDailyAuctionLots(state: ShopState): CustomsAuctionLot[] {
-  const count = state.shopTier >= 3 || Math.random() < 0.55 ? 3 : 2;
-  return Array.from({ length: count }, (_, idx) => generateDailyAuctionLot(state, idx));
+  return AUCTION_TIER_PRESETS.map((_, idx) => generateDailyAuctionLot(state, idx));
 }
 
 // === TIMED PROJECTS, WHOLESALE CARGO, STAFF REPAIR QUEUE, RANDOM STORE EVENTS ===
@@ -3254,11 +3336,10 @@ export function simulateEndOfDayAccessorySales(state: ShopState): {
     tierFactor *
     (state.upgrades.includes('neon_sign') ? 1.25 : 1.0) *
     (state.upgrades.includes('barcode_automation') ? 1.35 : 1.0) *
-    (appLvl > 0 ? 1 + 0.12 + appLvl * 0.08 : 1.0) *
-    (state.level >= 4 ? 1.2 : 1.0);
+    (appLvl > 0 ? 1 + 0.12 + appLvl * 0.08 : 1.0);
 
   for (const spec of ACCESSORY_CATALOG) {
-    if (!isAccessoryUnlocked(spec.id, state.level, state.upgrades)) continue;
+    if (!isAccessoryUnlocked(spec.id, state.shopTier, state.upgrades)) continue;
     const stock = updated[spec.id];
     if (!stock || stock.quantity <= 0) continue;
 
@@ -3432,7 +3513,7 @@ export function createInitialShopState(): ShopState {
       name: 'Kurnaz Kerim',
       shopName: 'Kerim GSM Köşe',
       marketShare: 62,
-      buyoutCost: 48000,
+      buyoutCost: 250000,
       boughtOut: false,
       lastTaunt: 'Kurnaz Kerim: "Hoş geldin genç esnaf! 23 yaşında bu pasajda tutunmak kolay değil, görelim bakalım!"',
       promoUsedToday: false,
@@ -5131,11 +5212,12 @@ export function loadShopState(): ShopState | null {
     if (migrated.shippingOrders.length === 0) {
       migrated.shippingOrders = generateShippingOrders(migrated);
     }
-    if (migrated.dailyAuctionLots.length === 0) {
-      migrated.dailyAuctionLots = migrated.dailyAuctionLot
-        ? [migrated.dailyAuctionLot, generateDailyAuctionLot(migrated, 1)]
-        : generateDailyAuctionLots(migrated);
+    if (migrated.dailyAuctionLots.length < 6) {
+      migrated.dailyAuctionLots = generateDailyAuctionLots(migrated);
       migrated.dailyAuctionLot = migrated.dailyAuctionLots[0] ?? null;
+    }
+    if (migrated.rival && migrated.rival.buyoutCost < 250000) {
+      migrated.rival = { ...migrated.rival, buyoutCost: 250000 };
     }
     return migrated;
   } catch {

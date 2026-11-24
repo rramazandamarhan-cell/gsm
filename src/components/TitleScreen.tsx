@@ -191,7 +191,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 ·
               </span>
               <span>
-                {bi('Sv.', 'Lv.')} {savedState.level}
+                {bi('Gün', 'Day')} {savedState.day}
               </span>
               <span aria-hidden="true" className="text-slate-600">
                 ·

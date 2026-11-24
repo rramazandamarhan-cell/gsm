@@ -128,7 +128,8 @@ export interface AccessorySpec {
   name: string;
   category: string;
   shelfGroup: AccessoryShelfGroup;
-  minLevel: number;
+  minShopTier: ShopTier;
+  minLevel?: number;
   wholesaleCost: number;
   recommendedPrice: number;
   minPrice: number;
@@ -148,7 +149,8 @@ export interface BrandDistributor {
   id: string;
   name: string;
   brands: string[];
-  minLevel: number;
+  minShopTier: ShopTier;
+  minLevel?: number;
   minReputation: number;
   wholesaleRatio: number;
   tagline: string;
@@ -354,9 +356,11 @@ export type UpgradeId =
   | 'accessory_license'
   | 'pro_diagnostic'
   | 'display_cabinet'
+  | 'classifieds_license'
   | 'parts_wholesale'
   | 'neon_sign'
   | 'cctv_security'
+  | 'auction_license'
   | 'brand_new_license'
   | 'ultrasonic_cleaner'
   | 'laser_backglass'
@@ -372,7 +376,8 @@ export interface ShopUpgrade {
   id: UpgradeId;
   name: string;
   cost: number;
-  minLevel: number;
+  minShopTier?: ShopTier;
+  minLevel?: number;
   installDays: number;
   category: 'workshop' | 'sales' | 'automation';
   summary: string;
@@ -392,7 +397,8 @@ export interface ShopDecoration {
   id: DecorationId;
   name: string;
   cost: number;
-  minLevel: number;
+  minShopTier?: ShopTier;
+  minLevel?: number;
   prestige: number;
   summary: string;
   visualEffectText: string;
@@ -406,7 +412,8 @@ export interface StaffMember {
   role: string;
   hireCost: number;
   dailyWage: number;
-  minLevel: number;
+  minShopTier?: ShopTier;
+  minLevel?: number;
   maxLevel: number;
   summary: string;
   benefitText: string;
@@ -420,7 +427,7 @@ export interface ShopTierInfo {
   name: string;
   cost: number;
   minReputation: number;
-  minLevel: number;
+  minLevel?: number;
   renovationDays: number;
   backdropPath: string;
   showcaseSlots: number;
@@ -475,7 +482,8 @@ export interface OutfitSpec {
   name: string;
   subtitle: string;
   cost: number;
-  minLevel: number;
+  minShopTier?: ShopTier;
+  minLevel?: number;
   moodBonus: number;
   patienceBonus: number;
   preferredArchetypes: CustomerArchetypeId[];
@@ -659,6 +667,9 @@ export interface CustomsAuctionLot {
   lotTitle: string;
   description: string;
   startingBid: number;
+  minShopTier?: ShopTier;
+  riskTag?: string;
+  manifestHint?: string;
   devices: PhoneDevice[];
   bonusAccessories: { id: AccessoryId; quantity: number }[];
   resolved: boolean;
@@ -678,7 +689,8 @@ export interface BranchSpec {
   name: string;
   district: string;
   unlockCost: number;
-  minLevel: number;
+  minShopTier?: ShopTier;
+  minLevel?: number;
   minReputation: number;
   buildDays: number;
   dailyNetIncome: number;
@@ -694,7 +706,7 @@ export interface BankLoanOffer {
   interestRate: number;
   termDays: number;
   minShopTier: ShopTier;
-  minLevel: number;
+  minLevel?: number;
   description: string;
 }
 
@@ -717,10 +729,14 @@ export interface MuseumItemSpec {
   id: MuseumItemId;
   name: string;
   year: string;
+  eraTag: string;
+  rarityLabel: string;
   cost: number;
   prestigeBonus: number;
   dailyPassiveCash: number;
   story: string;
+  fullHistory: string;
+  collectorPerk: string;
   accentColor: string;
 }
 

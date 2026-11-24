@@ -45,6 +45,7 @@ import {
   getMoodDisplay,
   getNegotiationResistance,
   getPatienceLabel,
+  hasAccessoryLicense,
   isAccessoryUnlocked,
   roundPrice,
 } from '../game/engine';
@@ -295,15 +296,15 @@ export const CounterView: React.FC<CounterViewProps> = ({
     return { min, max, step: max > 20000 ? 500 : 250 };
   }, [encounter]);
 
-  // License & level-gated cross-sell options — requires accessory_license
+  // License & shop-tier-gated cross-sell options — requires accessory_license
   const stockedCrossSellOptions = useMemo(
     () =>
       ACCESSORY_CATALOG.filter(
         (spec) =>
-          isAccessoryUnlocked(spec.id, shopLevel, upgrades) &&
+          isAccessoryUnlocked(spec.id, shopTier, upgrades) &&
           (accessories[spec.id]?.quantity ?? 0) > 0
       ),
-    [accessories, shopLevel, upgrades]
+    [accessories, shopTier, upgrades]
   );
 
   const readyQuest = dailyQuests.find((q) => !q.claimed && q.progress >= q.target);
@@ -1131,10 +1132,10 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       </div>
                       {stockedCrossSellOptions.length === 0 ? (
                         <div className="text-center text-[10px] text-slate-400 py-0.5">
-                          {shopLevel < 2
+                          {!hasAccessoryLicense(upgrades)
                             ? bi(
-                                'Aksesuar satışları Seviye 2 ile açılır.',
-                                'Accessory cross-selling unlocks at Level 2.'
+                                'Aksesuar satışı için Toptan sekmesinden Aksesuar Lisansı al.',
+                                'Purchase the Accessory License in Supply to cross-sell.'
                               )
                             : bi(
                                 'Reyonda stok yok — Toptancıdan aksesuar al.',
@@ -1241,8 +1242,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             'Device added to workshop. Repair and list it on your showcase!'
                           )
                         : bi(
-                            'Satış kasaya işlendi ve XP kazandın!',
-                            'Sale booked to your register and XP awarded!'
+                            'Satış kasaya işlendi!',
+                            'Sale booked to your register!'
                           )
                       : bi(
                           'Bu müşteriyle anlaşma olmadı. Sıradaki müşteri seni bekliyor.',

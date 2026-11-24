@@ -618,8 +618,8 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 </div>
                 <p className="text-[10px] text-slate-400 max-w-xs leading-snug">
                   {bi(
-                    'Telefon yanına kılıf, kırılmaz cam ve şarj kombini takmak için Büyüt veya Toptan sekmesinden Aksesuar Lisansını (18.000 ₺ · Sv.2) aç.',
-                    'Unlock the Accessory License (18,000 ₺ · Lv.2) in Upgrades or Supply to bundle cases, glass & chargers.'
+                    'Telefon yanına kılıf, kırılmaz cam ve şarj kombini takmak için Büyüt veya Toptan sekmesinden Aksesuar Lisansını (45.000 ₺) aç.',
+                    'Unlock the Accessory License (45,000 ₺) in Upgrades or Supply to bundle cases, glass & chargers.'
                   )}
                 </p>
                 <button
@@ -635,7 +635,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
               {ACCESSORY_CATALOG.map((acc) => {
                 const loc = getLocalizedAccessory(acc.id, lang);
                 const stock = accessories[acc.id]?.quantity ?? 0;
-                const unlocked = isAccessoryUnlocked(acc.id, shopLevel, upgrades);
+                const unlocked = isAccessoryUnlocked(acc.id, shopTier, upgrades);
                 const attached = bundledList.includes(acc.id);
                 const bonusVal = Math.round(acc.recommendedPrice * 1.1);
                 const canAttach =
@@ -666,7 +666,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                       ) : !unlocked ? (
                         <span className="inline-flex items-center gap-0.5 font-mono text-[9px] font-bold text-amber-300">
                           <Lock className="w-2.5 h-2.5" />
-                          {bi(`Sv.${acc.minLevel}`, `L${acc.minLevel}`)}
+                          {bi(`Dük.${acc.minShopTier}`, `T${acc.minShopTier}`)}
                         </span>
                       ) : (
                         <span

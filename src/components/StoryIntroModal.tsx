@@ -102,8 +102,8 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
         `${formatTRY(STARTING_CASH)} in Savings & Big Dreams`
       ),
       body: bi(
-        `Yıllarca kenara attığın ${formatTRY(STARTING_CASH)} sermaye ve vitrindeki ilk 2. el telefonunla pasajın arka koridorunda kendi dükkanını tuttun. Seviye atladıkça aksesuar reyonunu, tamir atölyesini ve marka bayiliklerini tek tek açacaksın.`,
-        `With ${formatTRY(STARTING_CASH)} saved up and your first pre-owned phone on display, you rented a small stall in the arcade. As you level up, you will unlock the accessory wall, wholesale distributors, and city branches step by step.`
+        `Yıllarca kenara attığın ${formatTRY(STARTING_CASH)} sermaye ve vitrindeki ilk 2. el telefonunla pasajın arka koridorunda kendi dükkanını tuttun. Kasanı büyütüp yeni lisanslar aldıkça aksesuar reyonunu, sarı ilanları, ihaleleri ve marka bayiliklerini tek tek açacaksın.`,
+        `With ${formatTRY(STARTING_CASH)} saved up and your first pre-owned phone on display, you rented a small stall in the arcade. As you grow your cash and buy new licenses, you will unlock accessories, classifieds, auctions, and flagship dealerships step by step.`
       ),
       quote: bi(
         'İç sesin: "Sıfırdan başlıyorum! Önce 2. el telefonları inceleyip tamir ederek ustalaşacağım, sonra kılıf, kulaklık, powerbank ve sıfır kutu bayiliklerle pasajı fethedeceğim!"',

@@ -104,7 +104,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   const activeDistLoc = getLocalizedDistributor(activeDist.id, lang);
   const distUnlocked = isDistributorUnlocked(
     activeDist.id,
-    shop.level,
+    shop.shopTier,
     shop.reputation,
     shop.upgrades
   );
@@ -241,11 +241,8 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
-              <span className="rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1 text-slate-200">
-                {bi(`Gereken Seviye: Sv.${accLicenseSpec.minLevel}`, `Required: Lv.${accLicenseSpec.minLevel}`)}
-              </span>
               <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1 font-extrabold text-amber-300">
-                {formatTRY(accLicenseSpec.cost)}
+                {formatTRY(accLicenseSpec.cost)} · {bi('Anında Açılır', 'Instant Unlock')}
               </span>
             </div>
             {pendingAccLicense ? (
@@ -256,15 +253,13 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             ) : (
               <button
                 type="button"
-                disabled={shop.level < accLicenseSpec.minLevel || shop.cash < accLicenseSpec.cost}
+                disabled={shop.cash < accLicenseSpec.cost}
                 onClick={() => onBuyUpgrade('accessory_license')}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
               >
                 <ShoppingBag className="w-4 h-4" />
-                {shop.level < accLicenseSpec.minLevel
-                  ? bi(`Seviye ${accLicenseSpec.minLevel} Gerekli`, `Requires Level ${accLicenseSpec.minLevel}`)
-                  : shop.cash < accLicenseSpec.cost
-                  ? bi(`Yetersiz Kasa (${formatTRY(accLicenseSpec.cost)})`, `Need ${formatTRY(accLicenseSpec.cost)}`)
+                {shop.cash < accLicenseSpec.cost
+                  ? bi(`Yetersiz Kasa (${formatTRY(accLicenseSpec.cost)} Gerekli)`, `Need ${formatTRY(accLicenseSpec.cost)}`)
                   : bi(`Aksesuar Lisansını Aç (${formatTRY(accLicenseSpec.cost)})`, `Unlock Accessory License (${formatTRY(accLicenseSpec.cost)})`)}
               </button>
             )}
@@ -274,7 +269,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
           {ACCESSORY_CATALOG.map((spec) => {
             const loc = getLocalizedAccessory(spec.id, lang);
             const stock = shop.accessories[spec.id];
-            const unlocked = isAccessoryUnlocked(spec.id, shop.level, shop.upgrades);
+            const unlocked = isAccessoryUnlocked(spec.id, shop.shopTier, shop.upgrades);
             const unitCost = getAccessoryWholesaleCost(spec.id, shop.legacyPath);
             const fee = expressDelivery ? EXPRESS_ACCESSORY_FEE : 0;
             const cost3 = unitCost * 3 + fee;
@@ -308,7 +303,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                   ) : (
                     <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-300 shrink-0">
                       <Lock className="w-2.5 h-2.5" />
-                      {bi(`Sv.${spec.minLevel}`, `Lv.${spec.minLevel}`)}
+                      {bi(`Dükkan ${spec.minShopTier}`, `Tier ${spec.minShopTier}`)}
                     </span>
                   )}
                 </div>
@@ -345,14 +340,14 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                       <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-200">
                         <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         {bi(
-                          `Seviye ${spec.minLevel} ile Açılır`,
-                          `Unlocks at Level ${spec.minLevel}`
+                          `${spec.minShopTier}. Dükkan ile Açılır`,
+                          `Unlocks at Shop Tier ${spec.minShopTier}`
                         )}
                       </div>
                       <div className="text-[10px] text-slate-400">
                         {bi(
-                          `Şu an Sv. ${shop.level} · Al-sat ile XP kazan`,
-                          `Currently Lv. ${shop.level} · Earn XP trading`
+                          `Şu an ${shop.shopTier}. Dükkan · Büyüt sekmesinden genişle`,
+                          `Currently Tier ${shop.shopTier} · Expand in Grow tab`
                         )}
                       </div>
                     </div>
@@ -459,9 +454,6 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
-              <span className="rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1 text-slate-200">
-                {bi(`Gereken Seviye: Sv.${brandNewLicenseSpec.minLevel}`, `Required: Lv.${brandNewLicenseSpec.minLevel}`)}
-              </span>
               <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1 font-extrabold text-amber-300">
                 {formatTRY(brandNewLicenseSpec.cost)} · {brandNewLicenseSpec.installDays} {bi('gün', 'd')}
               </span>
@@ -474,15 +466,13 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             ) : (
               <button
                 type="button"
-                disabled={shop.level < brandNewLicenseSpec.minLevel || shop.cash < brandNewLicenseSpec.cost}
+                disabled={shop.cash < brandNewLicenseSpec.cost}
                 onClick={() => onBuyUpgrade('brand_new_license')}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
               >
                 <Sparkles className="w-4 h-4" />
-                {shop.level < brandNewLicenseSpec.minLevel
-                  ? bi(`Seviye ${brandNewLicenseSpec.minLevel} Gerekli`, `Requires Level ${brandNewLicenseSpec.minLevel}`)
-                  : shop.cash < brandNewLicenseSpec.cost
-                  ? bi(`Yetersiz Kasa (${formatTRY(brandNewLicenseSpec.cost)})`, `Need ${formatTRY(brandNewLicenseSpec.cost)}`)
+                {shop.cash < brandNewLicenseSpec.cost
+                  ? bi(`Yetersiz Kasa (${formatTRY(brandNewLicenseSpec.cost)} Gerekli)`, `Need ${formatTRY(brandNewLicenseSpec.cost)}`)
                   : bi(`Bayilik Lisansı Al (${formatTRY(brandNewLicenseSpec.cost)})`, `Buy Dealership License (${formatTRY(brandNewLicenseSpec.cost)})`)}
               </button>
             )}
@@ -515,7 +505,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               const loc = getLocalizedDistributor(d.id, lang);
               const unlocked = isDistributorUnlocked(
                 d.id,
-                shop.level,
+                shop.shopTier,
                 shop.reputation,
                 shop.upgrades
               );
@@ -564,8 +554,8 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               </p>
               <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-1 font-mono text-xs font-bold text-amber-300">
                 {bi(
-                  `Gereken: Seviye ${activeDist.minLevel} · ${activeDist.minReputation.toFixed(1)}★ İtibar`,
-                  `Requires: Level ${activeDist.minLevel} · ${activeDist.minReputation.toFixed(1)}★ Rep`
+                  `Gereken: ${activeDist.minShopTier}. Dükkan · ${activeDist.minReputation.toFixed(1)}★ İtibar`,
+                  `Requires: Shop Tier ${activeDist.minShopTier} · ${activeDist.minReputation.toFixed(1)}★ Rep`
                 )}
               </div>
             </div>
@@ -575,7 +565,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                 {visibleModels.map((spec) => {
                   const baseWholesale = getDistributorWholesalePrice(
                     spec,
-                    shop.level,
+                    shop.shopTier,
                     shop.dailyWholesaleDiscountBrand,
                     shop.legacyPath
                   );
