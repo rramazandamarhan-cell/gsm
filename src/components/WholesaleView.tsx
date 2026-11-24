@@ -17,6 +17,7 @@ import {
   ACCESSORY_CATALOG,
   BRAND_DISTRIBUTORS,
   PHONE_CATALOG,
+  SHOP_UPGRADES,
 } from '../game/catalog';
 import {
   calculateSaleTax,
@@ -25,6 +26,8 @@ import {
   getAccessoryWholesaleCost,
   getDistributorWholesalePrice,
   getTotalAccessoryStock,
+  hasAccessoryLicense,
+  hasBrandNewLicense,
   isAccessoryUnlocked,
   isDistributorUnlocked,
 } from '../game/engine';
@@ -33,7 +36,7 @@ import {
   getLocalizedDistributor,
   useLanguage,
 } from '../game/i18n';
-import { AccessoryId, PhoneModelSpec, ShopState } from '../game/types';
+import { AccessoryId, PhoneModelSpec, ShopState, UpgradeId } from '../game/types';
 import { PhoneModelThumb } from './PhoneInspectSVG';
 import { AccessoryProductArt, PhoneBoxArt } from './VisualShowcaseArt';
 
@@ -50,6 +53,7 @@ interface WholesaleViewProps {
     wholesaleCost: number,
     expressDelivery: boolean
   ) => void;
+  onBuyUpgrade: (upgradeId: UpgradeId) => void;
   onBackToCounter: () => void;
 }
 
@@ -63,12 +67,24 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   onBuyAccessoryStock,
   onUpdateAccessoryPrice,
   onOrderBrandNewPhone,
+  onBuyUpgrade,
   onBackToCounter,
 }) => {
   const { lang, bi } = useLanguage();
+  const accLicensed = hasAccessoryLicense(shop.upgrades);
+  const brandNewLicensed = hasBrandNewLicense(shop.upgrades);
+  const accLicenseSpec = SHOP_UPGRADES.find((u) => u.id === 'accessory_license')!;
+  const brandNewLicenseSpec = SHOP_UPGRADES.find((u) => u.id === 'brand_new_license')!;
+  const pendingAccLicense = (shop.pendingProjects ?? []).find(
+    (p) => p.kind === 'UPGRADE' && p.targetId === 'accessory_license'
+  );
+  const pendingBrandNewLicense = (shop.pendingProjects ?? []).find(
+    (p) => p.kind === 'UPGRADE' && p.targetId === 'brand_new_license'
+  );
+
   const flashDeal = shop.flashWholesaleDeal;
   const flashActive = Boolean(
-    flashDeal && !flashDeal.expired && flashDeal.remainingStock > 0
+    brandNewLicensed && flashDeal && !flashDeal.expired && flashDeal.remainingStock > 0
   );
   const [subTab, setSubTab] = useState<WholesaleSubTab>(
     flashActive ? 'BRAND_NEW' : 'ACCESSORIES'
@@ -89,7 +105,8 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   const distUnlocked = isDistributorUnlocked(
     activeDist.id,
     shop.level,
-    shop.reputation
+    shop.reputation,
+    shop.upgrades
   );
   const distModels = PHONE_CATALOG.filter((p) =>
     activeDist.brands.includes(p.brand)
@@ -204,11 +221,60 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
 
       {/* TAB 1: ALL 6 ACCESSORIES WITH HERO PRODUCT SHOWCASE (3x2 ZERO SCROLL) */}
       {subTab === 'ACCESSORIES' && (
+        !accLicensed ? (
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3">
+            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
+              <ShoppingBag className="w-6 h-6 text-amber-400" />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+                {bi('YENİ İŞ KOLU · AKSESUAR REYONU', 'NEW BUSINESS LINE · ACCESSORY RACK')}
+              </div>
+              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+                {bi('Aksesuar Reyonu & Toptan Lisansı', 'Accessory Rack & Wholesale License')}
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {bi(
+                  'Kırılmaz cam, kılıf, araç tutucu, hızlı şarj ve kulaklık toptan alımını aç! Müşterilere hem tezgahtan hem telefon yanında çapraz satış yaparak günlük kârını katla.',
+                  'Unlock wholesale ordering for glass, cases, car mounts, chargers & earbuds! Boost daily profits with counter retail and phone cross-sell bundles.'
+                )}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
+              <span className="rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1 text-slate-200">
+                {bi(`Gereken Seviye: Sv.${accLicenseSpec.minLevel}`, `Required: Lv.${accLicenseSpec.minLevel}`)}
+              </span>
+              <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1 font-extrabold text-amber-300">
+                {formatTRY(accLicenseSpec.cost)}
+              </span>
+            </div>
+            {pendingAccLicense ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-4 py-2 text-xs font-bold text-sky-300">
+                <Clock className="w-4 h-4" />
+                {bi(`Kurulumda (${pendingAccLicense.daysRemaining} gün kaldı)`, `Installing (${pendingAccLicense.daysRemaining}d left)`)}
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={shop.level < accLicenseSpec.minLevel || shop.cash < accLicenseSpec.cost}
+                onClick={() => onBuyUpgrade('accessory_license')}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                {shop.level < accLicenseSpec.minLevel
+                  ? bi(`Seviye ${accLicenseSpec.minLevel} Gerekli`, `Requires Level ${accLicenseSpec.minLevel}`)
+                  : shop.cash < accLicenseSpec.cost
+                  ? bi(`Yetersiz Kasa (${formatTRY(accLicenseSpec.cost)})`, `Need ${formatTRY(accLicenseSpec.cost)}`)
+                  : bi(`Aksesuar Lisansını Aç (${formatTRY(accLicenseSpec.cost)})`, `Unlock Accessory License (${formatTRY(accLicenseSpec.cost)})`)}
+              </button>
+            )}
+          </div>
+        ) : (
         <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
           {ACCESSORY_CATALOG.map((spec) => {
             const loc = getLocalizedAccessory(spec.id, lang);
             const stock = shop.accessories[spec.id];
-            const unlocked = isAccessoryUnlocked(spec.id, shop.level);
+            const unlocked = isAccessoryUnlocked(spec.id, shop.level, shop.upgrades);
             const unitCost = getAccessoryWholesaleCost(spec.id, shop.legacyPath);
             const fee = expressDelivery ? EXPRESS_ACCESSORY_FEE : 0;
             const cost3 = unitCost * 3 + fee;
@@ -368,10 +434,60 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             );
           })}
         </div>
+        )
       )}
 
       {/* TAB 2: FACTORY-SEALED BRAND DISTRIBUTORS WITH LARGE BOX + PHONE MODEL VISUALS */}
       {subTab === 'BRAND_NEW' && (
+        !brandNewLicensed ? (
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3">
+            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-amber-400" />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+                {bi('YENİ İŞ KOLU · RESMİ BAYİLİK', 'NEW BUSINESS LINE · OFFICIAL DEALERSHIP')}
+              </div>
+              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+                {bi('Sıfır Kutu Resmi Bayilik Lisansı', 'Sealed Brand-New Dealership License')}
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {bi(
+                  '2. el ticaretin ötesine geç! Resmi marka distribütörlerinden 24 ay garantili sıfır kapalı kutu telefon getirme yetkisi ve flaş toptan indirimleri aç.',
+                  'Go beyond 2nd-hand flipping! Unlock official 24-month warranty factory-sealed brand distributors and live flash wholesale deals.'
+                )}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
+              <span className="rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1 text-slate-200">
+                {bi(`Gereken Seviye: Sv.${brandNewLicenseSpec.minLevel}`, `Required: Lv.${brandNewLicenseSpec.minLevel}`)}
+              </span>
+              <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1 font-extrabold text-amber-300">
+                {formatTRY(brandNewLicenseSpec.cost)} · {brandNewLicenseSpec.installDays} {bi('gün', 'd')}
+              </span>
+            </div>
+            {pendingBrandNewLicense ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-4 py-2 text-xs font-bold text-sky-300">
+                <Clock className="w-4 h-4" />
+                {bi(`Bayilik Onayında (${pendingBrandNewLicense.daysRemaining} gün kaldı)`, `Approval Pending (${pendingBrandNewLicense.daysRemaining}d left)`)}
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={shop.level < brandNewLicenseSpec.minLevel || shop.cash < brandNewLicenseSpec.cost}
+                onClick={() => onBuyUpgrade('brand_new_license')}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                {shop.level < brandNewLicenseSpec.minLevel
+                  ? bi(`Seviye ${brandNewLicenseSpec.minLevel} Gerekli`, `Requires Level ${brandNewLicenseSpec.minLevel}`)
+                  : shop.cash < brandNewLicenseSpec.cost
+                  ? bi(`Yetersiz Kasa (${formatTRY(brandNewLicenseSpec.cost)})`, `Need ${formatTRY(brandNewLicenseSpec.cost)}`)
+                  : bi(`Bayilik Lisansı Al (${formatTRY(brandNewLicenseSpec.cost)})`, `Buy Dealership License (${formatTRY(brandNewLicenseSpec.cost)})`)}
+              </button>
+            )}
+          </div>
+        ) : (
         <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
           {flashActive && flashDeal && (
             <div className="shrink-0 flex items-center justify-between gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11px]">
@@ -400,7 +516,8 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               const unlocked = isDistributorUnlocked(
                 d.id,
                 shop.level,
-                shop.reputation
+                shop.reputation,
+                shop.upgrades
               );
               const selected = d.id === activeDist.id;
               return (
@@ -609,6 +726,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             </div>
           )}
         </div>
+        )
       )}
 
       {/* TAB 3: IN-TRANSIT CARGO ORDERS */}

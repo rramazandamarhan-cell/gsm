@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Check,
@@ -6,7 +6,9 @@ import {
   Download,
   FileText,
   Globe,
+  Maximize2,
   MessageSquare,
+  Minimize2,
   Radio,
   ShieldCheck,
   SlidersHorizontal,
@@ -26,11 +28,13 @@ import {
 } from '../game/storeBridge';
 import { ShopState } from '../game/types';
 
-type ComplianceTab = 'SETTINGS' | 'ACHIEVEMENTS' | 'PRIVACY' | 'SUPPORT';
+export type ComplianceTab = 'SETTINGS' | 'ACHIEVEMENTS' | 'PRIVACY' | 'SUPPORT';
 
 interface StoreComplianceModalProps {
   shop: ShopState;
   muted: boolean;
+  initialTab?: ComplianceTab;
+  initialLegalView?: 'privacy' | 'terms';
   onToggleMute: () => void;
   onToggleAmbientSound: () => void;
   onToggleHaptics: () => void;
@@ -46,6 +50,8 @@ interface StoreComplianceModalProps {
 export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   shop,
   muted,
+  initialTab = 'SETTINGS',
+  initialLegalView = 'privacy',
   onToggleMute,
   onToggleAmbientSound,
   onToggleHaptics,
@@ -58,7 +64,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   onClose,
 }) => {
   const { lang, setLang, bi } = useLanguage();
-  const [tab, setTab] = useState<ComplianceTab>('SETTINGS');
+  const [tab, setTab] = useState<ComplianceTab>(initialTab);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -68,7 +74,28 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
   const [selectedStars, setSelectedStars] = useState(shop.ratedApp ? 5 : 0);
   const [feedbackDraft, setFeedbackDraft] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
-  const [legalView, setLegalView] = useState<'privacy' | 'terms'>('privacy');
+  const [legalView, setLegalView] = useState<'privacy' | 'terms'>(initialLegalView);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() =>
+    typeof document !== 'undefined' ? Boolean(document.fullscreenElement) : false
+  );
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      // Ignore if host WebView handles immersive fullscreen natively
+    }
+  };
 
   const unlockedCount = STORE_ACHIEVEMENTS.filter((a) => a.check(shop)).length;
   const totalPoints = STORE_ACHIEVEMENTS.reduce(
@@ -172,18 +199,18 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         className="w-full max-w-3xl max-h-[96dvh] rounded-2xl border border-white/12 bg-[#141C27] shadow-2xl overflow-hidden flex flex-col"
       >
-        {/* Compact Header + Tabs in 2 tight rows */}
-        <div className="px-3.5 py-2 border-b border-white/10 flex items-center justify-between gap-2 shrink-0 bg-[#10161F]">
+        {/* Ergonomic Fixed-Px Header + Tabs */}
+        <div className="px-3 py-1.5 min-h-[46px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 bg-[#10161F]">
           <div className="flex items-center gap-2 min-w-0">
             <img
               src="/pwa-192x192.png"
               alt="GSM Simulator"
               className="w-6 h-6 rounded-md object-cover border border-amber-400/30 shrink-0"
             />
-            <h2 className="font-display text-sm sm:text-base font-extrabold text-slate-50 truncate">
-              {bi('Ayarlar, Dil & Mağaza Merkezi', 'Settings, Language & Store Hub')}
+            <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 truncate">
+              {bi('Ayarlar & Gizlilik', 'Settings & Privacy')}
             </h2>
-            <span className="hidden sm:inline text-[10px] font-mono text-amber-400">
+            <span className="hidden md:inline text-[10px] font-mono text-amber-400">
               v{STORE_RELEASE_META.versionName}
             </span>
           </div>
@@ -193,7 +220,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center gap-1 min-h-[34px] rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 touch-manipulation ${
                   tab === t.id
                     ? 'bg-amber-500 text-slate-950'
                     : 'text-slate-300 hover:bg-white/[0.06] hover:text-slate-50'
@@ -207,9 +234,9 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label={bi('Kapat', 'Close')}
-              className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-[#1E2836] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
+              className="ml-1 flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-white/12 bg-[#1E2836] text-slate-200 hover:text-white hover:bg-[#273447] cursor-pointer shrink-0 touch-manipulation"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -339,29 +366,29 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                 </button>
               </div>
 
-              {/* Text Speed (full width) */}
-              <div className="col-span-2 rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs font-bold text-slate-100">
-                    {bi('Müşteri Diyalog Yazı Hızı', 'Dialogue Typing Speed')}
+              {/* Text Speed */}
+              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-100 truncate">
+                    {bi('Diyalog Yazı Hızı', 'Dialogue Speed')}
                   </div>
-                  <div className="text-[10px] text-slate-400">
-                    {bi('Konuşma balonlarının ekrana yazılma hızı.', 'Speed of customer speech bubbles.')}
+                  <div className="text-[10px] text-slate-400 truncate">
+                    {bi('Konuşma balonu hızı', 'Speech bubble speed')}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5 w-56 shrink-0">
+                <div className="grid grid-cols-3 gap-1 shrink-0">
                   {(
                     [
-                      { id: 'normal', label: bi('Normal', 'Normal') },
+                      { id: 'normal', label: bi('Normal', 'Norm') },
                       { id: 'fast', label: bi('Hızlı', 'Fast') },
-                      { id: 'instant', label: bi('Anında', 'Instant') },
+                      { id: 'instant', label: bi('Anında', 'Max') },
                     ] as const
                   ).map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => onSetTextSpeed(opt.id)}
-                      className={`rounded-lg py-1.5 text-[11px] font-bold cursor-pointer transition-colors ${
+                      className={`min-h-[30px] rounded-lg px-2 py-1 text-[10.5px] font-bold cursor-pointer transition-colors touch-manipulation ${
                         shop.textSpeed === opt.id
                           ? 'bg-amber-500 text-slate-950'
                           : 'border border-white/12 bg-[#111822] text-slate-300 hover:bg-[#1E2938]'
@@ -371,6 +398,36 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Fullscreen Toggle */}
+              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {isFullscreen ? (
+                    <Minimize2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4 text-sky-400 shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-100 truncate">
+                      {bi('Tam Ekran Modu', 'Fullscreen Mode')}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {bi('Çubuksuz sinematik görünüm', 'Immersive borderless view')}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleToggleFullscreen()}
+                  className={`min-h-[32px] rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 touch-manipulation ${
+                    isFullscreen
+                      ? 'bg-emerald-500 text-slate-950'
+                      : 'border border-sky-400/40 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25'
+                  }`}
+                >
+                  {isFullscreen ? bi('Açık', 'On') : bi('Tam Ekran', 'Expand')}
+                </button>
               </div>
             </div>
           )}
@@ -556,22 +613,22 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={handleExportSave}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 hover:bg-sky-400 cursor-pointer whitespace-nowrap"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>
-                        {exportCopied ? bi('İndirildi!', 'Saved!') : bi('.json İndir', 'Download .json')}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
                       onClick={handleCopySaveToClipboard}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/12 px-2.5 py-1.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 cursor-pointer whitespace-nowrap"
+                      className="flex-1 min-h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 hover:bg-sky-400 cursor-pointer whitespace-nowrap touch-manipulation"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>
                         {clipboardCopied ? bi('Kopyalandı!', 'Copied!') : bi('Panoya Kopyala', 'Copy JSON')}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportSave}
+                      className="flex-1 min-h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/12 px-2.5 py-1.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 cursor-pointer whitespace-nowrap touch-manipulation"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>
+                        {exportCopied ? bi('İndirildi!', 'Saved!') : bi('.json İndir', 'Download .json')}
                       </span>
                     </button>
                   </div>

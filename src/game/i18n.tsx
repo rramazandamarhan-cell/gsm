@@ -354,66 +354,96 @@ export function getLocalizedDistributor(id: string, lang: Language): BrandDistri
 export function getLocalizedUpgrade(id: UpgradeId, lang: Language): ShopUpgrade {
   const base = SHOP_UPGRADES.find((u) => u.id === id) ?? SHOP_UPGRADES[0];
   if (lang === 'tr') return base;
-  const enMap: Record<UpgradeId, { name: string; effectLabel: string; description: string }> = {
+  const enMap: Record<UpgradeId, { name: string; benefitText: string; summary: string }> = {
     repair_bench: {
-      name: 'Pro Repair Workbench',
-      effectLabel: 'In-Shop Multi-Repair',
-      description: 'Fix cracked screens, batteries & cameras yourself instead of outsourcing.',
+      name: 'Pro ESD Repair Workbench',
+      benefitText: 'Multi-defect in-shop repairs (+12% Master Craft) & Express Service jobs!',
+      summary: 'Stop paying outsource fees — set up your own ESD repair desk and soldering station.',
     },
     tea_samovar: {
       name: 'Copper Tea Samovar',
-      effectLabel: 'Free Tea · +Extra Calm',
-      description: 'Brew endless fresh tea for free — softens tough buyers & sellers faster.',
+      benefitText: 'Tea adds +38 patience and softens customer price stance by +4%.',
+      summary: 'Brew fresh Turkish tea to win over even the toughest street hagglers.',
+    },
+    accessory_license: {
+      name: 'Accessory Rack & Wholesale License',
+      benefitText: 'Unlocks Accessory Wholesale, Retail Shelf & Phone Cross-Sell bundles!',
+      summary: 'Officially open your screen protector, case, charger & earbuds rack for steady cashflow.',
     },
     pro_diagnostic: {
-      name: 'Pro Diagnostic Scanner',
-      effectLabel: 'Auto-Expose 1 Defect',
-      description: 'Automatically reveals one hidden defect when a seller puts a phone on the desk.',
+      name: 'Pro Diagnostic Station',
+      benefitText: 'Unlocks "Scan All" shortcut & exact repair cost estimates.',
+      summary: 'Desktop tester that scans screen, battery, IMEI & liquid sensors in one tap.',
     },
     display_cabinet: {
       name: 'Illuminated Glass Cabinet',
-      effectLabel: '+2 Showcase Slots · +Prestige',
-      description: 'LED-lit glass display attracts richer buyers and expands shelf capacity.',
+      benefitText: 'Permanently adds +2 showcase display slots.',
+      summary: 'Install a locked glass display module beside the counter to list more phones.',
     },
     parts_wholesale: {
-      name: 'Direct Parts Wholesale Contract',
-      effectLabel: '-20% Repair Part Cost',
-      description: 'Bulk screen and battery supplier contract cuts all repair part costs by 20%.',
+      name: 'Direct Parts Wholesale Line',
+      benefitText: 'Permanent 30% discount on all workshop repair parts.',
+      summary: 'Source original screens and batteries directly from parts wholesalers.',
     },
     neon_sign: {
-      name: 'Neon Street Signage',
-      effectLabel: '+25% Shelf Sales · +VIPs',
-      description: 'High-visibility storefront neon pulls in wealthier walk-ins and flagship sellers.',
+      name: 'Social Media & Arcade Signage',
+      benefitText: 'Boosts VIP customer flow, passive accessory sales & reputation speed.',
+      summary: 'Turn your stall into the most talked-about tech & mobile spot in town.',
+    },
+    cctv_security: {
+      name: '4K Security & Fake IMEI Radar',
+      benefitText: 'Cuts warranty claim risk by 40% & deters stubborn shady sellers.',
+      summary: 'Smart entrance cameras & IMEI verification shield your shop from bad stock.',
+    },
+    brand_new_license: {
+      name: 'Sealed Brand-New Dealership License',
+      benefitText: 'Unlocks Factory-Sealed Brand Distributors & Flash Wholesale Deals!',
+      summary: 'Move beyond 2nd-hand trading — become an authorized dealer for sealed retail phones.',
     },
     ultrasonic_cleaner: {
-      name: 'Ultrasonic Liquid Bath',
-      effectLabel: '-25% Liquid Repair Cost',
-      description: 'Industrial PCB cleaning tank restores water-damaged boards cleanly and cheaply.',
+      name: 'Ultrasonic PCB Bath',
+      benefitText: '-20% liquid/camera repair cost & +4% extra Master Craft value.',
+      summary: 'High-frequency cleaning tank restores water-damaged boards cleanly.',
     },
     laser_backglass: {
       name: 'Laser Back-Glass Machine',
-      effectLabel: '+8% Restored Phone Value',
-      description: 'Precision laser refinishes worn frames and rear glass to showroom grade.',
+      benefitText: '-12% all repair costs & Master Hasan finishes 1 turn faster.',
+      summary: 'Precision laser restores cracked rear glass & frames to factory finish.',
+    },
+    espresso_bar: {
+      name: 'Customer Espresso & Lounge Bar',
+      benefitText: 'Every customer arrives with +8 mood & +10 extra patience!',
+      summary: 'Fresh espresso hospitality creates a relaxed showroom bargaining atmosphere.',
     },
     smart_pos_zero: {
-      name: '0% Installment Smart POS',
-      effectLabel: '+12% Buyer Closing Boost',
-      description: 'Zero-fee installment plans convince hesitant buyers to accept higher prices.',
+      name: 'Smart POS (1% Commission Deal)',
+      benefitText: 'Cuts credit card POS fee from 5% down to just 1%!',
+      summary: 'Special merchant banking agreement slashes installment card fees.',
     },
     micro_soldering: {
-      name: 'Micro-Soldering Station',
-      effectLabel: '+10% Master Craft Bonus',
-      description: 'Microscope & hot-air rework boosts resale value of every phone you repair.',
+      name: 'Microscope & BGA Soldering Station',
+      benefitText: '+6% Master Craft resale value & 95% software data recovery rate!',
+      summary: 'Chip-level micro-surgery workstation for premium flagship refurbishing.',
     },
     barcode_automation: {
-      name: 'Barcode POS & Inventory',
-      effectLabel: '+35% Passive Shelf Sales',
-      description: 'Fast checkout & shelf analytics supercharge daily accessory turnover.',
+      name: 'Barcode & Auto-Inventory POS',
+      benefitText: '+35% end-of-day accessory shelf turnover & +10% cross-sell rate!',
+      summary: 'Smart checkout & shelf analytics supercharge daily accessory volume.',
+    },
+    cloud_crm: {
+      name: 'Cloud Customer Loyalty CRM',
+      benefitText: 'Higher returning regular rate & +15% bonus XP on all deals!',
+      summary: 'Automated loyalty outreach brings satisfied buyers back to your counter.',
     },
     clean_room_lab: {
-      name: 'Dust-Free Clean Room Lab',
-      effectLabel: '+15% Craft Value · Top Prestige',
-      description: 'Factory-grade dust-free repair chamber makes your refurbished units iconic.',
+      name: 'ISO-5 Dust-Free Clean Room Lab',
+      benefitText: '+35% Data Recovery & Express pay; all repairs auto-become Master Craft!',
+      summary: 'Factory-grade dust-free lab trusted by customers across the entire city.',
+    },
+    vip_concierge: {
+      name: 'VIP Desk & Concierge Consulting',
+      benefitText: '+6% permanent buyer budgets & surged VIP collector arrivals!',
+      summary: 'Private flagship & foldable consulting lounge for high-net-worth buyers.',
     },
   };
   return { ...base, ...(enMap[id] ?? {}) };
@@ -422,26 +452,36 @@ export function getLocalizedUpgrade(id: UpgradeId, lang: Language): ShopUpgrade 
 export function getLocalizedDecoration(id: DecorationId, lang: Language): ShopDecoration {
   const base = SHOP_DECORATIONS.find((d) => d.id === id) ?? SHOP_DECORATIONS[0];
   if (lang === 'tr') return base;
-  const enMap: Record<DecorationId, { name: string; description: string }> = {
+  const enMap: Record<DecorationId, { name: string; summary: string; visualEffectText: string }> = {
     vintage_sign: {
-      name: 'Vintage Brass GSM Sign',
-      description: 'Classic craftsman signboard that builds instant neighborhood trust.',
+      name: 'Vintage Enamel GSM Sign',
+      summary: 'Classic craftsman signboard that builds instant neighborhood trust.',
+      visualEffectText: 'Displays glowing vintage signage above your counter (+15 Prestige).',
+    },
+    tea_corner: {
+      name: 'Copper Samovar & Tea Corner',
+      summary: 'Tulip tea glasses and evil-eye charm for classic arcade warmth.',
+      visualEffectText: 'Adds a cozy tradesman corner motif to your shop scene (+20 Prestige).',
     },
     edison_lights: {
       name: 'Warm Edison Pendant Lights',
-      description: 'Amber architectural lighting that makes showcase phones gleam.',
+      summary: 'Amber architectural lighting that makes showcase phones gleam.',
+      visualEffectText: 'Adds warm golden hanging lights across the ceiling (+25 Prestige).',
     },
     retro_shelf: {
-      name: 'Retro Tech Collector Shelf',
-      description: 'Display iconic GSM relics and conversation pieces behind the counter.',
+      name: 'Retro 3310 Collector Shelf',
+      summary: 'Display iconic GSM relics and conversation pieces behind the counter.',
+      visualEffectText: 'Showcases a nostalgic retro phone shelf in the top-left (+32 Prestige).',
     },
     led_showcase: {
-      name: 'Edge-Lit LED Display Island',
-      description: 'Boutique-style illuminated island for flagship phones & bundles.',
+      name: 'Architectural LED Strip Frame',
+      summary: 'Boutique-style illuminated trim for flagship phones & bundles.',
+      visualEffectText: 'Frames your counter scene with architectural golden LED glow (+42 Prestige).',
     },
-    tea_corner: {
-      name: 'Hospitality Tea Lounge',
-      description: 'Cozy seating corner that calms stressed customers before haggling.',
+    vip_lounge: {
+      name: 'Leather VIP Lounge & Pedestals',
+      summary: 'Executive leather seating and lit glass pedestals for flagship appeal.',
+      visualEffectText: 'Adds luxury gold VIP lounge accents to your showroom (+65 Prestige).',
     },
   };
   return { ...base, ...(enMap[id] ?? {}) };
@@ -450,30 +490,30 @@ export function getLocalizedDecoration(id: DecorationId, lang: Language): ShopDe
 export function getLocalizedStaff(id: StaffId, lang: Language): StaffMember {
   const base = SHOP_STAFF.find((s) => s.id === id) ?? SHOP_STAFF[0];
   if (lang === 'tr') return base;
-  const enMap: Record<StaffId, { name: string; role: string; effectLabel: string; description: string }> = {
+  const enMap: Record<StaffId, { name: string; role: string; benefitText: string; summary: string }> = {
     apprentice: {
-      name: 'Can (Shop Apprentice)',
-      role: 'Counter & Shelf Assistant',
-      effectLabel: '+Passive Accessory Sales',
-      description: 'Keeps the accessory rack stocked and boosts daily passive shelf sales as he trains.',
+      name: 'Emre (Shop Apprentice)',
+      role: 'Pre-Inspection & Rack Assistant',
+      benefitText: 'Auto-scans seller tests & boosts accessory rack sales as he levels up.',
+      summary: 'Pre-inspects incoming seller phones and keeps your accessory shelf moving.',
+    },
+    sales_rep: {
+      name: 'Zeynep (Sales Advisor)',
+      role: 'Showcase & Social Media Pro',
+      benefitText: '+5% to +22% buyer budgets & +10% cross-sell conversion.',
+      summary: 'Boosts cross-sell accessory conversion and convinces showroom buyers to pay more.',
     },
     master_tech: {
       name: 'Master Hasan',
-      role: 'Senior Micro-Repair Tech',
-      effectLabel: 'Timed Repair Delegation',
-      description: 'Delegate multi-defect workshop repairs to Master Hasan — faster & cheaper per level.',
-    },
-    sales_rep: {
-      name: 'Selin (Sales Advisor)',
-      role: 'Showcase & Cross-Sell Pro',
-      effectLabel: '+Cross-Sell & Buyer Budget',
-      description: 'Boosts cross-sell accessory conversion and convinces showroom buyers to pay more.',
+      role: 'Senior Motherboard & Repair Tech',
+      benefitText: 'Delegate multi-defect repairs — faster & up to -70% part cost.',
+      summary: 'Handles workshop & express repairs in parallel while you close deals at the counter.',
     },
     accountant: {
-      name: 'Kamil (CPA Accountant)',
+      name: 'Selma (CPA Accountant)',
       role: 'Tax & Finance Advisor',
-      effectLabel: 'Lower Sales Tax Rate',
-      description: 'Legally optimizes VAT & business deductions, cutting your sales tax burden per level.',
+      benefitText: 'Cuts sales tax from 12% down to 6% & lowers weekly tax.',
+      summary: 'Legally optimizes VAT & business deductions, cutting your tax burden per level.',
     },
   };
   return { ...base, ...(enMap[id] ?? {}) };
@@ -575,42 +615,36 @@ export function getLocalizedLoan(id: string, lang: Language): BankLoanOffer {
 export function getLocalizedOutfit(id: OutfitId, lang: Language): OutfitSpec {
   const base = PLAYER_OUTFITS.find((o) => o.id === id) ?? PLAYER_OUTFITS[0];
   if (lang === 'tr') return base;
-  const enMap: Record<OutfitId, { name: string; styleTag: string; perkLabel: string; description: string }> = {
+  const enMap: Record<OutfitId, { name: string; subtitle: string; bonusDescription: string }> = {
     casual_hoodie: {
       name: 'Arcade Street Hoodie',
-      styleTag: 'Casual Starter',
-      perkLabel: 'Friendly Vibes',
-      description: 'Comfortable everyday look from your apprentice days.',
+      subtitle: 'Age-23 Young Founder Look',
+      bonusDescription: '+7 starting mood with Students & Influencers, +3 with everyone else.',
     },
     traditional_vest: {
       name: 'Master Craftsman Vest',
-      styleTag: 'Classic Tradesman',
-      perkLabel: '+10% Tea Calming Effect',
-      description: 'Earn instant warmth and respect from neighborhood uncles and regulars.',
+      subtitle: 'Classic Arcade Trust',
+      bonusDescription: '+11 mood & +8 patience with neighborhood Uncles and Hustlers.',
     },
     tech_esd_coat: {
       name: 'Anti-Static Tech Lab Coat',
-      styleTag: 'Master Engineer',
-      perkLabel: '+6% Repair Value Bonus',
-      description: 'Projects clinical diagnostic authority when quoting repair work.',
+      subtitle: 'Micro-Surgery Service Aura',
+      bonusDescription: '+6 mood & +6 patience across all customers; softer defect haggling.',
     },
     formal_shirt: {
       name: 'Crisp Showroom Shirt',
-      styleTag: 'Boutique Dealer',
-      perkLabel: '+4% Buyer Trust',
-      description: 'Sharp storefront polish that reassures brand-new phone buyers.',
+      subtitle: 'High-Street Boutique Style',
+      bonusDescription: '+8 mood & +8 patience for all; +13 trust with VIPs & Influencers!',
     },
     italian_blazer: {
       name: 'Tailored Italian Blazer',
-      styleTag: 'Executive Chic',
-      perkLabel: '+6% VIP & Flagship Pull',
-      description: 'Command presence when closing luxury and foldable phone deals.',
+      subtitle: 'Showroom Director Elegance',
+      bonusDescription: '+16 starting mood with VIPs & Influencers; +11 mood & +10 patience overall.',
     },
     boss_suit: {
       name: 'GSM Emperor Three-Piece Suit',
-      styleTag: 'Plaza Mogul',
-      perkLabel: '+8% Prestige & Deal Sway',
-      description: 'The unmistakable silhouette of the city’s top mobile empire boss.',
+      subtitle: 'Plaza & Holding Prestige',
+      bonusDescription: '+15 mood, +14 patience & executive authority with every customer type!',
     },
   };
   return { ...base, ...(enMap[id] ?? {}) };
@@ -621,44 +655,44 @@ export function getLocalizedLevelPerk(level: number, lang: Language): LevelPerk 
   if (lang === 'tr') return base;
   const enMap: Record<number, { title: string; description: string }> = {
     1: {
-      title: 'First Shutter · 2nd-Hand Trade',
-      description: 'Start from scratch trading & inspecting 2nd-hand phones in your 12 m² stall.',
+      title: 'First Shutter · 2nd-Hand Trade Only',
+      description: 'Start from scratch inspecting, repairing & trading 2nd-hand phones in your 12 m² stall.',
     },
     2: {
-      title: 'Wholesale & Upgrades + Glass & Case',
-      description: 'Unlocks Wholesale & Upgrades tabs, Tempered Glass, MagKlik Case & RedMix/PocoPop sealed stock!',
+      title: 'Upgrades, Accessory License & First Staff',
+      description: 'Unlocks Upgrades & Supply tabs! Buy the 18,000 ₺ Accessory License, hire Emre & add decor.',
     },
     3: {
-      title: 'Samxung Dealer + Car Mount + -10% Parts',
-      description: 'Unlocks Magnetic Car Mount, Samxung sealed distributor (3.1★) & permanent 10% repair part discount.',
+      title: 'Corner Store (Tier 2) + Car Mount + -10% Parts',
+      description: 'Unlocks Corner Tech Shop (85,000 ₺), Car Mount, 4K Security Radar & 10% repair part discount.',
     },
     4: {
-      title: 'Empire Market + 30W GaN + aPhone',
-      description: 'Unlocks Empire tab (Classifieds, Auctions, Branches, Bank, Museum), 30W GaN Charger & aPhone dealer (3.5★)!',
+      title: 'Sealed Dealership License + Market & Bank',
+      description: 'Unlocks Market tab (Classifieds, Auctions, Bank, Branches), 65,000 ₺ Sealed License & Zeynep!',
     },
     5: {
-      title: '10,000 mAh Powerbank + VIP Magnet',
-      description: 'Unlocks Mini Powerbank stock, +20% faster shelf sales & +15% higher VIP arrival rate.',
+      title: 'High-Street Hub + Master Hasan + Espresso',
+      description: 'Unlocks High-Street GSM Hub (240,000 ₺), Master Hasan, Powerbank, Laser Machine & Espresso Bar!',
     },
     6: {
-      title: 'ANC Bluetooth Earbuds + Luxury Import',
-      description: 'Unlocks ANC Earbuds, Luxury Foldables distributor (4.0★) & +1 extra daily customer!',
+      title: 'ANC Earbuds + Luxury Import + 1% POS',
+      description: 'Unlocks ANC Earbuds, Luxury Foldables dealer (4.0★), Smart POS & +1 extra daily customer!',
     },
     7: {
-      title: 'Distributor Discount (-4% Sealed Cost)',
-      description: 'Permanent extra 4% wholesale discount across all official sealed phone distributors.',
+      title: 'Regional Showroom + CPA + -4% Wholesale',
+      description: 'Unlocks Regional Showroom (650,000 ₺), CPA Selma, Barcode POS & extra 4% dealer discount.',
     },
     8: {
-      title: 'Profit Streak Master (x1.5 Streak Cash)',
-      description: 'Consecutive successful deal streak bonuses pay 50% more cash.',
+      title: 'Streak Master (x1.5) + Clean Room & CRM',
+      description: 'Deal streak bonuses pay +50%! Unlocks Clean Room Lab, Cloud CRM & VIP Leather Lounge decor.',
     },
     9: {
-      title: 'City Legend (+6% Buyer Budget)',
-      description: 'Your citywide reputation convinces all showcase buyers to stretch budgets by +6%.',
+      title: 'Mall Flagship + VIP Concierge + City Legend',
+      description: 'Unlocks Mall Flagship (1.6M ₺), VIP Desk, Boss Suit & +6% permanent buyer budget boost!',
     },
     10: {
-      title: 'GSM Grandmaster (Empire Peak)',
-      description: 'Additional -4% distributor discount and +1 extra daily customer for maximum mastery!',
+      title: 'GSM Plaza Empire (Grandmaster Peak)',
+      description: 'Unlocks GSM Plaza HQ (4.0M ₺), extra -4% distributor discount & +1 extra daily customer!',
     },
   };
   return { ...base, ...(enMap[level] ?? {}) };
@@ -724,11 +758,7 @@ export function getLocalizedMilestone(m: CareerMilestone, lang: Language): Caree
   const enMap: Record<string, { title: string; description: string }> = {
     ms_first_sale: {
       title: 'First Sale, First Cash',
-      description: 'Sell your first phone from the showcase and ring the register.',
-    },
-    ms_acc_king: {
-      title: 'Accessory Rack Master',
-      description: 'Sell a total of 15 cases, screen protectors, chargers, or audio gear.',
+      description: 'Sell your first 2nd-hand phone from the showcase and ring the register.',
     },
     ms_defect_hunter: {
       title: 'Eagle-Eyed Appraiser',
@@ -736,27 +766,67 @@ export function getLocalizedMilestone(m: CareerMilestone, lang: Language): Caree
     },
     ms_micro_surgeon: {
       title: 'Micro-Soldering Surgeon',
-      description: 'Repair a total of 6 phone defects across workshop or express jobs.',
-    },
-    ms_brand_new_dealer: {
-      title: 'Authorized Sealed Dealer',
-      description: 'Sell 4 factory-sealed brand-new distributor phones.',
+      description: 'Repair a total of 4 phone defects across workshop or express jobs.',
     },
     ms_hot_streak: {
-      title: 'Unstoppable Streak',
-      description: 'Reach a 5x consecutive successful deal streak.',
+      title: 'Unstoppable Streak (5x)',
+      description: 'Reach a 5x consecutive successful deal streak without losing a customer.',
     },
-    ms_collector_6: {
-      title: 'Model Catalog Explorer',
-      description: 'Discover and handle 6 different phone models in your career.',
+    ms_sales_10: {
+      title: 'Trusted Arcade Name (10 Sales)',
+      description: 'Close a total of 10 smartphone sales across your career.',
     },
-    ms_profit_40k: {
-      title: '40,000 ₺ Profit Milestone',
-      description: 'Earn 40,000 ₺ in cumulative net trading profit.',
+    ms_acc_king: {
+      title: 'Accessory Rack Master (20 Sold)',
+      description: 'After unlocking your Accessory License, sell a total of 20 accessories.',
+    },
+    ms_collector_8: {
+      title: 'Model Catalog Explorer (8 Models)',
+      description: 'Discover and handle 8 different phone models in your career.',
+    },
+    ms_profit_60k: {
+      title: 'Golden Counter (60,000 ₺ Profit)',
+      description: 'Earn 60,000 ₺ in cumulative net trading profit.',
+    },
+    ms_defect_20: {
+      title: 'Detective Legend (20 Defects)',
+      description: 'Expose 20 hidden defects to bust shady seller bluffs.',
+    },
+    ms_brand_new_dealer: {
+      title: 'Authorized Sealed Dealer (4 Units)',
+      description: 'Sell 4 factory-sealed brand-new phones with your Dealership License.',
+    },
+    ms_repair_15: {
+      title: 'Head Technical Service (15 Repairs)',
+      description: 'Bring 15 faulty smartphones back to life in your workshop or express desk.',
     },
     ms_tier3_showroom: {
-      title: 'High-Street Boss',
-      description: 'Expand your business to a Tier 3 storefront or beyond.',
+      title: 'High-Street Hub Boss',
+      description: 'Expand your business to the Tier 3 "High-Street GSM Hub".',
+    },
+    ms_sales_30: {
+      title: 'Citywide Trader (30 Sales)',
+      description: 'Sell 30 phones to become the busiest mobile counter in town.',
+    },
+    ms_acc_80: {
+      title: 'Accessory Powerhouse (80 Sold)',
+      description: 'Sell a cumulative total of 80 cases, protectors, chargers & earbuds.',
+    },
+    ms_profit_350k: {
+      title: 'Regional Capital (350,000 ₺ Profit)',
+      description: 'Reach 350,000 ₺ in cumulative net trading profit.',
+    },
+    ms_brand_new_15: {
+      title: 'Official Distributor Leader (15 Sealed)',
+      description: 'Close 15 factory-sealed brand-new smartphone sales.',
+    },
+    ms_profit_1m: {
+      title: 'Millionaire Dealer (1.2M ₺ Profit)',
+      description: 'Cross 1,200,000 ₺ in cumulative net career profit!',
+    },
+    ms_tier5_flagship: {
+      title: 'Mall Flagship & Plaza Vision',
+      description: 'Open your Tier 5 Mall Flagship store to enter the big leagues!',
     },
   };
   return { ...m, ...(enMap[m.id] ?? {}) };

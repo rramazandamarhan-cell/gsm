@@ -72,6 +72,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   ).length;
   const readyMilestoneCount = CAREER_MILESTONES.filter(
     (m) =>
+      shop.level >= (m.minLevel ?? 1) &&
       !shop.claimedMilestoneIds.includes(m.id) &&
       getMilestoneCurrentValue(shop, m) >= m.target
   ).length;
@@ -328,7 +329,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
       {subTab === 'DAILY' && (
         <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
           <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
-            {shop.dailyQuests.map((q) => {
+            {shop.dailyQuests.slice(0, 3).map((q) => {
               const loc = getLocalizedQuest(q, lang);
               const ready = !q.claimed && q.progress >= q.target;
               const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
@@ -439,9 +440,11 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
             {visibleMilestones.map((m) => {
               const loc = getLocalizedMilestone(m, lang);
+              const reqLevel = m.minLevel ?? 1;
+              const levelLocked = shop.level < reqLevel;
               const val = getMilestoneCurrentValue(shop, m);
               const claimed = shop.claimedMilestoneIds.includes(m.id);
-              const ready = !claimed && val >= m.target;
+              const ready = !levelLocked && !claimed && val >= m.target;
               const pct = Math.min(100, Math.round((val / m.target) * 100));
               return (
                 <div
@@ -451,6 +454,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       ? 'border-emerald-500/25 bg-emerald-500/6 opacity-75'
                       : ready
                       ? 'border-amber-400 bg-amber-500/12'
+                      : levelLocked
+                      ? 'border-white/8 bg-[#111722] opacity-75'
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
@@ -460,7 +465,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                         {loc.title}
                       </span>
                       <span className="font-mono text-[9.5px] text-amber-300 shrink-0">
-                        +{m.rewardXp}XP
+                        {levelLocked
+                          ? bi(`Sv.${reqLevel}`, `L${reqLevel}`)
+                          : `+${m.rewardXp}XP`}
                       </span>
                     </div>
                     <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5">
@@ -486,6 +493,11 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     {claimed ? (
                       <div className="text-center text-[10px] font-bold text-emerald-400">
                         ✓ {bi('Tamamlandı', 'Completed')}
+                      </div>
+                    ) : levelLocked ? (
+                      <div className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-white/10 bg-[#0D131C] py-0.5 text-[9.5px] font-bold text-amber-300">
+                        <Lock className="w-2.5 h-2.5" />
+                        {bi(`Seviye ${reqLevel} ile Açılır`, `Unlocks at Lv.${reqLevel}`)}
                       </div>
                     ) : (
                       <button

@@ -30,6 +30,7 @@ import {
   getScrapSaleValue,
   getShowcaseCapacity,
   getStockAgingInfo,
+  hasAccessoryLicense,
   isAccessoryUnlocked,
   roundPrice,
 } from '../game/engine';
@@ -247,15 +248,24 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
               </strong>
             </div>
           </div>
-          {showcaseUpgradeLevel < SHOWCASE_UPGRADE_MAX_LEVEL && (
+          <div className="flex items-center gap-1 shrink-0">
+            {showcaseUpgradeLevel < SHOWCASE_UPGRADE_MAX_LEVEL && (
+              <button
+                type="button"
+                onClick={onGoToUpgrades}
+                className="rounded-md border border-amber-400/35 bg-amber-500/15 px-1.5 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 whitespace-nowrap cursor-pointer"
+              >
+                {bi('Raf +', 'Rack +')}
+              </button>
+            )}
             <button
               type="button"
-              onClick={onGoToUpgrades}
-              className="rounded-md border border-amber-400/35 bg-amber-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-amber-300 hover:bg-amber-500/25 whitespace-nowrap cursor-pointer"
+              onClick={onBackToCounter}
+              className="rounded-md border border-white/15 bg-[#1E2836] px-2 py-1 text-[10px] font-bold text-slate-100 hover:bg-[#28364A] whitespace-nowrap cursor-pointer"
             >
-              {bi('Raf +', 'Rack +')}
+              ← {bi('Tezgah', 'Counter')}
             </button>
-          )}
+          </div>
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col gap-1.5 py-1.5 overflow-hidden">
@@ -600,11 +610,32 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
               </span>
             </div>
 
+            {!hasAccessoryLicense(upgrades) ? (
+              <div className="flex-1 min-h-0 rounded-xl border border-dashed border-amber-400/30 bg-[#0E141D] flex flex-col items-center justify-center text-center p-3 gap-1.5">
+                <Lock className="w-6 h-6 text-amber-400" />
+                <div className="text-[11px] font-extrabold text-slate-100">
+                  {bi('Aksesuar Reyonu Lisansı Gerekli', 'Accessory Rack License Required')}
+                </div>
+                <p className="text-[10px] text-slate-400 max-w-xs leading-snug">
+                  {bi(
+                    'Telefon yanına kılıf, kırılmaz cam ve şarj kombini takmak için Büyüt veya Toptan sekmesinden Aksesuar Lisansını (18.000 ₺ · Sv.2) aç.',
+                    'Unlock the Accessory License (18,000 ₺ · Lv.2) in Upgrades or Supply to bundle cases, glass & chargers.'
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={onGoToUpgrades}
+                  className="mt-0.5 rounded-lg bg-amber-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                >
+                  {bi('Büyüt Sekmesine Git', 'Go to Upgrades')}
+                </button>
+              </div>
+            ) : (
             <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 overflow-hidden">
               {ACCESSORY_CATALOG.map((acc) => {
                 const loc = getLocalizedAccessory(acc.id, lang);
                 const stock = accessories[acc.id]?.quantity ?? 0;
-                const unlocked = isAccessoryUnlocked(acc.id, shopLevel);
+                const unlocked = isAccessoryUnlocked(acc.id, shopLevel, upgrades);
                 const attached = bundledList.includes(acc.id);
                 const bonusVal = Math.round(acc.recommendedPrice * 1.1);
                 const canAttach =
@@ -671,6 +702,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* Showcase Listing & Price Slider */}

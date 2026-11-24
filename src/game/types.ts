@@ -351,16 +351,22 @@ export interface CustomerEncounter {
 export type UpgradeId =
   | 'repair_bench'
   | 'tea_samovar'
+  | 'accessory_license'
   | 'pro_diagnostic'
   | 'display_cabinet'
   | 'parts_wholesale'
   | 'neon_sign'
+  | 'cctv_security'
+  | 'brand_new_license'
   | 'ultrasonic_cleaner'
   | 'laser_backglass'
-  | 'micro_soldering'
-  | 'clean_room_lab'
+  | 'espresso_bar'
   | 'smart_pos_zero'
-  | 'barcode_automation';
+  | 'micro_soldering'
+  | 'barcode_automation'
+  | 'cloud_crm'
+  | 'clean_room_lab'
+  | 'vip_concierge';
 
 export interface ShopUpgrade {
   id: UpgradeId;
@@ -379,12 +385,14 @@ export type DecorationId =
   | 'edison_lights'
   | 'retro_shelf'
   | 'led_showcase'
-  | 'tea_corner';
+  | 'tea_corner'
+  | 'vip_lounge';
 
 export interface ShopDecoration {
   id: DecorationId;
   name: string;
   cost: number;
+  minLevel: number;
   prestige: number;
   summary: string;
   visualEffectText: string;
@@ -398,6 +406,7 @@ export interface StaffMember {
   role: string;
   hireCost: number;
   dailyWage: number;
+  minLevel: number;
   maxLevel: number;
   summary: string;
   benefitText: string;
@@ -574,6 +583,7 @@ export interface CareerMilestone {
   id: string;
   title: string;
   description: string;
+  minLevel?: number;
   rewardCash: number;
   rewardXp: number;
   target: number;

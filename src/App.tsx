@@ -39,7 +39,10 @@ import { MorningNewspaperModal } from './components/MorningNewspaperModal';
 import { OfflineEarningsModal } from './components/OfflineEarningsModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { SplashScreen } from './components/SplashScreen';
-import { StoreComplianceModal } from './components/StoreComplianceModal';
+import {
+  ComplianceTab,
+  StoreComplianceModal,
+} from './components/StoreComplianceModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { TitleScreen } from './components/TitleScreen';
 import { UpgradesView } from './components/UpgradesView';
@@ -129,6 +132,8 @@ import {
   getStoryChapterCurrentValue,
   getStreakBonusCash,
   getTabUnlockLevel,
+  hasAccessoryLicense,
+  hasBrandNewLicense,
   inspectPhoneCategory,
   isAccessoryUnlocked,
   isTabUnlocked,
@@ -216,6 +221,19 @@ export default function App() {
   const [showNewspaperReview, setShowNewspaperReview] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showComplianceModal, setShowComplianceModal] = useState(false);
+  const [complianceInitialTab, setComplianceInitialTab] =
+    useState<ComplianceTab>('SETTINGS');
+  const [complianceInitialLegal, setComplianceInitialLegal] = useState<
+    'privacy' | 'terms'
+  >('privacy');
+  const openComplianceModal = useCallback(
+    (tab: ComplianceTab = 'SETTINGS', legal: 'privacy' | 'terms' = 'privacy') => {
+      setComplianceInitialTab(tab);
+      setComplianceInitialLegal(legal);
+      setShowComplianceModal(true);
+    },
+    []
+  );
   const [offlineSummary, setOfflineSummary] =
     useState<OfflineEarningsSummary | null>(null);
   const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(() =>
@@ -356,7 +374,10 @@ export default function App() {
   const applyXpGain = useCallback(
     (state: ShopState, xpDelta: number): ShopState => {
       if (xpDelta <= 0) return state;
-      const nextXp = state.xp + xpDelta;
+      const crmBoosted = state.upgrades.includes('cloud_crm')
+        ? Math.round(xpDelta * 1.15)
+        : xpDelta;
+      const nextXp = state.xp + crmBoosted;
       const nextLevel = getLevelFromXp(nextXp);
       if (nextLevel > state.level) {
         window.setTimeout(() => {
@@ -1010,8 +1031,19 @@ export default function App() {
       return;
     }
     const job = currentEncounter.dataRecoveryJob;
-    const cost = mode === 'CLEAN_ROOM' ? job.cleanRoomCost : job.softwareCost;
-    if (shop.cash < cost) return;
+    // Software recovery is always free (even on legacy saved encounters)
+    const cost = mode === 'CLEAN_ROOM' ? job.cleanRoomCost : 0;
+    if (shop.cash < cost) {
+      soundFX.playScanDefect();
+      pushFeedback(
+        bi(
+          `Temiz Oda için ${formatTRY(cost)} gerekli!`,
+          `Need ${formatTRY(cost)} for Clean Room Lab!`
+        ),
+        'negative'
+      );
+      return;
+    }
 
     const succeeded =
       mode === 'CLEAN_ROOM' ? true : Math.random() < job.softwareSuccessRate;
@@ -1035,7 +1067,15 @@ export default function App() {
     } else {
       soundFX.playScanDefect();
       setShakeTrigger((n) => n + 1);
-      pushFeedback(`Yazılım Yetmedi (-${formatTRY(cost)} Maliyet)`, 'negative');
+      pushFeedback(
+        cost > 0
+          ? `Yazılım Yetmedi (-${formatTRY(cost)} Maliyet)`
+          : bi(
+              'Yazılım Yetmedi — Ücretsiz deneme başarısız',
+              'Software Failed — Free attempt unsuccessful'
+            ),
+        'negative'
+      );
     }
 
     setShop((prev) => {
@@ -1972,7 +2012,18 @@ export default function App() {
   ) => {
     const spec = getAccessorySpec(accessoryId);
     const locSpec = getLocalizedAccessory(accessoryId, lang);
-    if (!isAccessoryUnlocked(accessoryId, shop.level)) {
+    if (!hasAccessoryLicense(shop.upgrades)) {
+      soundFX.playScanDefect();
+      pushFeedback(
+        bi(
+          'Önce Aksesuar Reyonu Lisansı satın almalısın!',
+          'Purchase the Accessory Counter License first!'
+        ),
+        'amber'
+      );
+      return;
+    }
+    if (!isAccessoryUnlocked(accessoryId, shop.level, shop.upgrades)) {
       soundFX.playScanDefect();
       pushFeedback(
         bi(
@@ -2060,6 +2111,17 @@ export default function App() {
     wholesaleCost: number,
     expressDelivery: boolean
   ) => {
+    if (!hasBrandNewLicense(shop.upgrades)) {
+      soundFX.playScanDefect();
+      pushFeedback(
+        bi(
+          'Önce Sıfır Telefon Bayilik Lisansı almalısın!',
+          'Purchase the Sealed Phone Dealership License first!'
+        ),
+        'amber'
+      );
+      return;
+    }
     const shippingFee = expressDelivery ? EXPRESS_PHONE_FEE : 0;
     const totalCost = wholesaleCost + shippingFee;
     if (shop.cash < totalCost) return;
@@ -2658,6 +2720,7 @@ export default function App() {
     const ms = CAREER_MILESTONES.find((m) => m.id === milestoneId);
     if (
       !ms ||
+      shop.level < (ms.minLevel ?? 1) ||
       shop.claimedMilestoneIds.includes(milestoneId) ||
       getMilestoneCurrentValue(shop, ms) < ms.target
     ) {
@@ -2874,7 +2937,14 @@ export default function App() {
 
   const handleBuyDecoration = (decorId: DecorationId) => {
     const dec = SHOP_DECORATIONS.find((d) => d.id === decorId);
-    if (!dec || shop.decorations.includes(decorId) || shop.cash < dec.cost) return;
+    if (
+      !dec ||
+      shop.decorations.includes(decorId) ||
+      shop.level < (dec.minLevel ?? 1) ||
+      shop.cash < dec.cost
+    ) {
+      return;
+    }
     soundFX.playCashRegister();
     pushFeedback(`${dec.name} Asıldı (+${dec.prestige} Prestij)`, 'positive');
 
@@ -2901,7 +2971,14 @@ export default function App() {
 
   const handleHireStaff = (staffId: StaffId) => {
     const member = SHOP_STAFF.find((s) => s.id === staffId);
-    if (!member || shop.staff.includes(staffId) || shop.cash < member.hireCost) return;
+    if (
+      !member ||
+      shop.staff.includes(staffId) ||
+      shop.level < (member.minLevel ?? 1) ||
+      shop.cash < member.hireCost
+    ) {
+      return;
+    }
     soundFX.playCashRegister();
     pushFeedback(`${member.name} Ekibe Katıldı!`, 'positive');
 
@@ -3009,6 +3086,7 @@ export default function App() {
     if (
       !outfit ||
       (shop.ownedOutfits ?? []).includes(outfitId) ||
+      shop.level < (outfit.minLevel ?? 1) ||
       shop.cash < outfit.cost
     ) {
       return;
@@ -3636,15 +3714,17 @@ export default function App() {
           savedState={savedSnapshot}
           onStartNew={handleStartNew}
           onContinue={handleContinue}
-          onOpenCompliance={() => {
+          onOpenCompliance={(tab = 'SETTINGS', legal = 'privacy') => {
             soundFX.playClick();
-            setShowComplianceModal(true);
+            openComplianceModal(tab, legal);
           }}
         />
         {showComplianceModal && (
           <StoreComplianceModal
             shop={savedSnapshot ?? shop}
             muted={muted}
+            initialTab={complianceInitialTab}
+            initialLegalView={complianceInitialLegal}
             onToggleMute={handleToggleMute}
             onToggleAmbientSound={handleToggleAmbientSound}
             onToggleHaptics={handleToggleHaptics}
@@ -3674,16 +3754,16 @@ export default function App() {
 
   return (
     <div className="h-dvh w-screen overflow-hidden flex flex-col bg-[#0F141B] text-slate-100 select-none">
-      {/* ULTRA-COMPACT GAME HUD HEADER: All 6 tabs always reachable on mobile & landscape */}
-      <header className="shrink-0 border-b border-white/10 bg-[#131A24] safe-px py-1 sm:py-0 sm:h-11 lg:h-13 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 sm:gap-1.5 lg:gap-2">
-        <div className="flex items-center gap-1 lg:gap-2.5 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
+      {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Reliable touch targets on Android/iOS landscape */}
+      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(4px,env(safe-area-inset-top))] pb-[4px] min-h-[44px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[6px] lg:gap-2">
+        <div className="flex items-center gap-[6px] lg:gap-2.5 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
           <div className="hidden md:flex items-center shrink-0">
             <BrandLogo size="compact" />
           </div>
 
           <nav
             aria-label="Dükkan bölümleri"
-            className="grid grid-cols-6 sm:flex sm:items-center gap-0.5 sm:gap-0.5 lg:gap-1 rounded-lg bg-[#0D1219] p-0.5 border border-white/8 w-full sm:w-auto sm:max-w-full overflow-x-auto no-scrollbar"
+            className="grid grid-cols-6 sm:flex sm:items-center gap-[3px] lg:gap-1 rounded-lg bg-[#0D1219] p-[3px] border border-white/10 w-full sm:w-auto sm:max-w-full overflow-x-auto no-scrollbar"
           >
             <button
               type="button"
@@ -3691,13 +3771,13 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('COUNTER');
               }}
-              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'COUNTER'
                   ? 'bg-amber-500 text-slate-950'
-                  : 'text-slate-300 hover:text-slate-50'
+                  : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <Users className="w-[14px] h-[14px] shrink-0" />
               <span className="truncate">{bi('Tezgah', 'Counter')}</span>
             </button>
 
@@ -3707,13 +3787,13 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('WORKSHOP');
               }}
-              className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WORKSHOP'
                   ? 'bg-amber-500 text-slate-950'
-                  : 'text-slate-300 hover:text-slate-50'
+                  : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Wrench className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <Wrench className="w-[14px] h-[14px] shrink-0" />
               <span className="truncate">
                 {bi('Atölye', 'Workshop')}
                 {shop.inventory.length > 0 ? ` (${shop.inventory.length})` : ''}
@@ -3753,22 +3833,22 @@ export default function App() {
                         ? bi('Toptancı & Distribütör', 'Wholesale & Distributors')
                         : bi('Seviye 2 ile Açılır', 'Unlocks at Level 2')
                     }
-                    className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                       activeTab === 'WHOLESALE'
                         ? 'bg-amber-500 text-slate-950'
                         : wholesaleUnlocked
-                        ? 'text-slate-300 hover:text-slate-50'
+                        ? 'text-slate-300 hover:text-slate-50 active:bg-white/10'
                         : 'text-slate-500 opacity-75 hover:opacity-100'
                     }`}
                   >
                     {wholesaleUnlocked ? (
-                      <Package className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+                      <Package className="w-[14px] h-[14px] shrink-0" />
                     ) : (
-                      <Lock className="w-3 h-3 shrink-0 text-amber-400/80" />
+                      <Lock className="w-[13px] h-[13px] shrink-0 text-amber-400/80" />
                     )}
                     <span className="truncate">{bi('Toptan', 'Supply')}</span>
                     {!wholesaleUnlocked && (
-                      <span className="hidden md:inline font-mono text-[9px] text-amber-300/80">
+                      <span className="hidden md:inline font-mono text-[10px] text-amber-300/80">
                         {bi('Sv.2', 'L2')}
                       </span>
                     )}
@@ -3784,27 +3864,27 @@ export default function App() {
                         ? bi('Piyasa, Sarı İlan, Banka & Şube', 'Market, Listings, Bank & Branches')
                         : bi('Seviye 4 ile Açılır', 'Unlocks at Level 4')
                     }
-                    className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                       activeTab === 'EMPIRE'
                         ? 'bg-amber-500 text-slate-950'
                         : empireUnlocked
-                        ? 'text-slate-300 hover:text-slate-50'
+                        ? 'text-slate-300 hover:text-slate-50 active:bg-white/10'
                         : 'text-slate-500 opacity-75 hover:opacity-100'
                     }`}
                   >
                     {empireUnlocked ? (
-                      <Building2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+                      <Building2 className="w-[14px] h-[14px] shrink-0" />
                     ) : (
-                      <Lock className="w-3 h-3 shrink-0 text-amber-400/80" />
+                      <Lock className="w-[13px] h-[13px] shrink-0 text-amber-400/80" />
                     )}
                     <span className="truncate">{bi('Piyasa', 'Market')}</span>
                     {!empireUnlocked && (
-                      <span className="hidden md:inline font-mono text-[9px] text-amber-300/80">
+                      <span className="hidden md:inline font-mono text-[10px] text-amber-300/80">
                         {bi('Sv.4', 'L4')}
                       </span>
                     )}
                     {empireUnlocked && shop.weeklyTaxDue > 0 && (
-                      <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-rose-500 text-white">
+                      <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-rose-500 text-white">
                         !
                       </span>
                     )}
@@ -3816,16 +3896,16 @@ export default function App() {
                       soundFX.playClick();
                       setActiveTab('MISSIONS');
                     }}
-                    className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                       activeTab === 'MISSIONS'
                         ? 'bg-amber-500 text-slate-950'
-                        : 'text-slate-300 hover:text-slate-50'
+                        : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
                     }`}
                   >
-                    <Target className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+                    <Target className="w-[14px] h-[14px] shrink-0" />
                     <span className="truncate">{bi('Görev', 'Quests')}</span>
                     {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
-                      <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                      <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                         +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
                       </span>
                     )}
@@ -3841,22 +3921,22 @@ export default function App() {
                         ? bi('Ekipman, Ekip, Gardırop & Dekor', 'Equipment, Staff, Wardrobe & Decor')
                         : bi('Seviye 2 ile Açılır', 'Unlocks at Level 2')
                     }
-                    className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 sm:px-2 lg:px-2.5 py-1 text-[10px] sm:text-[11px] lg:text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                       activeTab === 'UPGRADES'
                         ? 'bg-amber-500 text-slate-950'
                         : upgradesUnlocked
-                        ? 'text-slate-300 hover:text-slate-50'
+                        ? 'text-slate-300 hover:text-slate-50 active:bg-white/10'
                         : 'text-slate-500 opacity-75 hover:opacity-100'
                     }`}
                   >
                     {upgradesUnlocked ? (
-                      <Sparkles className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+                      <Sparkles className="w-[14px] h-[14px] shrink-0" />
                     ) : (
-                      <Lock className="w-3 h-3 shrink-0 text-amber-400/80" />
+                      <Lock className="w-[13px] h-[13px] shrink-0 text-amber-400/80" />
                     )}
                     <span className="truncate">{bi('Büyüt', 'Upgrade')}</span>
                     {!upgradesUnlocked && (
-                      <span className="hidden md:inline font-mono text-[9px] text-amber-300/80">
+                      <span className="hidden md:inline font-mono text-[10px] text-amber-300/80">
                         {bi('Sv.2', 'L2')}
                       </span>
                     )}
@@ -3871,7 +3951,7 @@ export default function App() {
         {(() => {
           const lvlProg = getLevelProgress(shop.xp);
           return (
-            <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 lg:gap-3 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
+            <div className="flex items-center justify-between sm:justify-end gap-[6px] sm:gap-2 lg:gap-3 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
               <button
                 type="button"
                 onClick={() => {
@@ -3882,13 +3962,13 @@ export default function App() {
                   `Seviye ${shop.level} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP) · Tıkla ve kilitleri gör`,
                   `Level ${shop.level} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP) · Tap to view unlocks`
                 )}
-                className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 min-h-[32px] rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
               >
-                <span className="font-mono text-[10px] sm:text-[11px] font-extrabold text-amber-300 whitespace-nowrap">
+                <span className="font-mono text-[11px] font-extrabold text-amber-300 whitespace-nowrap">
                   {bi('Sv.', 'Lv.')}
                   {shop.level}
                 </span>
-                <div className="w-8 sm:w-10 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="w-[36px] h-[6px] rounded-full bg-white/10 overflow-hidden">
                   <div
                     className="h-full bg-amber-400 transition-all duration-300"
                     style={{ width: `${lvlProg.percent}%` }}
@@ -3914,12 +3994,12 @@ export default function App() {
 
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <div className="inline-flex items-center gap-0.5 text-[11px] lg:text-xs font-semibold text-amber-400">
-                  <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-amber-400" />
+                  <Star className="w-[13px] h-[13px] fill-amber-400" />
                   <span className="font-mono">{shop.reputation.toFixed(1)}</span>
                 </div>
 
                 <div className="text-right">
-                  <div className="font-mono text-xs sm:text-sm lg:text-base font-extrabold text-emerald-400 leading-none">
+                  <div className="font-mono text-[13px] sm:text-sm lg:text-base font-extrabold text-emerald-400 leading-none">
                     {formatTRY(shop.cash)}
                   </div>
                   {!shop.endlessMode && (
@@ -3930,7 +4010,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-[4px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -3939,7 +4019,7 @@ export default function App() {
                   }}
                   aria-label={bi('Dili İngilizce yap', 'Switch language to Turkish')}
                   title={bi('Dil: Türkçe (EN için tıkla)', 'Language: English (tap for TR)')}
-                  className="hidden lg:flex h-8 px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="hidden lg:flex h-[32px] px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10.5px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
                   {lang.toUpperCase()}
                 </button>
@@ -3951,9 +4031,9 @@ export default function App() {
                   }}
                   aria-label={bi('Pasaj Postası gazetesini oku', 'Read Arcade Gazette')}
                   title={bi('Pasaj Postası & Günlük Görevler', 'Daily Gazette & Quests')}
-                  className="flex h-7 w-7 lg:h-8 lg:w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-amber-300 hover:text-amber-200 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-amber-300 hover:text-amber-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
-                  <Newspaper className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  <Newspaper className="w-[15px] h-[15px]" />
                 </button>
                 <button
                   type="button"
@@ -3963,32 +4043,32 @@ export default function App() {
                   }}
                   aria-label={bi('Dükkan istatistik panelini aç', 'Open shop analytics')}
                   title={bi('Dükkan İstatistikleri', 'Shop Analytics')}
-                  className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="hidden lg:flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
-                  <BarChart3 className="w-4 h-4" />
+                  <BarChart3 className="w-[15px] h-[15px]" />
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     soundFX.playClick();
-                    setShowComplianceModal(true);
+                    openComplianceModal('SETTINGS');
                   }}
                   aria-label={bi('Ayarlar, Başarımlar ve Gizlilik', 'Settings, Achievements & Privacy')}
                   title={bi('Ayarlar & Başarımlar', 'Settings & Achievements')}
-                  className="flex h-7 w-7 lg:h-8 lg:w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-sky-300 hover:text-sky-200 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-sky-300 hover:text-sky-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  <ShieldCheck className="w-[15px] h-[15px]" />
                 </button>
                 <button
                   type="button"
                   onClick={handleToggleMute}
                   aria-label={muted ? bi('Sesi aç', 'Unmute') : bi('Sesi kapat', 'Mute')}
-                  className="flex h-7 w-7 lg:h-8 lg:w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
                   {muted ? (
-                    <VolumeX className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                    <VolumeX className="w-[15px] h-[15px]" />
                   ) : (
-                    <Volume2 className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                    <Volume2 className="w-[15px] h-[15px]" />
                   )}
                 </button>
                 <button
@@ -3998,9 +4078,9 @@ export default function App() {
                     setScreen('PAUSED');
                   }}
                   aria-label={bi('Oyunu duraklat', 'Pause game')}
-                  className="flex h-7 w-7 lg:h-8 lg:w-8 items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer"
+                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
-                  <Pause className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                  <Pause className="w-[15px] h-[15px]" />
                 </button>
               </div>
             </div>
@@ -4178,6 +4258,7 @@ export default function App() {
             onBuyAccessoryStock={handleBuyAccessoryStock}
             onUpdateAccessoryPrice={handleUpdateAccessoryPrice}
             onOrderBrandNewPhone={handleOrderBrandNewPhone}
+            onBuyUpgrade={handleBuyUpgrade}
             onBackToCounter={() => {
               soundFX.playClick();
               setActiveTab('COUNTER');
@@ -4253,6 +4334,10 @@ export default function App() {
             onTrainStaff={handleTrainStaff}
             onBuyOutfit={handleBuyOutfit}
             onEquipOutfit={handleEquipOutfit}
+            onBackToCounter={() => {
+              soundFX.playClick();
+              setActiveTab('COUNTER');
+            }}
           />
         )}
 
@@ -4351,6 +4436,8 @@ export default function App() {
         <StoreComplianceModal
           shop={shop}
           muted={muted}
+          initialTab={complianceInitialTab}
+          initialLegalView={complianceInitialLegal}
           onToggleMute={handleToggleMute}
           onToggleAmbientSound={handleToggleAmbientSound}
           onToggleHaptics={handleToggleHaptics}
@@ -4382,7 +4469,7 @@ export default function App() {
           onOpenCompliance={() => {
             soundFX.playClick();
             setScreen('PLAYING');
-            setShowComplianceModal(true);
+            openComplianceModal('SETTINGS');
           }}
           onRestart={handleStartNew}
           onTitle={() => {

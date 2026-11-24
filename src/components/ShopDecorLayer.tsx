@@ -31,6 +31,7 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
   const hasRetroShelf = activeDecorations.includes('retro_shelf');
   const hasLed = activeDecorations.includes('led_showcase');
   const hasTeaCorner = activeDecorations.includes('tea_corner');
+  const hasVipLounge = activeDecorations.includes('vip_lounge');
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden select-none">
@@ -92,6 +93,15 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="absolute inset-2 rounded-2xl border border-amber-400/35 shadow-[inset_0_0_45px_rgba(245,158,11,0.16)]"
+        />
+      )}
+
+      {/* DECORATION: Luxury VIP Lounge Ambient Halo */}
+      {hasVipLounge && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(245,158,11,0.16),transparent_55%)]"
         />
       )}
 

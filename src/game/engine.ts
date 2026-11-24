@@ -220,8 +220,8 @@ export function tickRivalFlashSnatch(
   };
 }
 
-// Responsive 10-level progression curve — Level 2 unlocks smoothly during Day 1-2
-const LEVEL_XP_THRESHOLDS = [0, 110, 260, 480, 780, 1180, 1700, 2350, 3200, 4300];
+// Sustainable 10-level progression curve — meaningful climb from arcade stall to GSM Plaza
+const LEVEL_XP_THRESHOLDS = [0, 320, 780, 1450, 2400, 3700, 5400, 7600, 10500, 14500];
 
 export function getLevelFromXp(xp: number): number {
   let lvl = 1;
@@ -276,7 +276,20 @@ export function getAccessorySpec(id: AccessoryId) {
   return ACCESSORY_CATALOG.find((a) => a.id === id) ?? ACCESSORY_CATALOG[0];
 }
 
-export function isAccessoryUnlocked(id: AccessoryId, level: number): boolean {
+export function hasAccessoryLicense(upgrades?: UpgradeId[]): boolean {
+  return Boolean(upgrades?.includes('accessory_license'));
+}
+
+export function hasBrandNewLicense(upgrades?: UpgradeId[]): boolean {
+  return Boolean(upgrades?.includes('brand_new_license'));
+}
+
+export function isAccessoryUnlocked(
+  id: AccessoryId,
+  level: number,
+  upgrades?: UpgradeId[]
+): boolean {
+  if (upgrades && !hasAccessoryLicense(upgrades)) return false;
   const spec = getAccessorySpec(id);
   return level >= (spec.minLevel ?? 1);
 }
@@ -296,8 +309,10 @@ export function getDistributorForBrand(brand: string) {
 export function isDistributorUnlocked(
   distributorId: string,
   level: number,
-  reputation: number
+  reputation: number,
+  upgrades?: UpgradeId[]
 ): boolean {
+  if (upgrades && !hasBrandNewLicense(upgrades)) return false;
   const dist = BRAND_DISTRIBUTORS.find((d) => d.id === distributorId);
   if (!dist) return false;
   return level >= dist.minLevel && reputation >= dist.minReputation;
@@ -654,6 +669,7 @@ export function countClaimableRewards(state: ShopState): number {
   ).length;
   const readyMilestones = CAREER_MILESTONES.filter(
     (m) =>
+      state.level >= (m.minLevel ?? 1) &&
       !state.claimedMilestoneIds.includes(m.id) &&
       getMilestoneCurrentValue(state, m) >= m.target
   ).length;
@@ -728,7 +744,7 @@ export function generateDailyQuests(
     },
   ];
 
-  if (level >= 2) {
+  if (level >= 2 && upgrades.includes('accessory_license')) {
     pool.push({
       kind: 'SELL_ACCESSORY',
       title: bi('Aksesuar Reyon Hareketi', 'Accessory Shelf Action'),
@@ -737,8 +753,8 @@ export function generateDailyQuests(
         'Sell 3 accessories via counter, phone cross-sell, or end-of-day shelf.'
       ),
       target: 3,
-      reward: 1100 + day * 160,
-      xpReward: 48,
+      reward: 1400 + day * 180,
+      xpReward: 55,
     });
   }
 
@@ -751,12 +767,12 @@ export function generateDailyQuests(
         'Repair at least 1 device defect at the workshop or express service.'
       ),
       target: 1,
-      reward: 1800 + day * 220,
-      xpReward: 60,
+      reward: 1900 + day * 220,
+      xpReward: 65,
     });
   }
 
-  if (level >= 2) {
+  if (level >= 4 && upgrades.includes('brand_new_license')) {
     pool.push({
       kind: 'SELL_BRAND_NEW',
       title: bi('Sıfır Kutu Satışı', 'Sealed Box Sale'),
@@ -765,8 +781,8 @@ export function generateDailyQuests(
         'Sell 1 brand-new factory-sealed phone ordered from a distributor.'
       ),
       target: 1,
-      reward: 2100 + day * 250,
-      xpReward: 75,
+      reward: 2600 + day * 280,
+      xpReward: 85,
     });
   }
 
@@ -1720,8 +1736,12 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
 
   // Tighter, fierier seller secret limit + ~18% realistic "bad deal / stubborn seller" chance!
   // Sharp players spot the loss risk in the valuation breakdown and walk away; careless buyers can lose money.
-  const isStubbornOverpriced =
-    Math.random() < (archetypeId === 'hustler' ? 0.24 : archetypeId === 'uncle' ? 0.2 : 0.12);
+  const hasCctv = state.upgrades.includes('cctv_security');
+  const hasEspresso = state.upgrades.includes('espresso_bar');
+  const stubbornChance =
+    (archetypeId === 'hustler' ? 0.24 : archetypeId === 'uncle' ? 0.2 : 0.12) *
+    (hasCctv ? 0.65 : 1);
+  const isStubbornOverpriced = Math.random() < stubbornChance;
   const minRatio = isStubbornOverpriced
     ? 0.93 + Math.random() * 0.13
     : archetypeId === 'student'
@@ -1761,8 +1781,11 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
       ? 62
       : 56;
   const startingMoodScore = Math.min(
-    94,
-    baseMood + (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) + outfitBonus.moodBonus
+    96,
+    baseMood +
+      (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) +
+      (hasEspresso ? 8 : 0) +
+      outfitBonus.moodBonus
   );
   const requiredRounds =
     archetypeId === 'uncle' || archetypeId === 'hustler' || isStubbornOverpriced ? 3 : 2;
@@ -1778,7 +1801,7 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
     customerPrice: initialAsk,
     initialCustomerPrice: initialAsk,
     secretLimit,
-    patience: Math.min(100, arch.startingPatience + outfitBonus.patienceBonus),
+    patience: Math.min(100, arch.startingPatience + outfitBonus.patienceBonus + (hasEspresso ? 10 : 0)),
     maxPatience: 100,
     moodScore: startingMoodScore,
     mood: deriveMoodFromScore(startingMoodScore),
@@ -1814,11 +1837,15 @@ export function createBuyerEncounter(
       : state.shopTier === 2
       ? 0.2
       : 0.08;
+  const hasVipConcierge = state.upgrades.includes('vip_concierge');
+  const hasCloudCrm = state.upgrades.includes('cloud_crm');
+  const hasEspresso = state.upgrades.includes('espresso_bar');
   const vipChance =
     tierVipBase +
     (prestige >= 60 ? 0.15 : 0) +
     (targetDevice.masterCrafted || targetDevice.isBrandNew ? 0.16 : 0) +
     (hasNeon ? 0.1 : 0) +
+    (hasVipConcierge ? 0.2 : 0) +
     (state.level >= 5 ? 0.15 : 0);
 
   let archetypeId: CustomerArchetypeId;
@@ -1846,7 +1873,9 @@ export function createBuyerEncounter(
   const prestigeBoost = 1 + Math.min(0.24, prestige * 0.001);
   const newsBudgetBoost = state.dailyNews.buyerBudgetMultiplier ?? 1;
   const levelPersuasionBoost =
-    (state.level >= 2 ? 1.05 : 1) * (state.level >= 9 ? 1.06 : 1);
+    (state.level >= 2 ? 1.05 : 1) *
+    (state.level >= 9 ? 1.06 : 1) *
+    (hasVipConcierge ? 1.06 : 1);
   const salesRepLvl = state.staff.includes('sales_rep')
     ? state.staffLevels?.sales_rep ?? 1
     : 0;
@@ -1855,7 +1884,9 @@ export function createBuyerEncounter(
   // Check if a happy past customer returns as a Regular (Müdavim)
   const happyPast = (state.soldHistory ?? []).filter((r) => r.wasHappy);
   const returningRecord =
-    happyPast.length > 0 && Math.random() < 0.34 ? pick(happyPast) : null;
+    happyPast.length > 0 && Math.random() < (hasCloudCrm ? 0.55 : 0.34)
+      ? pick(happyPast)
+      : null;
   const isRegular = Boolean(returningRecord);
   const regularBoost = isRegular ? 1.1 : 1;
 
@@ -1934,10 +1965,11 @@ export function createBuyerEncounter(
       ? 68
       : 60;
   const startingMoodScore = Math.min(
-    96,
+    98,
     baseBuyerMood +
       (state.legacyPath === 'SOCIAL_HUSTLER' ? 10 : 0) +
       (isRegular ? 14 : 0) +
+      (hasEspresso ? 8 : 0) +
       outfitBonus.moodBonus
   );
 
@@ -2129,11 +2161,14 @@ export function createWarrantyClaimEncounter(
   );
   if (candidates.length === 0) return null;
 
+  const hasCctv = state.upgrades.includes('cctv_security');
   const faultyFirst = candidates.filter((r) => r.hadDefects);
   const record =
     faultyFirst.length > 0
-      ? faultyFirst[0]
-      : Math.random() < 0.35
+      ? Math.random() < (hasCctv ? 0.65 : 1)
+        ? faultyFirst[0]
+        : null
+      : Math.random() < (hasCctv ? 0.18 : 0.35)
       ? pick(candidates)
       : null;
   if (!record) return null;
@@ -2235,8 +2270,9 @@ export function createDataRecoveryEncounter(state: ShopState): CustomerEncounter
 export function createAccessoryBuyerEncounter(
   state: ShopState
 ): CustomerEncounter | null {
+  if (!hasAccessoryLicense(state.upgrades)) return null;
   const available = Object.values(state.accessories).filter(
-    (a) => a.quantity > 0 && isAccessoryUnlocked(a.id, state.level)
+    (a) => a.quantity > 0 && isAccessoryUnlocked(a.id, state.level, state.upgrades)
   );
   if (available.length === 0) return null;
 
@@ -3222,7 +3258,7 @@ export function simulateEndOfDayAccessorySales(state: ShopState): {
     (state.level >= 4 ? 1.2 : 1.0);
 
   for (const spec of ACCESSORY_CATALOG) {
-    if (!isAccessoryUnlocked(spec.id, state.level)) continue;
+    if (!isAccessoryUnlocked(spec.id, state.level, state.upgrades)) continue;
     const stock = updated[spec.id];
     if (!stock || stock.quantity <= 0) continue;
 

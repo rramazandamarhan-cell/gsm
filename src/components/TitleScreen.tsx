@@ -14,7 +14,10 @@ interface TitleScreenProps {
   savedState: ShopState | null;
   onStartNew: () => void;
   onContinue: () => void;
-  onOpenCompliance: () => void;
+  onOpenCompliance: (
+    tab?: 'SETTINGS' | 'PRIVACY',
+    legalView?: 'privacy' | 'terms'
+  ) => void;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -113,8 +116,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
           <button
             type="button"
-            onClick={onOpenCompliance}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#101722]/85 backdrop-blur-sm px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#1C2736] hover:border-amber-400/40 transition-colors cursor-pointer whitespace-nowrap"
+            onClick={() => onOpenCompliance('SETTINGS')}
+            className="inline-flex items-center gap-1.5 min-h-[34px] rounded-lg border border-white/15 bg-[#101722]/85 backdrop-blur-sm px-3 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#1C2736] hover:border-amber-400/40 transition-colors cursor-pointer whitespace-nowrap touch-manipulation"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span>{bi('Ayarlar & Gizlilik', 'Settings & Privacy')}</span>
@@ -217,8 +220,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </span>
           <button
             type="button"
-            onClick={onOpenCompliance}
-            className="underline hover:text-amber-300 transition-colors cursor-pointer"
+            onClick={() => onOpenCompliance('PRIVACY', 'privacy')}
+            className="underline py-1 px-1 hover:text-amber-300 transition-colors cursor-pointer touch-manipulation"
           >
             {bi('Gizlilik Politikası', 'Privacy Policy')}
           </button>
@@ -227,8 +230,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </span>
           <button
             type="button"
-            onClick={onOpenCompliance}
-            className="underline hover:text-amber-300 transition-colors cursor-pointer"
+            onClick={() => onOpenCompliance('PRIVACY', 'terms')}
+            className="underline py-1 px-1 hover:text-amber-300 transition-colors cursor-pointer touch-manipulation"
           >
             {bi('Kullanım Koşulları', 'Terms of Use')}
           </button>

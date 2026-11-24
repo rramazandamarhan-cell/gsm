@@ -295,15 +295,15 @@ export const CounterView: React.FC<CounterViewProps> = ({
     return { min, max, step: max > 20000 ? 500 : 250 };
   }, [encounter]);
 
-  // Level-gated cross-sell options — 0 accessories at Level 1
+  // License & level-gated cross-sell options — requires accessory_license
   const stockedCrossSellOptions = useMemo(
     () =>
       ACCESSORY_CATALOG.filter(
         (spec) =>
-          isAccessoryUnlocked(spec.id, shopLevel) &&
+          isAccessoryUnlocked(spec.id, shopLevel, upgrades) &&
           (accessories[spec.id]?.quantity ?? 0) > 0
       ),
-    [accessories, shopLevel]
+    [accessories, shopLevel, upgrades]
   );
 
   const readyQuest = dailyQuests.find((q) => !q.claimed && q.progress >= q.target);
@@ -1651,22 +1651,28 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onResolveDataRecovery('SOFTWARE')}
-                        className="w-full rounded-xl bg-sky-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-sky-400 cursor-pointer"
+                        className="w-full min-h-[34px] rounded-xl bg-sky-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-sky-400 active:scale-[0.98] transition-all cursor-pointer touch-manipulation"
                       >
-                        {bi('Yazılımla Kurtar (Ücretsiz)', 'Software Recovery (Free)')}
+                        {bi(
+                          `Yazılımla Kurtar (Ücretsiz · %${Math.round(encounter.dataRecoveryJob.softwareSuccessRate * 100)})`,
+                          `Software Recovery (Free · ${Math.round(encounter.dataRecoveryJob.softwareSuccessRate * 100)}%)`
+                        )}
                       </button>
                       <button
                         type="button"
                         disabled={cash < encounter.dataRecoveryJob.cleanRoomCost}
                         onClick={() => onResolveDataRecovery('CLEAN_ROOM')}
-                        className="w-full rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                        className="w-full min-h-[34px] rounded-xl bg-emerald-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
                       >
-                        {bi('Temiz Oda Lab', 'Clean Room Lab')} ({formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})
+                        {bi(
+                          `Temiz Oda Lab (%100 · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`,
+                          `Clean Room Lab (100% · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={onDismiss}
-                        className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
+                        className="w-full min-h-[32px] rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 hover:bg-[#253244] cursor-pointer touch-manipulation"
                       >
                         {bi('İade Et · Geç', 'Decline')}
                       </button>

@@ -256,6 +256,25 @@ export const DecorPreviewArt: React.FC<{
           <circle cx="204" cy="44" r="3.2" fill="#1E3A8A" />
         </svg>
       );
+    case 'vip_lounge':
+      return (
+        <svg viewBox="0 0 240 100" className={className} fill="none" aria-hidden="true">
+          <rect width="240" height="100" rx="12" fill="#141118" />
+          {/* Luxury Gold Arch Backdrop */}
+          <rect x="14" y="10" width="212" height="80" rx="10" fill="#1C1622" stroke="#F59E0B" strokeOpacity="0.65" strokeWidth="1.6" />
+          {/* Leather VIP Sofa */}
+          <rect x="34" y="42" width="96" height="28" rx="8" fill="#581C1C" stroke="#F59E0B" strokeWidth="1.4" />
+          <rect x="28" y="52" width="14" height="24" rx="4" fill="#7F1D1D" stroke="#FBBF24" strokeWidth="1.2" />
+          <rect x="122" y="52" width="14" height="24" rx="4" fill="#7F1D1D" stroke="#FBBF24" strokeWidth="1.2" />
+          <rect x="38" y="64" width="88" height="12" rx="4" fill="#991B1B" />
+          {/* Marble & Gold Flagship Pedestal */}
+          <rect x="162" y="48" width="44" height="30" rx="5" fill="#1E293B" stroke="#FBBF24" strokeWidth="1.5" />
+          <rect x="174" y="24" width="20" height="26" rx="4" fill="#0F172A" stroke="#38BDF8" strokeWidth="1.4" />
+          <text x="184" y="67" textAnchor="middle" fill="#FCD34D" fontSize="9" fontWeight="800" fontFamily="JetBrains Mono, monospace">
+            VIP
+          </text>
+        </svg>
+      );
   }
 };
 
