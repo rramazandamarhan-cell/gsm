@@ -3,9 +3,11 @@ import {
   Award,
   BookOpen,
   Building2,
+  Calendar,
   CheckCircle2,
   Clock,
   Gavel,
+  Gift,
   Landmark,
   Lock,
   Megaphone,
@@ -15,8 +17,10 @@ import {
   ShieldAlert,
   Sparkles,
   Store,
+  Tag,
   TrendingUp,
   Truck,
+  Wrench,
   X,
 } from 'lucide-react';
 import {
@@ -34,8 +38,10 @@ import {
   formatTRY,
   getEffectiveLoanTerms,
   getEffectiveSalesTaxRate,
+  getWeekdayInfo,
   hasAuctionLicense,
   hasClassifiedsLicense,
+  roundPrice,
 } from '../game/engine';
 import {
   getLocalizedAccessory,
@@ -79,6 +85,8 @@ interface EmpireViewProps {
   onPayWeeklyTax: () => void;
   onBuyMuseumItem: (itemId: MuseumItemId) => void;
   onBuyUpgrade: (upgradeId: UpgradeId) => void;
+  onKermesSellPhone: (phoneUid: string) => void;
+  onBuyKermesDeal: (dealId: string) => void;
   onGoToStaff: () => void;
   onBackToCounter: () => void;
 }
@@ -86,6 +94,7 @@ interface EmpireViewProps {
 type EmpireSubTab =
   | 'CLASSIFIEDS'
   | 'AUCTION'
+  | 'KERMES'
   | 'BRANCHES'
   | 'FINANCE'
   | 'MUSEUM';
@@ -114,13 +123,22 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
   onPayWeeklyTax,
   onBuyMuseumItem,
   onBuyUpgrade,
+  onKermesSellPhone,
+  onBuyKermesDeal,
   onGoToStaff,
   onBackToCounter,
 }) => {
   const { lang, bi } = useLanguage();
-  const [subTab, setSubTab] = useState<EmpireSubTab>('CLASSIFIEDS');
+  const weekday = getWeekdayInfo(shop.day);
+  const kermes = shop.sundayKermes ?? null;
+  const kermesOpen = weekday.isSunday && Boolean(kermes);
+  const [subTab, setSubTab] = useState<EmpireSubTab>(() =>
+    getWeekdayInfo(shop.day).isSunday ? 'KERMES' : 'CLASSIFIEDS'
+  );
   const [classifiedView, setClassifiedView] = useState<'LISTINGS' | 'SHIPPING'>('LISTINGS');
   const [selectedMuseumId, setSelectedMuseumId] = useState<MuseumItemId | null>(null);
+  const [justBoughtMuseumId, setJustBoughtMuseumId] = useState<MuseumItemId | null>(null);
+  const [wonMysteryLot, setWonMysteryLot] = useState<CustomsAuctionLot | null>(null);
 
   const classifiedsLicensed = hasClassifiedsLicense(shop.upgrades);
   const auctionLicensed = hasAuctionLicense(shop.upgrades);
@@ -170,12 +188,12 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       }, 0)
     : 0;
 
-  const lotTierReq = (activeLot?.minShopTier ?? 1) as ShopTier;
-  const lotTierLocked = shop.shopTier < lotTierReq;
+  const lotReqCash = activeLot?.requiredCash ?? 0;
+  const lotCashLocked = lotReqCash > 0 && shop.cash < lotReqCash;
   const bidSteps = getAuctionStepSizes(activeLot?.startingBid ?? 10000);
 
   const startAuction = () => {
-    if (!activeLot || activeLot.resolved || lotTierLocked) return;
+    if (!activeLot || activeLot.resolved || lotCashLocked) return;
     setAuctionActive(true);
     setCurrentBid(activeLot.startingBid);
     setHighestBidder(bi('Açılış', 'Opening'));
@@ -203,15 +221,15 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       ),
     ];
 
-    // Harder rival aggression on higher-tier auctions
-    const rivalAggression = 0.72 + Math.min(0.16, (lotTierReq - 1) * 0.035);
-    const rivalMax = Math.round(lotValue * (rivalAggression + Math.random() * 0.1));
+    // Harder rival aggression scaling with auction tier index & player wealth
+    const rivalAggression = 0.75 + Math.min(0.2, selectedLotIdx * 0.04);
+    const rivalMax = Math.round(lotValue * (rivalAggression + Math.random() * 0.12));
     const rival = AUCTION_RIVALS[Math.floor(Math.random() * AUCTION_RIVALS.length)];
     const counterStep = bidSteps[0];
 
     if (nextBid < rivalMax && auctionRound < 6) {
       const rivalBid =
-        Math.round((nextBid + counterStep + Math.random() * counterStep * 1.3) / 250) * 250;
+        Math.round((nextBid + counterStep + Math.random() * counterStep * 1.35) / 250) * 250;
       setCurrentBid(rivalBid);
       setHighestBidder(rival.name);
       setAuctionRound((r) => r + 1);
@@ -229,11 +247,14 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       setAuctionLog([
         ...newLog,
         bi(
-          `Rakipler çekildi! Tokmak vuruldu — ${formatTRY(nextBid)} bedelle koliyi kazandın!`,
-          `Rivals fold! Sold to you for ${formatTRY(nextBid)}!`
+          `Rakipler çekildi! Tokmak vuruldu — ${formatTRY(nextBid)} bedelle koliyi ve gizemli kutuları kazandın!`,
+          `Rivals fold! Sold to you for ${formatTRY(nextBid)} with mystery boxes!`
         ),
       ]);
       onResolveAuction(activeLot.id, true, nextBid);
+      if (activeLot.mysteryRewards && activeLot.mysteryRewards.length > 0) {
+        setWonMysteryLot({ ...activeLot, winningBid: nextBid, wonByPlayer: true, resolved: true });
+      }
     }
   };
 
@@ -512,6 +533,13 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 Gavel,
                 bi(`İhale (${openAuctionCount}/6)`, `Auction (${openAuctionCount}/6)`),
               ],
+              [
+                'KERMES',
+                Tag,
+                kermesOpen
+                  ? bi('Esnaf Kermesi · AÇIK!', 'Sunday Fair · OPEN!')
+                  : bi(`Esnaf Kermesi (Paz)`, `Sunday Fair (Sun)`),
+              ],
               ['BRANCHES', Building2, bi('Şube & Rakip', 'Branches')],
               ['FINANCE', Landmark, bi('Banka & Vergi', 'Bank & Tax')],
               [
@@ -527,7 +555,11 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               onClick={() => setSubTab(id)}
               className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
                 subTab === id
-                  ? 'bg-amber-500 text-slate-950'
+                  ? id === 'KERMES' && kermesOpen
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'bg-amber-500 text-slate-950'
+                  : id === 'KERMES' && kermesOpen
+                  ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/50 hover:bg-emerald-500/30'
                   : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
               }`}
             >
@@ -776,12 +808,13 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
           </div>
         ) : activeLot && (
         <div className="flex-1 min-h-0 flex gap-2 overflow-hidden">
-          {/* Left: All 6 Daily Auction Tiers */}
-          <div className="w-[240px] lg:w-[290px] shrink-0 grid grid-rows-6 gap-1.5 min-h-0 overflow-hidden">
+          {/* Left: All 6 Dynamic Cash-Unlocked Auction Tiers */}
+          <div className="w-[244px] lg:w-[294px] shrink-0 grid grid-rows-6 gap-1.5 min-h-0 overflow-hidden">
             {auctionLots.slice(0, 6).map((lot, idx) => {
               const selected = idx === selectedLotIdx;
-              const reqTier = (lot.minShopTier ?? 1) as ShopTier;
-              const locked = shop.shopTier < reqTier;
+              const reqCash = lot.requiredCash ?? 0;
+              const locked = reqCash > 0 && shop.cash < reqCash;
+              const boxCount = lot.mysteryBoxCount ?? 1;
               return (
                 <button
                   key={lot.id}
@@ -809,9 +842,9 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                         {lot.wonByPlayer ? bi('Kazanıldı', 'Won') : bi('Kapandı', 'Closed')}
                       </span>
                     ) : locked ? (
-                      <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-amber-300 shrink-0">
+                      <span className="inline-flex items-center gap-0.5 font-mono text-[9.5px] font-bold text-amber-300 shrink-0 tabular-nums">
                         <Lock className="w-2.5 h-2.5" />
-                        {bi(`Dükkan ${reqTier}`, `Tier ${reqTier}`)}
+                        {formatTRY(reqCash)}
                       </span>
                     ) : (
                       <span className="font-mono text-[10.5px] font-extrabold text-amber-300 shrink-0 tabular-nums">
@@ -819,8 +852,13 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                       </span>
                     )}
                   </div>
-                  <div className="text-[9.5px] text-slate-400 truncate mt-0.5 tabular-nums">
-                    {lot.devices.length} {bi('cihaz', 'phones')} · {lot.riskTag ?? bi('Standart', 'Standard')}
+                  <div className="text-[9.5px] text-slate-400 truncate mt-0.5 tabular-nums flex items-center gap-1.5">
+                    <span>
+                      {lot.devices.length} {bi('cihaz', 'phones')}
+                    </span>
+                    <span className="text-fuchsia-300 font-semibold">
+                      · {boxCount} {bi('Gizemli Kutu', 'Mystery')}
+                    </span>
                   </div>
                 </button>
               );
@@ -833,7 +871,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             <div className="shrink-0 flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  {bi('GÜMRÜK & TASFİYE MEZATI', 'CUSTOMS & LIQUIDATION AUCTION')} ·{' '}
+                  {activeLot.difficultyTag ?? bi('GÜMRÜK & TASFİYE MEZATI', 'CUSTOMS AUCTION')} ·{' '}
                   {activeLot.riskTag ?? bi('Standart', 'Standard')}
                 </div>
                 <h3 className="text-sm font-extrabold text-slate-100 truncate">
@@ -857,28 +895,47 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               </div>
             </div>
 
-            {/* Sealed Crate Manifest + Bonus Accessories + Profit Spread */}
+            {/* Sealed Crate Manifest + Mystery Boxes + Bonus Accessories */}
             <div className="shrink-0 grid grid-cols-12 gap-2">
-              <div className="col-span-7 rounded-xl border border-white/8 bg-[#0E141D] p-2 flex items-center justify-around gap-1.5">
+              <div className="col-span-7 rounded-xl border border-white/8 bg-[#0E141D] p-2 flex items-center justify-around gap-1">
                 {activeLot.devices.map((d) => (
                   <div key={d.uid} className="flex flex-col items-center gap-0.5 min-w-0">
-                    <div className="w-9 h-14 rounded-lg border border-white/15 bg-[#1B2432] flex flex-col items-center justify-center relative">
-                      <div className="w-3.5 h-3.5 rounded bg-black/50 absolute top-1 left-1 flex items-center justify-center">
+                    <div className="w-8 h-12 rounded-lg border border-white/15 bg-[#1B2432] flex flex-col items-center justify-center relative">
+                      <div className="w-3 h-3 rounded bg-black/50 absolute top-1 left-1 flex items-center justify-center">
                         <span className="w-1 h-1 rounded-full bg-slate-500" />
                       </div>
                       <span className="text-[10px] font-extrabold text-amber-300/80 mt-2">?</span>
                     </div>
-                    <span className="text-[9px] font-mono text-slate-300 uppercase truncate max-w-[66px]">
+                    <span className="text-[8.5px] font-mono text-slate-300 uppercase truncate max-w-[54px]">
                       {activeLot.resolved && activeLot.wonByPlayer ? d.model : d.tier}
+                    </span>
+                  </div>
+                ))}
+                {/* Mystery Boxes visual inside the crate */}
+                {Array.from({ length: activeLot.mysteryBoxCount ?? 1 }).map((_, mIdx) => (
+                  <div key={`mb-${mIdx}`} className="flex flex-col items-center gap-0.5 min-w-0">
+                    <div className="w-9 h-12 rounded-lg border border-fuchsia-400/50 bg-fuchsia-500/15 flex flex-col items-center justify-center relative">
+                      <Gift className="w-4 h-4 text-fuchsia-300" />
+                      <span className="text-[8px] font-mono font-extrabold text-amber-300 mt-0.5">
+                        ???
+                      </span>
+                    </div>
+                    <span className="text-[8.5px] font-mono text-fuchsia-300 font-bold uppercase truncate max-w-[54px]">
+                      {bi('KUTU', 'BOX')} #{mIdx + 1}
                     </span>
                   </div>
                 ))}
               </div>
 
               <div className="col-span-5 rounded-xl border border-white/8 bg-[#0E141D] p-2 flex flex-col justify-between text-[10px] tabular-nums">
-                <div className="font-bold text-slate-200 flex items-center gap-1">
-                  <Package className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  {bi('Koli Manifestosu & Bonus', 'Crate Manifest & Bonus')}
+                <div className="font-bold text-slate-200 flex items-center justify-between gap-1">
+                  <span className="inline-flex items-center gap-1 truncate">
+                    <Package className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    {bi('Koli + Gizemli Kutu', 'Crate + Mystery')}
+                  </span>
+                  <span className="font-mono text-[9.5px] text-fuchsia-300 shrink-0">
+                    ×{activeLot.mysteryBoxCount ?? 1}
+                  </span>
                 </div>
                 <div className="text-slate-300 space-y-0.5">
                   {activeLot.bonusAccessories.map((ba) => {
@@ -947,12 +1004,14 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     <span className="inline-flex items-center gap-1.5 text-slate-300">
                       <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       {bi(
-                        'Mühürlü kolide gizli ekran/pil kusurları çıkabilir — tavan peyi aşma!',
-                        'Sealed crates may hide screen/battery flaws — watch your ceiling!'
+                        'Gizemli kutulardan sürpriz telefon, nakit çek veya toptan aksesuar çıkar!',
+                        'Mystery boxes hide bonus phones, cash envelopes, or bulk accessories!'
                       )}
                     </span>
-                    <span className="font-mono text-[10px] text-slate-400 shrink-0">
-                      {bi(`Gereken: Dükkan ${lotTierReq}`, `Requires: Tier ${lotTierReq}`)}
+                    <span className="font-mono text-[10px] text-amber-300 shrink-0 tabular-nums">
+                      {lotReqCash > 0
+                        ? bi(`Kasa Eşiği: ${formatTRY(lotReqCash)}`, `Cash Gate: ${formatTRY(lotReqCash)}`)
+                        : bi('Açık Giriş', 'Open Entry')}
                     </span>
                   </div>
                 </div>
@@ -965,22 +1024,22 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 <div className="rounded-lg bg-white/5 py-2 text-center text-xs font-bold text-slate-300">
                   {activeLot.wonByPlayer
                     ? bi(
-                        `Bu ihaleyi ${formatTRY(activeLot.winningBid)} ile kazandın — cihazlar atölyene eklendi!`,
-                        `Won for ${formatTRY(activeLot.winningBid)} — devices added to workshop!`
+                        `Bu ihaleyi ${formatTRY(activeLot.winningBid)} ile kazandın — cihazlar & gizemli ganimet eklendi!`,
+                        `Won for ${formatTRY(activeLot.winningBid)} — devices & mystery loot added!`
                       )
                     : bi('Bu ihale kapandı; diğer seanslara göz atabilirsin.', 'Lot closed — try another session.')}
                 </div>
-              ) : lotTierLocked ? (
-                <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 py-2 px-3 flex items-center justify-between text-xs">
+              ) : lotCashLocked ? (
+                <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 py-2 px-3 flex items-center justify-between text-xs tabular-nums">
                   <span className="inline-flex items-center gap-1.5 font-bold text-amber-200">
-                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     {bi(
-                      `Bu VIP ihaleye girmek için ${lotTierReq}. Dükkan (${getLocalizedShopTier(lotTierReq, lang).name}) gerekli!`,
-                      `Requires Shop Tier ${lotTierReq} (${getLocalizedShopTier(lotTierReq, lang).name}) to bid!`
+                      `Bu özel ihaleye katılmak için kasanda en az ${formatTRY(lotReqCash)} nakit birikmeli!`,
+                      `Accumulate at least ${formatTRY(lotReqCash)} cash to unlock this exclusive lot!`
                     )}
                   </span>
-                  <span className="font-mono text-[10.5px] text-slate-300">
-                    {bi('Büyüt → Dükkanlar', 'Grow → Shops')}
+                  <span className="font-mono text-[10.5px] text-slate-300 shrink-0">
+                    {formatTRY(shop.cash)} / {formatTRY(lotReqCash)}
                   </span>
                 </div>
               ) : !auctionActive ? (
@@ -1428,7 +1487,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
           </div>
 
-          {/* 5 Museum Cards — Rich Story Excerpt + Pedestal Art + Read Chronicle Button */}
+          {/* 5 Museum Cards — Compact Story Box + Click to Read + Auto-Open Story on Buy */}
           <div className="flex-1 min-h-0 grid grid-cols-5 gap-2 overflow-hidden">
             {MUSEUM_ITEMS.map((raw) => {
               const item = getLocalizedMuseumItem(raw.id, lang);
@@ -1436,10 +1495,14 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               return (
                 <div
                   key={item.id}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between gap-2 min-h-0 overflow-hidden ${
+                  onClick={() => {
+                    setJustBoughtMuseumId(null);
+                    setSelectedMuseumId(item.id);
+                  }}
+                  className={`rounded-xl border p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden cursor-pointer transition-colors ${
                     owned
-                      ? 'border-amber-400/45 bg-[#1C1A14]'
-                      : 'border-white/10 bg-[#151D28]'
+                      ? 'border-amber-400/45 bg-[#1C1A14] hover:border-amber-300'
+                      : 'border-white/10 bg-[#151D28] hover:border-amber-400/40'
                   }`}
                 >
                   {/* Top Title & Era */}
@@ -1458,40 +1521,52 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   </div>
 
                   {/* Center Museum Pedestal Stage */}
-                  <div className="shrink-0 rounded-xl border border-white/8 bg-[#0D131C] py-2 px-2 flex flex-col items-center justify-center gap-1">
-                    <MuseumPhoneArt id={item.id} className="w-12 h-16 lg:w-14 lg:h-20" />
+                  <div className="shrink-0 rounded-xl border border-white/8 bg-[#0D131C] py-1.5 px-2 flex flex-col items-center justify-center gap-1">
+                    <MuseumPhoneArt id={item.id} className="w-11 h-14 lg:w-13 lg:h-18" />
                     <div className="text-[9.5px] font-mono text-emerald-400 font-bold tabular-nums">
                       +{formatTRY(item.dailyPassiveCash)}/{bi('g', 'd')} · +{item.prestigeBonus}P
                     </div>
                   </div>
 
-                  {/* Rich Nostalgic Story Preview (Fills Space Meaningfully!) */}
-                  <div className="flex-1 min-h-0 rounded-lg border border-white/6 bg-[#0E141D] p-2 flex flex-col justify-between gap-1 overflow-hidden">
-                    <p className="text-[10px] text-slate-300 leading-snug line-clamp-4">
-                      {item.story}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedMuseumId(item.id)}
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 hover:text-amber-200 cursor-pointer self-start"
-                    >
-                      <BookOpen className="w-3 h-3" />
-                      {bi('Tam Hikayeyi Oku →', 'Read Full Story →')}
-                    </button>
+                  {/* Compact "Hikaye" Box inside Card */}
+                  <div className="flex-1 min-h-0 rounded-lg border border-amber-400/15 bg-[#0E141D] p-2 flex flex-col justify-between gap-1 overflow-hidden">
+                    <div className="space-y-0.5 min-h-0 overflow-hidden">
+                      <div className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-400">
+                        <BookOpen className="w-2.5 h-2.5" />
+                        {bi('Hikaye', 'Story')}
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 leading-snug line-clamp-3">
+                        {item.story}
+                      </p>
+                    </div>
+                    <span className="text-[9.5px] font-bold text-amber-300">
+                      {bi('Detayı Gör →', 'Read More →')}
+                    </span>
                   </div>
 
                   {/* Buy / Displayed Footer */}
-                  <div className="shrink-0">
+                  <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                     {owned ? (
-                      <div className="w-full rounded-lg bg-amber-500/20 py-1.5 text-center text-[10px] font-extrabold text-amber-300 inline-flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJustBoughtMuseumId(null);
+                          setSelectedMuseumId(item.id);
+                        }}
+                        className="w-full rounded-lg bg-amber-500/20 hover:bg-amber-500/30 py-1.5 text-center text-[10px] font-extrabold text-amber-300 inline-flex items-center justify-center gap-1 cursor-pointer"
+                      >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        {bi('Vitrinde Sergileniyor', 'On Display')}
-                      </div>
+                        {bi('Hikayeyi Aç', 'View Story')}
+                      </button>
                     ) : (
                       <button
                         type="button"
                         disabled={shop.cash < item.cost}
-                        onClick={() => onBuyMuseumItem(item.id)}
+                        onClick={() => {
+                          onBuyMuseumItem(item.id);
+                          setJustBoughtMuseumId(item.id);
+                          setSelectedMuseumId(item.id);
+                        }}
                         className="w-full rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer tabular-nums"
                       >
                         {formatTRY(item.cost)}
@@ -1505,16 +1580,330 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         </div>
       )}
 
-      {/* MUSEUM ARCHIVE CHRONICLE MODAL */}
+      {/* SUB-TAB 6: PAZAR GÜNÜ ESNAF KERMESİ (SUNDAY CLEARANCE & RARE PARTS BAZAAR) */}
+      {subTab === 'KERMES' && (
+        !kermesOpen || !kermes ? (
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/30 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3 overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-amber-400" />
+            </div>
+            <div className="space-y-1 max-w-xl">
+              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+                {bi(
+                  `BUGÜN ${weekday.nameTr.toUpperCase()} (GÜN ${shop.day}) · PAZAR GÜNÜ AÇILIR`,
+                  `TODAY IS ${weekday.nameEn.toUpperCase()} (DAY ${shop.day}) · OPENS EVERY SUNDAY`
+                )}
+              </div>
+              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+                {bi(
+                  `Esnaf Kermesi’ne ${weekday.daysUntilSunday} Gün Kaldı (Gün ${weekday.nextSundayDay} · Pazar)`,
+                  `Sunday Merchants Fair Opens in ${weekday.daysUntilSunday} Day(s) (Day ${weekday.nextSundayDay} · Sun)`
+                )}
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {bi(
+                  'Her Pazar günü pasaj meydanında kurulan Esnaf Kermesi’nde elinde bekleyen tüm telefonları beklemeden anında nakde çevirebilir, tamir parçalarını ise yarı fiyatına toplayabilirsin!',
+                  'Every Sunday the Arcade Merchants Fair opens! Instantly liquidate sitting inventory for cash and snatch rare repair parts & bargain phones at up to 60% off!'
+                )}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 max-w-xl w-full text-left">
+              <div className="rounded-xl border border-emerald-400/25 bg-[#0E141D] p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
+                  <Store className="w-4 h-4 shrink-0" />
+                  {bi('1. Hızlı Elden Çıkarma Tezgâhı', '1. Instant Clearance Stall')}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  {bi(
+                    'Stokta kalan, arızalı veya yavaş satan cihazları müşteri beklemeden Pazar kalabalığına %92–%108 piyasa oranıyla anında sat!',
+                    'Sell slow, older, or faulty devices instantly to the Sunday crowd at 92%–108% fair value with zero waiting!'
+                  )}
+                </p>
+              </div>
+              <div className="rounded-xl border border-amber-400/25 bg-[#0E141D] p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-300">
+                  <Wrench className="w-4 h-4 shrink-0" />
+                  {bi('2. Yarı Fiyatına Nadir Parça & Kelepir', '2. Half-Price Rare Parts & Steals')}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  {bi(
+                    'Her Pazar rastgele yenilenen 4 sandık: %50–%62 indirimli OLED ekran, OEM pil, IPA anakart kiti ve sürpriz kelepir cihazlar!',
+                    '4 freshly randomized crates every Sunday: 50%–62% off OLED displays, OEM batteries, IPA board kits & surprise bargain phones!'
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1.5 text-[11px] text-slate-300">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>
+                {bi(
+                  `Sonraki Kermes Günü: Gün ${weekday.nextSundayDay} (Her 7. Gün Pazar)`,
+                  `Next Fair Day: Day ${weekday.nextSundayDay} (Every 7th Day)`
+                )}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+            {/* FESTIVE SUNDAY KERMES HEADER */}
+            <div className="shrink-0 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-950/80 via-[#151D28] to-amber-950/60 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono font-extrabold text-emerald-300 uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>
+                    {bi(`PAZAR GÜNÜ ÖZEL · GÜN ${shop.day}`, `SUNDAY SPECIAL · DAY ${shop.day}`)}
+                  </span>
+                  <span>·</span>
+                  <span className="text-amber-300">
+                    {lang === 'en' ? kermes.enCrowdBuzzLabel : kermes.crowdBuzzLabel}
+                  </span>
+                </div>
+                <div className="font-display text-xs sm:text-sm font-extrabold text-slate-50 truncate mt-0.5">
+                  {lang === 'en' ? kermes.enHeadline : kermes.headline}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 tabular-nums">
+                <div className="rounded-lg border border-emerald-400/35 bg-[#0D1614] px-2.5 py-1 text-right">
+                  <div className="text-[9px] text-slate-400 uppercase font-bold">
+                    {bi('Kermes Alım Oranı', 'Clearance Rate')}
+                  </div>
+                  <div className="font-mono text-xs font-extrabold text-emerald-400">
+                    %{Math.round(kermes.clearanceMultiplier * 100)} {bi('Anında Nakit', 'Instant Cash')}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-amber-400/35 bg-[#1B1710] px-2.5 py-1 text-right">
+                  <div className="text-[9px] text-slate-400 uppercase font-bold">
+                    {bi('Bugün Satılan', 'Cleared Today')}
+                  </div>
+                  <div className="font-mono text-xs font-extrabold text-amber-300">
+                    {kermes.clearanceSoldCount} {bi('Cihaz', 'Units')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TWO-COLUMN ZERO-SCROLL KERMES WORKSPACE */}
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2 overflow-hidden">
+              {/* LEFT COLUMN (5 cols): INSTANT INVENTORY CLEARANCE STALL */}
+              <div className="lg:col-span-5 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2.5 flex flex-col gap-2 overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/8 pb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
+                    <Store className="w-4 h-4 shrink-0" />
+                    <span>{bi('Hızlı Elden Çıkarma Tezgâhı', 'Instant Clearance Stall')}</span>
+                  </div>
+                  <span className="font-mono text-[10px] text-slate-400">
+                    {shop.inventory.filter((p) => !p.assignedToStaff).length} {bi('stok', 'in stock')}
+                  </span>
+                </div>
+
+                {shop.inventory.filter((p) => !p.assignedToStaff).length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center text-xs text-slate-400 px-3 gap-1">
+                    <Package className="w-6 h-6 text-slate-500" />
+                    <div>
+                      {bi(
+                        'Kermeste elden çıkaracak boşta cihazın kalmadı.',
+                        'No available devices left in stock to liquidate.'
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
+                    {shop.inventory
+                      .filter((p) => !p.assignedToStaff)
+                      .map((phone) => {
+                        const fairVal = calculateMarketValue(
+                          phone,
+                          false,
+                          shop.dailyNews,
+                          shop.upgrades,
+                          shop.day
+                        );
+                        const instantOffer = Math.max(
+                          1000,
+                          roundPrice(fairVal * kermes.clearanceMultiplier)
+                        );
+                        const netProfit =
+                          instantOffer - (phone.purchasePrice + phone.repairSpend);
+
+                        return (
+                          <div
+                            key={phone.uid}
+                            className="rounded-lg border border-white/10 bg-[#0E141D] p-2 flex items-center justify-between gap-2"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <PhoneModelThumb device={phone} className="w-7 h-11 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-extrabold text-slate-100 truncate">
+                                  {phone.brand} {phone.model}
+                                </div>
+                                <div className="text-[9.5px] text-slate-400 flex items-center gap-1.5 flex-wrap">
+                                  <span>{phone.storage}</span>
+                                  <span>·</span>
+                                  <span
+                                    className={
+                                      phone.defects.length > 0
+                                        ? 'text-rose-300 font-semibold'
+                                        : 'text-emerald-300 font-semibold'
+                                    }
+                                  >
+                                    {phone.defects.length > 0
+                                      ? bi(`${phone.defects.length} Kusur`, `${phone.defects.length} Defect`)
+                                      : bi('Temiz', 'Clean')}
+                                  </span>
+                                  {phone.isBrandNew && (
+                                    <span className="text-sky-300 font-bold">
+                                      {bi('Sıfır', 'New')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div
+                                  className={`text-[9.5px] font-mono font-bold tabular-nums ${
+                                    netProfit >= 0 ? 'text-emerald-400' : 'text-amber-300'
+                                  }`}
+                                >
+                                  {netProfit >= 0 ? '+' : ''}
+                                  {formatTRY(netProfit)} {bi('net', 'net')}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onKermesSellPhone(phone.uid)}
+                              className="shrink-0 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer tabular-nums whitespace-nowrap"
+                            >
+                              {bi('Sat', 'Sell')} · {formatTRY(instantOffer)}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT COLUMN (7 cols): ULTRA-CHEAP RARE PARTS & SURPRISE BARGAINS (2x2 GRID) */}
+              <div className="lg:col-span-7 min-h-0 rounded-xl border border-amber-400/25 bg-[#151D28] p-2.5 flex flex-col gap-2 overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/8 pb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-300">
+                    <Tag className="w-4 h-4 shrink-0" />
+                    <span>
+                      {bi(
+                        'Pazar Nadir Parça & Kelepir Tezgâhı (Sınırlı Stok)',
+                        'Sunday Rare Parts & Bargain Booth (Limited Stock)'
+                      )}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-amber-200/80">
+                    {kermes.deals.filter((d) => !d.bought).length}/{kermes.deals.length}{' '}
+                    {bi('kaldı', 'left')}
+                  </span>
+                </div>
+
+                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2 overflow-hidden">
+                  {kermes.deals.map((deal) => {
+                    const canAfford = shop.cash >= deal.kermesPrice;
+                    return (
+                      <div
+                        key={deal.id}
+                        className={`rounded-xl border p-2.5 flex flex-col justify-between gap-1.5 overflow-hidden ${
+                          deal.bought
+                            ? 'border-emerald-400/30 bg-emerald-950/25 opacity-75'
+                            : deal.kind === 'BARGAIN_PHONE'
+                            ? 'border-fuchsia-400/40 bg-[#171225]'
+                            : 'border-amber-400/25 bg-[#0E141D]'
+                        }`}
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span
+                              className={`text-[9.5px] font-mono font-extrabold uppercase tracking-wider ${
+                                deal.kind === 'BARGAIN_PHONE'
+                                  ? 'text-fuchsia-300'
+                                  : deal.kind === 'ACCESSORY_BUNDLE'
+                                  ? 'text-sky-300'
+                                  : 'text-amber-300'
+                              }`}
+                            >
+                              {deal.kind === 'SPARE_PART_BUNDLE'
+                                ? bi('NADİR PARÇA', 'RARE PARTS')
+                                : deal.kind === 'ACCESSORY_BUNDLE'
+                                ? bi('TOPTAN KOLİ', 'BULK BOX')
+                                : bi('KELEPİR CİHAZ', 'BARGAIN PHONE')}
+                            </span>
+                            <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-rose-300">
+                              -%{deal.discountPercent}
+                            </span>
+                          </div>
+
+                          <div className="text-xs font-extrabold text-slate-50 truncate">
+                            {lang === 'en' ? deal.enTitle : deal.title}
+                          </div>
+                          <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
+                            {lang === 'en' ? deal.enSubtitle : deal.subtitle}
+                          </p>
+                        </div>
+
+                        <div className="flex items-end justify-between gap-2 pt-1.5 border-t border-white/8 tabular-nums">
+                          <div>
+                            <div className="font-mono text-[9.5px] text-slate-500 line-through">
+                              {formatTRY(deal.originalPrice)}
+                            </div>
+                            <div className="font-mono text-xs sm:text-sm font-extrabold text-emerald-400">
+                              {formatTRY(deal.kermesPrice)}
+                            </div>
+                          </div>
+
+                          {deal.bought ? (
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-1 text-[10px] font-extrabold text-emerald-300">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              {bi('Alındı', 'Claimed')}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={!canAfford}
+                              onClick={() => onBuyKermesDeal(deal.id)}
+                              className="rounded-lg bg-amber-500 px-3 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                            >
+                              {bi('Kermesten Kap', 'Grab Deal')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* MUSEUM ARCHIVE STORY MODAL (AUTO-OPENS ON PURCHASE OR CARD CLICK) */}
       {selectedMuseumSpec && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-          onClick={() => setSelectedMuseumId(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-4"
+          onClick={() => {
+            setSelectedMuseumId(null);
+            setJustBoughtMuseumId(null);
+          }}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-amber-400/35 bg-[#151D28] p-4 shadow-2xl space-y-3"
+            className="w-full max-w-lg rounded-2xl border border-amber-400/40 bg-[#151D28] p-4 shadow-2xl space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
+            {justBoughtMuseumId === selectedMuseumSpec.id && (
+              <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-extrabold text-emerald-300 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>
+                  {bi(
+                    'Müzene Eklendi! İşte Bu Efsanenin Gizemli Arka Plan Hikayesi:',
+                    'Added to Your Museum! Here is the Legendary Backstory:'
+                  )}
+                </span>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl border border-white/10 bg-[#0D131C] p-2.5">
@@ -1538,7 +1927,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedMuseumId(null)}
+                onClick={() => {
+                  setSelectedMuseumId(null);
+                  setJustBoughtMuseumId(null);
+                }}
                 className="w-8 h-8 rounded-lg border border-white/10 bg-[#0E141D] flex items-center justify-center text-slate-300 hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1547,13 +1939,16 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
 
             <div className="rounded-xl border border-white/8 bg-[#0E141D] p-3 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                {bi('KOLEKSİYONER ARŞİV HİKAYESİ', 'COLLECTOR ARCHIVE CHRONICLE')}
+                <BookOpen className="w-3.5 h-3.5" />
+                {bi('CİHAZIN GEÇMİŞ HİKAYESİ', 'DEVICE BACKSTORY & ARCHIVE')}
               </div>
-              <p className="text-xs text-slate-200 leading-relaxed">
+              <p className="text-xs italic text-amber-100/95 leading-relaxed">
+                “{selectedMuseumSpec.story}”
+              </p>
+              <p className="text-xs text-slate-300 leading-relaxed border-t border-white/8 pt-2">
                 {selectedMuseumSpec.fullHistory}
               </p>
-              <div className="border-t border-white/8 pt-2 text-[11px] font-semibold text-amber-300">
+              <div className="border-t border-white/8 pt-2 text-[11px] font-semibold text-emerald-300">
                 {selectedMuseumSpec.collectorPerk}
               </div>
             </div>
@@ -1561,7 +1956,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setSelectedMuseumId(null)}
+                onClick={() => {
+                  setSelectedMuseumId(null);
+                  setJustBoughtMuseumId(null);
+                }}
                 className="rounded-lg border border-white/10 bg-[#1B2432] px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-[#243042] cursor-pointer"
               >
                 {bi('Kapat', 'Close')}
@@ -1572,7 +1970,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   disabled={shop.cash < selectedMuseumSpec.cost}
                   onClick={() => {
                     onBuyMuseumItem(selectedMuseumSpec.id);
-                    setSelectedMuseumId(null);
+                    setJustBoughtMuseumId(selectedMuseumSpec.id);
                   }}
                   className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
                 >
@@ -1580,6 +1978,70 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AUCTION MYSTERY BOX REVEAL MODAL */}
+      {wonMysteryLot && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setWonMysteryLot(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-fuchsia-400/40 bg-[#151D28] p-4 shadow-2xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-fuchsia-500/20 border border-fuchsia-400/40 text-fuchsia-300">
+                  <Gift className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-fuchsia-300">
+                    {bi('İHALE GANİMETİ & GİZEMLİ KUTULAR AÇILDI', 'AUCTION LOOT & MYSTERY BOXES OPENED')}
+                  </div>
+                  <h3 className="font-display text-sm font-extrabold text-slate-50">
+                    {wonMysteryLot.lotTitle}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWonMysteryLot(null)}
+                className="w-8 h-8 rounded-lg border border-white/10 bg-[#0E141D] flex items-center justify-center text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              {(wonMysteryLot.mysteryRewards ?? []).map((mr) => (
+                <div
+                  key={mr.id}
+                  className="rounded-xl border border-fuchsia-400/25 bg-[#0E141D] p-2.5 flex items-start justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-mono font-bold text-fuchsia-300">
+                      {mr.boxLabel}
+                    </div>
+                    <div className="text-xs font-extrabold text-slate-100 mt-0.5">
+                      {mr.rewardTitle}
+                    </div>
+                    <div className="text-[10.5px] text-slate-400 mt-0.5">{mr.rewardDetail}</div>
+                  </div>
+                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-1" />
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setWonMysteryLot(null)}
+              className="w-full rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+            >
+              {bi('Harika! Ganimeti Al →', 'Awesome! Collect Loot →')}
+            </button>
           </div>
         </div>
       )}

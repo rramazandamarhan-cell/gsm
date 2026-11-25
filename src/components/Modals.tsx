@@ -18,6 +18,7 @@ import { VICTORY_CASH_GOAL, VICTORY_REPUTATION_GOAL } from '../game/catalog';
 import {
   buildDayHistoryEntry,
   formatTRY,
+  getPrestigePointsEarned,
   getShopRank,
 } from '../game/engine';
 import { useLanguage } from '../game/i18n';
@@ -566,6 +567,7 @@ interface EndModalProps {
   state: ShopState;
   onRestart: () => void;
   onContinueEndless?: () => void;
+  onTriggerPrestige?: () => void;
 }
 
 export const EndModal: React.FC<EndModalProps> = ({
@@ -573,10 +575,12 @@ export const EndModal: React.FC<EndModalProps> = ({
   state,
   onRestart,
   onContinueEndless,
+  onTriggerPrestige,
 }) => {
   const { bi } = useLanguage();
   const isVictory = mode === 'VICTORY';
   const rank = getShopRank(state);
+  const prestigePointsPreview = getPrestigePointsEarned(state);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2.5">
@@ -634,12 +638,24 @@ export const EndModal: React.FC<EndModalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isVictory && onTriggerPrestige && prestigePointsPreview > 0 && (
+            <button
+              type="button"
+              onClick={onTriggerPrestige}
+              className="w-full rounded-xl bg-emerald-500 px-4 py-2 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              {bi(
+                `Prestij Sıfırlaması Yap (+${prestigePointsPreview} PP · Kalıcı Avantajlar)`,
+                `Prestige Reset (+${prestigePointsPreview} PP · Permanent Perks)`
+              )}
+            </button>
+          )}
           {isVictory && onContinueEndless && (
             <button
               type="button"
               onClick={onContinueEndless}
-              className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
+              className="flex-1 rounded-xl bg-amber-500 px-4 py-2 text-xs sm:text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
             >
               {bi('Sonsuz Mod', 'Endless Mode')}
             </button>
@@ -647,7 +663,7 @@ export const EndModal: React.FC<EndModalProps> = ({
           <button
             type="button"
             onClick={onRestart}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex-1 rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition-colors whitespace-nowrap cursor-pointer ${
               isVictory
                 ? 'border border-white/15 bg-[#202B3A] text-slate-200 hover:bg-[#2A374A]'
                 : 'bg-amber-500 text-slate-950 hover:bg-amber-400'

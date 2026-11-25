@@ -1,5 +1,6 @@
-// Tactile procedural Foley & optional warm shop ambience via Web Audio API.
+// Tactile procedural Foley, warm shop ambience, & Vintage Pasaj Radio via Web Audio API.
 // Zero external audio assets needed — works offline in PWA, Android APK, and iOS WebView.
+import { RadioStationId } from './types';
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -10,6 +11,13 @@ class SoundEngine {
     source: AudioBufferSourceNode;
     masterGain: GainNode;
     lfo: OscillatorNode;
+  } | null = null;
+  private radioStation: RadioStationId = 'OFF';
+  private radioStep = 0;
+  private radioTimer: number | null = null;
+  private radioBedNodes: {
+    source: AudioBufferSourceNode;
+    gain: GainNode;
   } | null = null;
 
   private ensureContext(): AudioContext | null {
@@ -55,8 +63,14 @@ class SoundEngine {
     this.muted = muted;
     if (muted) {
       this.stopAmbientNodes();
-    } else if (this.ambientEnabled) {
-      this.startAmbientNodes();
+      this.stopRadioEngine();
+    } else {
+      if (this.ambientEnabled) {
+        this.startAmbientNodes();
+      }
+      if (this.radioStation !== 'OFF') {
+        this.startRadioEngine();
+      }
     }
   }
 
@@ -80,6 +94,176 @@ class SoundEngine {
 
   public isAmbientEnabled(): boolean {
     return this.ambientEnabled;
+  }
+
+  public getRadioStation(): RadioStationId {
+    return this.radioStation;
+  }
+
+  public playRadioStaticBurst(): void {
+    this.playNoiseBurst(0.18, 'bandpass', 1650, 880, 0.055, 0, 1.4);
+    this.playTone(980, 0.05, 'sine', 0.025, 0.04, 1420);
+  }
+
+  public setRadioStation(station: RadioStationId): void {
+    const changed = this.radioStation !== station;
+    this.radioStation = station;
+    this.stopRadioEngine();
+    if (changed && !this.muted) {
+      this.playRadioStaticBurst();
+    }
+    if (station !== 'OFF' && !this.muted) {
+      this.radioStep = 0;
+      this.startRadioEngine();
+    }
+  }
+
+  private startRadioEngine(): void {
+    if (this.muted || this.radioStation === 'OFF') return;
+    if (this.radioTimer !== null) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    // 1. Subtle warm AM/cassette Pasaj radio static bed (changes overall shop acoustics!)
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = this.getNoiseBuffer(ctx);
+      src.loop = true;
+
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(
+        this.radioStation === 'ARABESK' ? 1050 : 1450,
+        ctx.currentTime
+      );
+      bp.Q.setValueAtTime(1.1, ctx.currentTime);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.011, ctx.currentTime + 0.6);
+
+      src.connect(bp);
+      bp.connect(gain);
+      gain.connect(ctx.destination);
+      src.start();
+      this.radioBedNodes = { source: src, gain };
+    } catch {
+      // Ignore autoplay blocks until next tap
+    }
+
+    // 2. Procedural FM melody & chord loop tailored to station mood
+    // Arabesk: soulful slow Hicaz scale (D4, Eb4, F#4, G4, A4, Bb4, C5, D5)
+    const arabeskLead = [
+      293.66, 369.99, 392.0, 440.0, 466.16, 440.0, 392.0, 369.99,
+      311.13, 369.99, 392.0, 369.99, 311.13, 293.66, 0, 293.66,
+    ];
+    const arabeskBass = [146.83, 146.83, 155.56, 146.83, 196.0, 155.56, 146.83, 146.83];
+
+    // 90s Turkish Pop: catchy upbeat nostalgic Am - F - C - G synth groove
+    const pop90Lead = [
+      440.0, 523.25, 659.25, 587.33, 523.25, 440.0, 392.0, 440.0,
+      349.23, 440.0, 523.25, 659.25, 587.33, 493.88, 440.0, 392.0,
+    ];
+    const pop90Bass = [220.0, 220.0, 174.61, 174.61, 261.63, 261.63, 196.0, 196.0];
+
+    const stepMs = this.radioStation === 'ARABESK' ? 540 : 310;
+
+    const playRadioNote = (
+      freq: number,
+      dur: number,
+      wave: OscillatorType,
+      peak: number,
+      filterFreq: number
+    ) => {
+      const c = this.ensureContext();
+      if (!c || freq <= 0) return;
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const flt = c.createBiquadFilter();
+      const g = c.createGain();
+
+      osc.type = wave;
+      osc.frequency.setValueAtTime(freq, now);
+
+      // Warm vintage speaker bandpass feel
+      flt.type = 'lowpass';
+      flt.frequency.setValueAtTime(filterFreq, now);
+      flt.Q.setValueAtTime(0.9, now);
+
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(peak, now + 0.035);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      osc.connect(flt);
+      flt.connect(g);
+      g.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + dur + 0.04);
+    };
+
+    const tick = () => {
+      if (this.muted || this.radioStation === 'OFF') {
+        this.stopRadioEngine();
+        return;
+      }
+      const idx = this.radioStep;
+      this.radioStep += 1;
+
+      if (this.radioStation === 'ARABESK') {
+        const note = arabeskLead[idx % arabeskLead.length];
+        if (note > 0) {
+          playRadioNote(note, 0.48, 'sawtooth', 0.017, 1350);
+          playRadioNote(note * 0.5, 0.52, 'triangle', 0.012, 900);
+        }
+        if (idx % 2 === 0) {
+          const bass = arabeskBass[Math.floor(idx / 2) % arabeskBass.length];
+          playRadioNote(bass, 0.9, 'sine', 0.022, 420);
+        }
+      } else {
+        const note = pop90Lead[idx % pop90Lead.length];
+        if (note > 0) {
+          playRadioNote(note, 0.24, 'triangle', 0.022, 2100);
+        }
+        if (idx % 2 === 0) {
+          const bass = pop90Bass[Math.floor(idx / 2) % pop90Bass.length];
+          playRadioNote(bass, 0.45, 'sine', 0.024, 520);
+        }
+        if (idx % 4 === 2) {
+          // Soft retro snare/hi-hat brush
+          this.playNoiseBurst(0.04, 'highpass', 3200, 1800, 0.012, 0, 1.2);
+        }
+      }
+    };
+
+    tick();
+    this.radioTimer = window.setInterval(tick, stepMs);
+  }
+
+  private stopRadioEngine(): void {
+    if (this.radioTimer !== null) {
+      window.clearInterval(this.radioTimer);
+      this.radioTimer = null;
+    }
+    if (this.radioBedNodes) {
+      try {
+        const { source, gain } = this.radioBedNodes;
+        const now = this.ctx?.currentTime ?? 0;
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setTargetAtTime(0.0001, now, 0.05);
+        window.setTimeout(() => {
+          try {
+            source.stop();
+            source.disconnect();
+            gain.disconnect();
+          } catch {
+            // Ignore already stopped
+          }
+        }, 160);
+      } catch {
+        // Ignore
+      }
+      this.radioBedNodes = null;
+    }
   }
 
   private startAmbientNodes(): void {
@@ -230,6 +414,9 @@ class SoundEngine {
   public playDoorBell(): void {
     if (this.ambientEnabled && !this.ambientNodes && !this.muted) {
       this.startAmbientNodes();
+    }
+    if (this.radioStation !== 'OFF' && this.radioTimer === null && !this.muted) {
+      this.startRadioEngine();
     }
     this.playTone(987.77, 0.32, 'sine', 0.065, 0);
     this.playTone(1975.5, 0.18, 'sine', 0.02, 0);

@@ -6,6 +6,7 @@ import {
   OutfitId,
   PhoneModelSpec,
 } from '../game/types';
+import { getPrestigePlaqueStyle } from '../game/engine';
 
 /** Bespoke Retro Phone SVG Illustrations for the Nostalgia Museum */
 export const MuseumPhoneArt: React.FC<{
@@ -169,8 +170,128 @@ export const MuseumPhoneArt: React.FC<{
 export const DecorPreviewArt: React.FC<{
   id: DecorationId;
   className?: string;
-}> = ({ id, className = 'w-full h-28' }) => {
+  prestigeLevel?: number;
+}> = ({ id, className = 'w-full h-28', prestigeLevel = 0 }) => {
   switch (id) {
+    case 'vintage_radio':
+      return (
+        <svg viewBox="0 0 240 100" className={className} fill="none" aria-hidden="true">
+          <rect width="240" height="100" rx="12" fill="#15110E" />
+          {/* Wooden Retro Radio Cabinet */}
+          <rect x="26" y="16" width="188" height="68" rx="12" fill="#5C2D12" stroke="#D97706" strokeWidth="2.4" />
+          <rect x="33" y="22" width="174" height="56" rx="8" fill="#3B1D0C" stroke="#F59E0B" strokeOpacity="0.45" strokeWidth="1.2" />
+          {/* Fabric Speaker Grille */}
+          <rect x="42" y="30" width="76" height="40" rx="5" fill="#1E140D" stroke="#B45309" strokeWidth="1.2" />
+          {[36, 44, 52, 60].map((y) => (
+            <line key={y} x1="48" y1={y} x2="112" y2={y} stroke="#D97706" strokeOpacity="0.65" strokeWidth="2" strokeLinecap="round" />
+          ))}
+          {/* Illuminated FM Frequency Dial */}
+          <rect x="126" y="30" width="72" height="19" rx="4" fill="#17221B" stroke="#FCD34D" strokeWidth="1.4" />
+          <line x1="132" y1="40" x2="192" y2="40" stroke="#FDE68A" strokeOpacity="0.6" strokeWidth="1" strokeDasharray="3 2" />
+          <line x1="158" y1="32" x2="158" y2="47" stroke="#EF4444" strokeWidth="2.2" strokeLinecap="round" />
+          <text x="162" y="37" fill="#FDE68A" fontSize="6.5" fontWeight="700" fontFamily="JetBrains Mono, monospace">
+            FM 94.2
+          </text>
+          {/* Brass Knobs */}
+          <circle cx="144" cy="61" r="8" fill="#1F1610" stroke="#FBBF24" strokeWidth="1.8" />
+          <circle cx="144" cy="61" r="2.5" fill="#FDE68A" />
+          <circle cx="180" cy="61" r="8" fill="#1F1610" stroke="#FBBF24" strokeWidth="1.8" />
+          <circle cx="180" cy="61" r="2.5" fill="#FDE68A" />
+        </svg>
+      );
+    case 'tea_boiler':
+      return (
+        <svg viewBox="0 0 240 100" className={className} fill="none" aria-hidden="true">
+          <rect width="240" height="100" rx="12" fill="#15100C" />
+          {/* Warm Ember Glow Beneath Boiler */}
+          <ellipse cx="110" cy="85" rx="46" ry="7" fill="#F59E0B" fillOpacity="0.28" />
+          {/* Rising Steam Wisps */}
+          <path d="M98 18 C94 12, 102 8, 98 3" stroke="#FDE68A" strokeOpacity="0.7" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M116 16 C120 11, 112 7, 116 2" stroke="#FEF3C7" strokeOpacity="0.55" strokeWidth="1.6" strokeLinecap="round" />
+          {/* Upper Demlik Teapot */}
+          <rect x="86" y="18" width="44" height="20" rx="8" fill="#B45309" stroke="#FBBF24" strokeWidth="1.8" />
+          <rect x="98" y="12" width="20" height="6" rx="3" fill="#F59E0B" />
+          <path d="M130 24 C138 22, 140 31, 130 33" stroke="#FCD34D" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+          {/* Main Copper Boiler Tank */}
+          <rect x="66" y="38" width="84" height="44" rx="8" fill="#7C2D12" stroke="#F59E0B" strokeWidth="2.2" />
+          <rect x="74" y="44" width="68" height="32" rx="4" fill="#9A3412" stroke="#FDE68A" strokeOpacity="0.4" strokeWidth="1" />
+          {/* Engraved Copper Plate & Pressure Dial */}
+          <circle cx="96" cy="60" r="10" fill="#1C1917" stroke="#FBBF24" strokeWidth="1.6" />
+          <line x1="96" y1="60" x2="102" y2="54" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="96" cy="60" r="2" fill="#FDE68A" />
+          <text x="125" y="57" textAnchor="middle" fill="#FDE68A" fontSize="7.5" fontWeight="800" fontFamily="Plus Jakarta Sans, sans-serif">
+            PASAJ
+          </text>
+          <text x="125" y="67" textAnchor="middle" fill="#FBBF24" fontSize="6.5" fontWeight="700" fontFamily="JetBrains Mono, monospace">
+            TAZE DEM
+          </text>
+          {/* Brass Spigot & Tulip Glass Catching Pour */}
+          <path d="M150 58 L166 58 L166 65" stroke="#FBBF24" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="166" y1="66" x2="166" y2="73" stroke="#DC2626" strokeWidth="2" strokeDasharray="2 2" />
+          <path d="M159 73 C159 77, 161 79, 160 84 L172 84 C171 79, 173 77, 173 73 Z" fill="#991B1B" stroke="#FDE68A" strokeWidth="1.3" />
+          <line x1="154" y1="86" x2="178" y2="86" stroke="#CBD5E1" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'prestige_plaque': {
+      const pStyle = getPrestigePlaqueStyle(prestigeLevel);
+      return (
+        <svg viewBox="0 0 240 100" className={className} fill="none" aria-hidden="true">
+          <rect width="240" height="100" rx="12" fill="#0F141C" />
+          {/* Dark Walnut Frame */}
+          <rect x="30" y="10" width="180" height="80" rx="11" fill="#1C1410" stroke={pStyle.accentHex} strokeWidth="2.2" />
+          {/* Metallic Plaque Plate */}
+          <rect
+            x="40"
+            y="18"
+            width="160"
+            height="64"
+            rx="7"
+            fill={pStyle.accentHex}
+            fillOpacity={prestigeLevel > 0 ? 0.16 : 0.06}
+            stroke={pStyle.accentHex}
+            strokeOpacity="0.7"
+            strokeWidth="1.3"
+          />
+          {/* Corner Rivets */}
+          {[
+            [47, 25],
+            [193, 25],
+            [47, 75],
+            [193, 75],
+          ].map(([cx, cy], idx) => (
+            <circle key={idx} cx={cx} cy={cy} r="2.2" fill={pStyle.accentHex} />
+          ))}
+          {/* Crest / Star */}
+          <polygon
+            points="120,25 123,33 132,33 125,38 127,46 120,41 113,46 115,38 108,33 117,33"
+            fill={pStyle.accentHex}
+          />
+          <text
+            x="120"
+            y="60"
+            textAnchor="middle"
+            fill={pStyle.accentHex}
+            fontSize="11"
+            fontWeight="800"
+            fontFamily="Plus Jakarta Sans, sans-serif"
+            letterSpacing="1.4"
+          >
+            {prestigeLevel > 0 ? `${pStyle.tierLabelTr.toUpperCase()} PLAKET` : 'PRESTİJ PLAKETİ'}
+          </text>
+          <text
+            x="120"
+            y="73"
+            textAnchor="middle"
+            fill="#CBD5E1"
+            fontSize="7.5"
+            fontWeight="700"
+            fontFamily="JetBrains Mono, monospace"
+          >
+            {prestigeLevel > 0 ? `DÖNEM P${prestigeLevel} · EFSANE ESNAF` : '1. PRESTİJDE AÇILIR'}
+          </text>
+        </svg>
+      );
+    }
     case 'vintage_sign':
       return (
         <svg viewBox="0 0 240 100" className={className} fill="none" aria-hidden="true">

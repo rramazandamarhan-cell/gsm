@@ -5,14 +5,18 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Crown,
   Flame,
   Gift,
   Lock,
   MessageSquare,
+  RotateCcw,
+  ScrollText,
   Smartphone,
   Sparkles,
   Target,
   Trophy,
+  X,
 } from 'lucide-react';
 import {
   CAREER_MILESTONES,
@@ -23,11 +27,19 @@ import {
   STORY_CHAPTERS,
 } from '../game/catalog';
 import {
+  detectPlayerPlaystyle,
   formatTRY,
+  getLevelProgress,
+  getLevelUpBonusCash,
   getMilestoneCurrentValue,
+  getPlaystyleLabel,
+  getPrestigeCashTarget,
+  getPrestigeIncomeMultiplier,
+  getPrestigePointsEarned,
   getShopRank,
   getStoryChapterCurrentValue,
   getStreakBonusCash,
+  PRESTIGE_PERKS,
 } from '../game/engine';
 import {
   getLocalizedMilestone,
@@ -37,7 +49,7 @@ import {
   getLocalizedUpgrade,
   useLanguage,
 } from '../game/i18n';
-import { ShopState, ShopTier, UpgradeId } from '../game/types';
+import { DailyQuest, PrestigePerkId, ShopState, ShopTier, UpgradeId } from '../game/types';
 import { PhoneModelThumb } from './PhoneInspectSVG';
 
 interface MissionsViewProps {
@@ -46,10 +58,12 @@ interface MissionsViewProps {
   onClaimMilestone: (milestoneId: string) => void;
   onClaimStoryChapter: (chapterId: string) => void;
   onClaimDailyStreak: () => void;
+  onTriggerPrestige: () => void;
+  onBuyPrestigePerk: (perkId: PrestigePerkId) => void;
   onBackToCounter: () => void;
 }
 
-type MissionsSubTab = 'STORY' | 'DAILY' | 'MILESTONES' | 'ROADMAP' | 'COLLECTION';
+type MissionsSubTab = 'STORY' | 'DAILY' | 'MILESTONES' | 'PRESTIGE' | 'ROADMAP' | 'COLLECTION';
 
 const MS_PER_PAGE = 6;
 const MODELS_PER_PAGE = 8;
@@ -66,6 +80,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   onClaimMilestone,
   onClaimStoryChapter,
   onClaimDailyStreak,
+  onTriggerPrestige,
+  onBuyPrestigePerk,
   onBackToCounter,
 }) => {
   const { lang, bi } = useLanguage();
@@ -94,13 +110,64 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   });
   const [msPage, setMsPage] = useState(0);
   const [colPage, setColPage] = useState(0);
+  const [diplomaQuest, setDiplomaQuest] = useState<DailyQuest | null>(null);
+  const [confirmPrestige, setConfirmPrestige] = useState(false);
 
   const rank = getShopRank(shop);
+  const lvlProg = getLevelProgress(shop.xp);
+  const nextLevelBonus = getLevelUpBonusCash(lvlProg.level + 1);
+  const playstyle = detectPlayerPlaystyle(shop);
+  const playstyleInfo = getPlaystyleLabel(playstyle);
+  const prestigeLevel = shop.prestigeLevel ?? 0;
+  const prestigePoints = shop.prestigePoints ?? 0;
+  const prestigePerks = shop.prestigePerks ?? [];
+  const prestigeTarget = getPrestigeCashTarget(prestigeLevel);
+  const prestigeEarnedPreview = getPrestigePointsEarned(shop);
+  const prestigeReady = shop.cash >= prestigeTarget;
+  const prestigeMultPct = Math.round((getPrestigeIncomeMultiplier(shop) - 1) * 100);
   const streakBonus = getStreakBonusCash(shop.dealStreak, shop.shopTier);
   const todayStreakReward =
     DAILY_STREAK_REWARDS[
       Math.min(DAILY_STREAK_REWARDS.length - 1, Math.max(0, shop.loginStreak - 1))
     ];
+
+  const getWittyDiplomaQuote = (q: DailyQuest | null): string => {
+    if (!q) {
+      return bi(
+        'Pasajda ince belli çay eşliğinde pazarlık yapma, göz ucuyla yan sanayi ekranı tanıma ve müşteriyi gülümseterek gönderme üstün başarısından dolayı takdim edilmiştir.',
+        'Awarded for exceptional bargaining over Turkish tea, spotting aftermarket screens at a glance, and sending every customer away smiling.'
+      );
+    }
+    switch (q.kind) {
+      case 'REPAIR_PHONE':
+        return bi(
+          'Havya elinde, tornavida cebinde; ölü anakartı hayata döndürme ve sıfır vida artırma üstün başarısından dolayı bu diploma takdim edilmiştir!',
+          'Soldering iron in hand, zero leftover screws — awarded for resurrecting dead boards with master craftsman precision!'
+        );
+      case 'INSPECT_FULL':
+      case 'USE_LEVERAGE':
+        return bi(
+          '“Tertemiz abi, hiç açılmadı” diyen satıcının gözünün içine baka baka sıvı bandını ve yurt dışı IMEI’yi şıp diye yakalama başarısından dolayı verilmiştir!',
+          'Awarded for staring straight at a “mint condition” hustler and catching their red LCI strip and unregistered IMEI red-handed!'
+        );
+      case 'SELL_PHONE':
+      case 'BUY_BARGAIN':
+        return bi(
+          'Kelepiri kokusundan tanıma, vitrini sıcak tutma ve kasa defterini hep artıda kapatma ustalığından dolayı Pasaj Esnaf Odası onayıyla verilmiştir!',
+          'Certified by the Arcade Merchants Guild for sniffing out bargains from a mile away and keeping the showcase hot!'
+        );
+      case 'SERVE_TEA':
+        return bi(
+          'En inatçı müşteriyi bile taze demlenmiş iki ince belli çayla pamuk gibi yumuşatma sanatındaki üstün diplomasisi nedeniyle takdim edilmiştir!',
+          'Presented for supreme tea diplomacy — melting even the toughest hagglers with two cups of freshly brewed Turkish tea!'
+        );
+      default:
+        return bi(
+          'Pasaj ticaret ahlakı, keskin esnaf sezgisi ve günün görevini alnının akıyla tamamlama başarısından dolayı bu onur belgesi verilmiştir!',
+          'Awarded for sharp merchant instincts, arcade craftsmanship, and completing today’s mission with flying colors!'
+        );
+    }
+  };
 
   const activeChapterRaw =
     STORY_CHAPTERS.find((c) => c.id === selectedChapterId) ?? STORY_CHAPTERS[0];
@@ -139,6 +206,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               ['STORY', BookOpen, bi('Hikâye', 'Story'), readyStoryCount],
               ['DAILY', Target, bi('Günlük', 'Daily'), readyDailyCount],
               ['MILESTONES', Trophy, bi('Kariyer', 'Career'), readyMilestoneCount],
+              ['PRESTIGE', Crown, bi('Prestij', 'Prestige'), prestigeReady ? 1 : 0],
               ['ROADMAP', Sparkles, bi('Yol Haritası', 'Roadmap'), 0],
               ['COLLECTION', Smartphone, bi('Katalog', 'Catalog'), 0],
             ] as const
@@ -164,16 +232,33 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           ))}
         </div>
 
-        {/* Inline Rank & Shop Tier + Daily Streak Claim */}
+        {/* Inline Rank, Infinite Level XP Bar & Daily Streak Claim */}
         <div className="flex items-center gap-2 tabular-nums shrink-0">
-          <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-[#0E141D] px-2.5 py-0.5 text-[10.5px]">
-            <Award className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-bold text-amber-300 truncate max-w-[140px]">
+          <div
+            className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-[#0E141D] px-2.5 py-0.5 text-[10.5px]"
+            title={bi(
+              `Sv. ${lvlProg.level + 1} bonusu: +${formatTRY(nextLevelBonus)} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP)`,
+              `Lv. ${lvlProg.level + 1} bonus: +${formatTRY(nextLevelBonus)} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP)`
+            )}
+          >
+            <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="font-mono font-extrabold text-amber-300 whitespace-nowrap">
+              {bi(`Sv.${lvlProg.level}`, `Lv.${lvlProg.level}`)}
+            </span>
+            <span className="hidden md:inline font-bold text-slate-200 truncate max-w-[115px]">
               {rank}
             </span>
-            <span className="hidden md:inline font-mono text-[9.5px] text-slate-400">
-              · {bi(`${shop.shopTier}. Dükkan`, `Tier ${shop.shopTier}`)}
-            </span>
+            <div className="hidden sm:flex items-center gap-1">
+              <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-amber-400 transition-all"
+                  style={{ width: `${lvlProg.percent}%` }}
+                />
+              </div>
+              <span className="font-mono text-[9px] text-slate-400">
+                {lvlProg.percent}%
+              </span>
+            </div>
           </div>
 
           {!shop.dailyStreakClaimed && todayStreakReward && (
@@ -323,20 +408,46 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: DAILY QUESTS + STREAK BAR (ZERO SCROLL) */}
+      {/* TAB 2: DYNAMIC PLAYSTYLE DAILY QUESTS + ESNAF DIPLOMA + STREAK (ZERO SCROLL) */}
       {subTab === 'DAILY' && (
         <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          {/* Playstyle Adaptation Bar */}
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-3 py-1.5 flex items-center justify-between gap-2 text-[10.5px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-extrabold text-amber-300 whitespace-nowrap">
+                {bi('Oyun Tarzın:', 'Playstyle:')} {playstyleInfo.title}
+              </span>
+              <span aria-hidden="true" className="text-white/20">·</span>
+              <span className="text-slate-300 truncate">{playstyleInfo.tagline}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setDiplomaQuest(
+                  shop.dailyQuests.find((q) => q.claimed) ??
+                    shop.dailyQuests[0] ??
+                    null
+                )
+              }
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/22 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <ScrollText className="w-3.5 h-3.5" />
+              {bi('Esnaf Diploması', 'Merchant Diploma')}
+            </button>
+          </div>
+
           <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
             {shop.dailyQuests.slice(0, 3).map((q) => {
               const loc = getLocalizedQuest(q, lang);
               const ready = !q.claimed && q.progress >= q.target;
               const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
+              const diffText = q.difficultyTag ?? 'Standart';
               return (
                 <div
                   key={q.id}
                   className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 ${
                     q.claimed
-                      ? 'border-emerald-500/25 bg-emerald-500/6 opacity-75'
+                      ? 'border-emerald-500/25 bg-emerald-500/6 opacity-80'
                       : ready
                       ? 'border-emerald-400/60 bg-emerald-500/12'
                       : 'border-white/10 bg-[#151D28]'
@@ -344,14 +455,17 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 >
                   <div>
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-extrabold text-slate-100">
+                      <span className="text-xs font-extrabold text-slate-100 truncate">
                         {loc.title}
                       </span>
                       <span className="font-mono text-[10.5px] font-bold text-emerald-400 shrink-0 tabular-nums">
                         +{formatTRY(q.reward)}
                       </span>
                     </div>
-                    <p className="text-[10.5px] text-slate-300 mt-1 leading-snug">
+                    <div className="text-[9.5px] text-amber-300/90 font-semibold mt-0.5">
+                      {diffText} · +{q.xpReward} XP
+                    </div>
+                    <p className="text-[10.5px] text-slate-300 mt-1 leading-snug line-clamp-3">
                       {loc.description}
                     </p>
                   </div>
@@ -373,18 +487,25 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     </div>
 
                     {q.claimed ? (
-                      <div className="text-center text-[11px] font-extrabold text-emerald-400 py-1">
-                        ✓ {bi('Alındı', 'Claimed')}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDiplomaQuest(q)}
+                        className="w-full rounded-lg border border-emerald-400/35 bg-emerald-500/12 py-1 text-[10.5px] font-extrabold text-emerald-300 hover:bg-emerald-500/20 cursor-pointer"
+                      >
+                        ✓ {bi('Alındı · Diplomayı Gör', 'Claimed · View Diploma')}
+                      </button>
                     ) : (
                       <button
                         type="button"
                         disabled={!ready}
-                        onClick={() => onClaimDailyQuest(q.id)}
+                        onClick={() => {
+                          onClaimDailyQuest(q.id);
+                          setDiplomaQuest(q);
+                        }}
                         className="w-full rounded-lg bg-emerald-500 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
                       >
                         {ready
-                          ? `${bi('Al', 'Claim')} · +${formatTRY(q.reward)}`
+                          ? `${bi('Ödülü Al & Diploma', 'Claim & Diploma')} · +${formatTRY(q.reward)}`
                           : `${bi('Ödül', 'Reward')}: +${formatTRY(q.reward)}`}
                       </button>
                     )}
@@ -676,6 +797,216 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
             >
               {bi('Sonraki', 'Next')} <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+      {/* TAB 4: INFINITE PRESTIGE & PERMANENT PERKS (NEW GAME+ LOOP) */}
+      {subTab === 'PRESTIGE' && (
+        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2.5 overflow-hidden">
+          {/* Left: Prestige Cycle Status & Reset Trigger */}
+          <div className="col-span-5 rounded-xl border border-amber-400/30 bg-[#151D28] p-3 flex flex-col justify-between gap-2 min-h-0 overflow-hidden tabular-nums">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 font-display text-sm font-extrabold text-amber-300">
+                  <Crown className="w-4 h-4" />
+                  {bi(`Prestij Dönemi #${prestigeLevel}`, `Prestige Cycle #${prestigeLevel}`)}
+                </span>
+                <span className="font-mono text-xs font-extrabold text-emerald-300">
+                  {prestigePoints} PP
+                </span>
+              </div>
+              <p className="text-[10.5px] text-slate-300 leading-snug">
+                {bi(
+                  'Hedef nakde ulaştığında dükkanı yeni bir döneme sıfırla; Prestij Puanı (PP) kazan, kalıcı avantajlar aç ve her yeni döneme daha güçlü başla!',
+                  'Reach the cash target to reset your shop into a new Prestige cycle; earn Prestige Points (PP) and keep permanent upgrades forever!'
+                )}
+              </p>
+
+              {/* Cash Goal Progress */}
+              <div className="rounded-lg border border-white/10 bg-[#0E141D] p-2 space-y-1">
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-slate-400">
+                    {bi('Prestij Nakit Hedefi', 'Prestige Cash Target')}
+                  </span>
+                  <span className="font-mono font-bold text-amber-300">
+                    {formatTRY(shop.cash)} / {formatTRY(prestigeTarget)}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${
+                      prestigeReady ? 'bg-emerald-400' : 'bg-amber-400'
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.round((shop.cash / prestigeTarget) * 100))}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[9.5px] text-slate-400">
+                  <span>
+                    {bi('Kalıcı Gelir Çarpanı', 'Permanent Income Bonus')}:{' '}
+                    <strong className="text-emerald-300">+%{prestigeMultPct}</strong>
+                  </span>
+                  <span>
+                    {bi('Kazanılacak', 'Earn on Reset')}:{' '}
+                    <strong className="text-amber-300">+{prestigeEarnedPreview} PP</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-slate-300 space-y-0.5 leading-snug">
+                <div>
+                  <strong className="text-emerald-300">{bi('Korunanlar:', 'Kept:')}</strong>{' '}
+                  {bi('Seviye (Sv.), Müze, Gardırop, Katalog, Kariyer ve Prestij Avantajları.', 'Level, Museum, Wardrobe, Catalog, Milestones & Prestige Perks.')}
+                </div>
+                <div>
+                  <strong className="text-rose-300">{bi('Sıfırlananlar:', 'Reset:')}</strong>{' '}
+                  {bi('Gün 1, Dükkan 1, Envanter, Şubeler ve Nakit (+yeni dönem sermayesi).', 'Day 1, Shop Tier 1, Inventory, Branches & Cash (+cycle bonus).')}
+                </div>
+              </div>
+            </div>
+
+            {!confirmPrestige ? (
+              <button
+                type="button"
+                disabled={!prestigeReady}
+                onClick={() => setConfirmPrestige(true)}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                {prestigeReady
+                  ? bi(`Prestij Yap (+${prestigeEarnedPreview} PP Kazan)`, `Prestige Reset (+${prestigeEarnedPreview} PP)`)
+                  : bi(`${formatTRY(prestigeTarget)} Gerekli`, `Need ${formatTRY(prestigeTarget)}`)}
+              </button>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmPrestige(false)}
+                  className="rounded-xl border border-white/12 bg-[#1D2634] py-2 text-[11px] font-bold text-slate-200 cursor-pointer"
+                >
+                  {bi('Vazgeç', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmPrestige(false);
+                    onTriggerPrestige();
+                  }}
+                  className="rounded-xl bg-emerald-500 py-2 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                >
+                  {bi(`Onayla (+${prestigeEarnedPreview} PP)`, `Confirm (+${prestigeEarnedPreview} PP)`)}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right: 2x2 Permanent Prestige Perks */}
+          <div className="col-span-7 grid grid-cols-2 grid-rows-2 gap-2 min-h-0 overflow-hidden">
+            {PRESTIGE_PERKS.map((perk) => {
+              const owned = prestigePerks.includes(perk.id);
+              const canAfford = prestigePoints >= perk.cost;
+              return (
+                <div
+                  key={perk.id}
+                  className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 ${
+                    owned
+                      ? 'border-emerald-400/45 bg-emerald-500/10'
+                      : 'border-white/10 bg-[#151D28]'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-extrabold text-slate-100 truncate">
+                        {lang === 'en' ? perk.enName : perk.trName}
+                      </span>
+                      <span className="font-mono text-[10.5px] font-extrabold text-amber-300 shrink-0 tabular-nums">
+                        {owned ? '✓' : `${perk.cost} PP`}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 mt-1 leading-snug">
+                      {lang === 'en' ? perk.enEffect : perk.trEffect}
+                    </p>
+                  </div>
+                  {owned ? (
+                    <div className="text-center text-[10.5px] font-extrabold text-emerald-300 py-1">
+                      ✓ {bi('Kalıcı Aktif', 'Permanently Active')}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!canAfford}
+                      onClick={() => onBuyPrestigePerk(perk.id)}
+                      className="w-full rounded-lg bg-amber-500 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                    >
+                      {canAfford
+                        ? bi(`Kalıcı Aç (${perk.cost} PP)`, `Unlock (${perk.cost} PP)`)
+                        : bi(`${perk.cost} PP Gerekli`, `Need ${perk.cost} PP`)}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* WITTY "ESNAF DIPLOMASI" ACHIEVEMENT CARD MODAL */}
+      {diplomaQuest && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3"
+          onClick={() => setDiplomaQuest(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border-2 border-amber-400/70 bg-gradient-to-b from-[#1D1810] via-[#151B26] to-[#111720] p-4 shadow-2xl space-y-3 text-center relative"
+          >
+            <button
+              type="button"
+              onClick={() => setDiplomaQuest(null)}
+              aria-label={bi('Kapat', 'Close')}
+              className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-300 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="space-y-0.5">
+              <div className="font-mono text-[10px] font-extrabold uppercase tracking-[0.2em] text-amber-400">
+                {bi('PASAJ ESNAF ODASI RESMİ BELGESİ', 'ARCADE MERCHANTS GUILD CERTIFICATE')}
+              </div>
+              <h3 className="font-display text-xl font-extrabold text-amber-200">
+                {bi('ESNAF DİPLOMASI', 'MERCHANT DIPLOMA')}
+              </h3>
+              <div className="text-[11px] font-bold text-emerald-300">
+                {playstyleInfo.diplomaTitle} · {bi(`Sv.${lvlProg.level}`, `Lv.${lvlProg.level}`)} · {rank}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-400/30 bg-[#0D131C]/90 px-4 py-3 space-y-1.5">
+              <div className="text-xs font-extrabold text-slate-100">
+                {getLocalizedQuest(diplomaQuest, lang).title}
+              </div>
+              <p className="text-[11.5px] italic text-amber-100/95 leading-relaxed">
+                “{getWittyDiplomaQuote(diplomaQuest)}”
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1.5 text-[11px] font-mono tabular-nums">
+              <span className="text-slate-400">
+                {bi('Mühür:', 'Seal:')} <strong className="text-amber-300">PASAJ GSM #{shop.day}</strong>
+              </span>
+              <span className="text-emerald-300 font-extrabold">
+                +{formatTRY(diplomaQuest.reward)} · +{diplomaQuest.xpReward} XP
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setDiplomaQuest(null)}
+              className="w-full rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+            >
+              {bi('Diplomayı Duvara As (Kapat)', 'Frame on Shop Wall (Close)')}
             </button>
           </div>
         </div>

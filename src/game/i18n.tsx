@@ -463,6 +463,21 @@ export function getLocalizedDecoration(id: DecorationId, lang: Language): ShopDe
   const base = SHOP_DECORATIONS.find((d) => d.id === id) ?? SHOP_DECORATIONS[0];
   if (lang === 'tr') return base;
   const enMap: Record<DecorationId, { name: string; summary: string; visualEffectText: string }> = {
+    vintage_radio: {
+      name: 'Vintage Arcade Radio (FM 94.2 / 98.8)',
+      summary: 'Classic wooden shop radio. Switch between nostalgic Arabesk & 90s Pop tracks!',
+      visualEffectText: 'Plays retro ambient radio audio and enriches your counter (+8 Prestige).',
+    },
+    tea_boiler: {
+      name: 'Animated Copper Tea Boiler',
+      summary: 'Simmering arcade copper tea boiler that periodically triggers a "Fresh tea brewed!" boost for shop morale!',
+      visualEffectText: 'Steams live on the counter and grants periodic +4 Mood / +5 Patience boosts (+12 Prestige).',
+    },
+    prestige_plaque: {
+      name: 'Prestige Era Wall Plaque',
+      summary: 'Unlocks automatically with Prestige and evolves Bronze → Silver → Gold → Platinum!',
+      visualEffectText: 'Hangs a metallic Prestige Plaque on your shop wall (+40 Prestige).',
+    },
     vintage_sign: {
       name: 'Vintage Enamel GSM Sign',
       summary: 'Classic craftsman signboard that builds instant neighborhood trust.',
@@ -580,45 +595,45 @@ export function getLocalizedMuseumItem(id: MuseumItemId, lang: Language): Museum
       name: 'Nokya 3310 (Indestructible)',
       eraTag: '2000 · Golden GSM Era',
       rarityLabel: 'Classic Relic',
-      story: 'The legendary brick phone that cracks concrete before its shell — still boots straight into Snake.',
+      story: 'Dropped four stories into wet concrete, cracked the slab, not a scratch on the shell — still sitting at 48% battery since 2003.',
       fullHistory:
-        'Rescued from a retired technician’s iron safe complete with its original thick-pin charger. Legend says it tumbled three stories onto a construction slab, snapped right back together, and resumed a high-score Snake session without losing a bar of battery. Customers of all ages pause at your glass counter to share their 3310 memories.',
+        'Rescued from a retired technician’s iron safe complete with its original thick-pin charger. Legend says it tumbled four stories onto a construction slab, cracked the concrete, snapped right back together, and resumed a Snake high score. Two bars of charge remain — veterans swear it hides a mini nuclear cell.',
       collectorPerk: 'Sparks counter nostalgia · +20 Prestige · +1,200 ₺/day showcase draw',
     },
     eriksun_t28: {
       name: 'ErikSun T28 Active Flip',
       eraTag: '1999 · Spring-Flip Revolution',
       rarityLabel: 'Rare Archive',
-      story: 'Iconic side-button spring flip classic whose crisp "snap" turned every café head in the late 90s.',
+      story: 'Iconic side-button spring flip whose crisp "snap" turned every café head in 1999. Its previous owner built thumb muscles just flipping it.',
       fullHistory:
-        'Weighing just 83 grams with a magnesium frame, the T28 was a miracle of pocket engineering in 1999. Business executives would tap the side release button and flip it open one-handed to instant admiration. This preserved unit came from a watchmaker’s personal vault with its original slim battery and intact stub antenna.',
+        'Weighing just 83 grams with a magnesium frame, the T28 was a pocket marvel in 1999. Found in a mysterious watchmaker’s drawer, its call log still holds only two missed calls: "Mr. X" and "Under the Bridge at 12:00". The spring flip still clicks like day one.',
       collectorPerk: 'Attracts vintage collectors · +30 Prestige · +2,600 ₺/day showcase income',
     },
     motorazr_v3: {
       name: 'MotoRazr V3 Razor-Thin',
       eraTag: '2004 · Anodized Aluminum Icon',
       rarityLabel: 'Design Legend',
-      story: 'Aircraft-grade anodized aluminum clamshell with a laser-etched sapphire-blue electroluminescent keypad.',
+      story: 'Nothing beats slamming a flip phone shut mid-argument. Its sapphire laser-etched keypad lights up the whole shop after dark!',
       fullHistory:
-        'When it debuted at 13.9 mm thin in 2004, critics couldn’t believe a real phone could look like precision jewelry. Chemically etched from a single metal sheet, its glowing blue keypad lit up runways and movie screens alike. Displayed in your shop, its crisp hinge turns your vitrine into an industrial design gallery.',
+        'At 13.9 mm thin in 2004, critics couldn’t believe a real phone could look like precision jewelry. Acquired from a former film producer’s estate, it still hides draft SMS lines from an unreleased 2005 action thriller. Under glass, its glowing blue keypad steals the show.',
       collectorPerk: 'Design & influencer magnet · +45 Prestige · +4,800 ₺/day gallery draw',
     },
     blakberi_bold: {
       name: 'BlakBeri Bold Q-Keyboard',
       eraTag: '2008 · Executive & Trading Era',
       rarityLabel: 'VIP Archive Piece',
-      story: 'Leatherette back, tactile sculpted QWERTY keys, and the unmistakable blinking red email LED.',
+      story: 'That blinking red LED spiked blood pressure across every office tower in 2008. Rumor says its former CEO typed BBM messages in his sleep.',
       fullHistory:
-        'In 2008, that steady red pulse every three seconds across office towers meant a market-moving email had arrived. Executives typed entire memos with two thumbs faster than laptops. Sourced from a retired bank director complete with its leather holster and magnetic charging dock.',
+        'Symbol of million-dollar deals in 2008, complete with sculpted QWERTY keys and stitched leatherette back. Sourced from a retired bank director’s vault; its trackball glides so smoothly locals joke it still checks stock quotes at midnight.',
       collectorPerk: 'Executive VIP trust · +65 Prestige · +8,500 ₺/day prestige bonus',
     },
     aphone_2g: {
       name: 'aPhone 2G First Edition (Sealed)',
       eraTag: '2007 · Touch Revolution',
       rarityLabel: 'Mythic · 1/1 Factory Sealed',
-      story: 'Unopened factory-sealed 2007 first-batch masterpiece that sparked the modern smartphone era.',
+      story: 'In 2007 a collector swore "this box will buy an apartment one day" and locked it away unopened — he was right, and now it crowns your vitrine!',
       fullHistory:
-        'From the historic June 29, 2007 launch batch, this 8 GB original still carries its unbroken factory cellophane wrap. Fetching fortunes at international collector auctions, placing this centerpiece under glass transforms your business from a neighborhood shop into the city’s most prestigious GSM landmark.',
+        'From the historic June 29, 2007 first-500 production run, this 8 GB original still wears its unbroken factory cellophane wrap. Placing this legendary sealed centerpiece under glass elevates your store into the city’s most talked-about GSM landmark.',
       collectorPerk: 'Citywide museum landmark · +110 Prestige · +16,500 ₺/day',
     },
   };

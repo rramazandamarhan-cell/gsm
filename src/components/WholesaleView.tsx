@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Sparkles,
   Truck,
+  Wrench,
   Zap,
 } from 'lucide-react';
 import {
@@ -18,6 +19,7 @@ import {
   BRAND_DISTRIBUTORS,
   PHONE_CATALOG,
   SHOP_UPGRADES,
+  SPARE_PARTS_CATALOG,
 } from '../game/catalog';
 import {
   calculateSaleTax,
@@ -36,7 +38,13 @@ import {
   getLocalizedDistributor,
   useLanguage,
 } from '../game/i18n';
-import { AccessoryId, PhoneModelSpec, ShopState, UpgradeId } from '../game/types';
+import {
+  AccessoryId,
+  PhoneModelSpec,
+  ShopState,
+  SparePartId,
+  UpgradeId,
+} from '../game/types';
 import { PhoneModelThumb } from './PhoneInspectSVG';
 import { AccessoryProductArt, PhoneBoxArt } from './VisualShowcaseArt';
 
@@ -53,11 +61,12 @@ interface WholesaleViewProps {
     wholesaleCost: number,
     expressDelivery: boolean
   ) => void;
+  onBuySparePart?: (partId: SparePartId, qty: 1 | 5) => void;
   onBuyUpgrade: (upgradeId: UpgradeId) => void;
   onBackToCounter: () => void;
 }
 
-type WholesaleSubTab = 'ACCESSORIES' | 'BRAND_NEW' | 'CARGO';
+type WholesaleSubTab = 'ACCESSORIES' | 'BRAND_NEW' | 'SPARE_PARTS' | 'CARGO';
 
 export const EXPRESS_ACCESSORY_FEE = 250;
 export const EXPRESS_PHONE_FEE = 500;
@@ -67,6 +76,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   onBuyAccessoryStock,
   onUpdateAccessoryPrice,
   onOrderBrandNewPhone,
+  onBuySparePart,
   onBuyUpgrade,
   onBackToCounter,
 }) => {
@@ -96,6 +106,10 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   const [modelPage, setModelPage] = useState(0);
 
   const totalAccStock = getTotalAccessoryStock(shop.accessories);
+  const totalSpareStock =
+    (shop.spareParts?.screen ?? 0) +
+    (shop.spareParts?.battery ?? 0) +
+    (shop.spareParts?.board_kit ?? 0);
   const pendingOrders = shop.pendingWholesaleOrders ?? [];
 
   const activeDist =
@@ -159,6 +173,22 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                 {bi('FLAŞ', 'FLASH')}
               </span>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubTab('SPARE_PARTS')}
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              subTab === 'SPARE_PARTS'
+                ? 'bg-emerald-500 text-slate-950'
+                : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
+            }`}
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            {bi('Yedek Parça', 'Spare Parts')}
+            <span className="font-mono text-[10px] opacity-80">
+              ({totalSpareStock})
+            </span>
           </button>
 
           <button
@@ -719,7 +749,88 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
         )
       )}
 
-      {/* TAB 3: IN-TRANSIT CARGO ORDERS */}
+      {/* TAB 3: SPARE PARTS STOCK (SCREEN / BATTERY / BOARD KIT) */}
+      {subTab === 'SPARE_PARTS' && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          <div className="shrink-0 rounded-xl border border-emerald-400/25 bg-emerald-500/8 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px]">
+            <span className="text-emerald-200 font-semibold truncate">
+              {bi(
+                'Stokta yedek parça bulundurursan Atölye tamirlerinde parça masrafı 0 ₺ olur! 5’li paketlerde %15 toptan avantajı.',
+                'Keep spare parts in stock to repair devices for 0 ₺ part cost! Save 15% on 5-packs.'
+              )}
+            </span>
+            <span className="font-mono text-emerald-300 font-extrabold shrink-0">
+              {bi('Toplam Stok', 'Total Stock')}: {totalSpareStock}
+            </span>
+          </div>
+
+          <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
+            {SPARE_PARTS_CATALOG.map((part) => {
+              const qty = shop.spareParts?.[part.id] ?? 0;
+              return (
+                <div
+                  key={part.id}
+                  className="rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between gap-2 min-h-0 overflow-hidden"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-extrabold text-slate-100 truncate">
+                        {lang === 'en' ? part.nameEn : part.nameTr}
+                      </div>
+                      <div className="text-[10px] text-emerald-300 font-semibold mt-0.5">
+                        {part.id === 'screen'
+                          ? bi('Çatlak cam & yan sanayi ekran', 'Cracked glass & aftermarket screen')
+                          : part.id === 'battery'
+                          ? bi('Bitik pil & sahte BMS çipi', 'Degraded battery & fake BMS')
+                          : bi('Sıvı teması, kamera & kasa', 'Liquid damage, lens & chassis')}
+                      </div>
+                    </div>
+                    <span className="rounded-lg bg-emerald-500/15 border border-emerald-400/35 px-2 py-0.5 font-mono text-xs font-extrabold text-emerald-300 shrink-0 tabular-nums">
+                      ×{qty}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0D131C] p-3 flex flex-col items-center justify-center text-center gap-1">
+                    <Wrench className="w-8 h-8 text-amber-400/90" />
+                    <p className="text-[10.5px] text-slate-300 leading-snug max-w-[200px]">
+                      {lang === 'en' ? part.descEn : part.descTr}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5 tabular-nums">
+                    <div className="flex justify-between text-[10.5px] text-slate-400">
+                      <span>{bi('Tekli Toptan', 'Single Unit')}</span>
+                      <span className="font-mono font-bold text-slate-100">
+                        {formatTRY(part.unitCost)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={!onBuySparePart || shop.cash < part.unitCost}
+                        onClick={() => onBuySparePart?.(part.id, 1)}
+                        className="rounded-lg border border-amber-400/40 bg-amber-500/15 py-1.5 text-[10.5px] font-extrabold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      >
+                        +1 ({formatTRY(part.unitCost)})
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!onBuySparePart || shop.cash < part.pack5Cost}
+                        onClick={() => onBuySparePart?.(part.id, 5)}
+                        className="rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      >
+                        +5 ({formatTRY(part.pack5Cost)})
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: IN-TRANSIT CARGO ORDERS */}
       {subTab === 'CARGO' && (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {pendingOrders.length === 0 ? (

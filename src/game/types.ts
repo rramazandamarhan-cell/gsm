@@ -111,6 +111,10 @@ export interface PhoneDevice {
   sellerClaimCategory?: InspectionCategory;
   /** In-game day this phone entered the shop inventory (used for stock aging depreciation) */
   dayAcquired?: number;
+  /** Quality grade of the most recent repair performed on this phone */
+  lastRepairQuality?: RepairQuality;
+  /** Tracks whether each repaired defect used an OEM stocked part or an emergency service part */
+  repairedPartOrigins?: Partial<Record<DefectId, 'OEM_STOCK' | 'SERVICE_PART'>>;
 }
 
 export type AccessoryId =
@@ -266,6 +270,47 @@ export interface CustomerReview {
   dealType: EncounterType;
 }
 
+export type RepairQuality = 'MASTER' | 'STANDARD' | 'ROUGH';
+
+export type RadioStationId = 'OFF' | 'ARABESK' | 'POP90';
+
+export type SparePartId = 'screen' | 'battery' | 'board_kit';
+
+export type PartOriginGrade =
+  | 'ORIGINAL_FACTORY'
+  | 'OEM_STOCK'
+  | 'SERVICE_PART'
+  | 'AFTERMARKET';
+
+export interface DevicePartReportRow {
+  component: 'screen' | 'battery' | 'board' | 'camera_chassis';
+  label: string;
+  enLabel: string;
+  origin: PartOriginGrade;
+  note: string;
+  enNote: string;
+}
+
+export interface CustomerComplaintRecord {
+  id: string;
+  soldRecordId: string;
+  certificateNo: string;
+  dayReported: number;
+  daySold: number;
+  customerName: string;
+  deviceName: string;
+  defectId: DefectId;
+  faultHeadline: string;
+  faultDetail: string;
+  customerQuote: string;
+  repairQualityAtSale?: RepairQuality;
+  wasDisclosed?: boolean;
+  wasOverseas?: boolean;
+  resolution: 'OPEN' | 'FREE_REPAIR' | 'PARTIAL_REFUND' | 'REJECTED';
+  costPaid: number;
+  reputationDelta: number;
+}
+
 export interface SoldPhoneRecord {
   id: string;
   daySold: number;
@@ -276,6 +321,44 @@ export interface SoldPhoneRecord {
   hadDefects: boolean;
   wasHappy: boolean;
   warrantyResolved?: boolean;
+  /** Defects that were repaired before selling / during express repair */
+  repairedDefects?: DefectId[];
+  /** Craftsmanship grade of the repair */
+  repairQuality?: RepairQuality;
+  /** True if sold device was unregistered overseas IMEI */
+  wasOverseas?: boolean;
+  /** True if player honestly disclosed repairs & overseas status to buyer */
+  wasDisclosed?: boolean;
+  /** Scheduled in-game day when customer may return complaining about repair/hidden issue (3-5 days later) */
+  comebackDay?: number;
+  /** True if this record came from an Express Repair walk-in job */
+  isExpressRepair?: boolean;
+  /** Official Pasaj GSM Warranty Certificate details */
+  certificateNo?: string;
+  imeiNumber?: string;
+  warrantyDays?: number;
+  partBreakdown?: DevicePartReportRow[];
+  craftsmanNote?: string;
+  warrantyPresented?: boolean;
+}
+
+export type PlaystyleType =
+  | 'REPAIR_MASTER'
+  | 'TRADER_SHARK'
+  | 'DETECTIVE'
+  | 'BALANCED';
+
+export type PrestigePerkId =
+  | 'golden_pliers'
+  | 'silver_tongue'
+  | 'seed_capital'
+  | 'vip_network';
+
+export interface CustomerFaultReport {
+  headline: string;
+  symptomText: string;
+  honesty: 'HONEST' | 'PARTIAL' | 'HIDING';
+  mentionedDefectId?: DefectId;
 }
 
 export interface DataRecoveryJob {
@@ -304,14 +387,20 @@ export interface CustomerEncounter {
   /** Whether a buyer/trade-in wants Credit Card Installment (POS) */
   wantsInstallment?: boolean;
   posAccepted?: boolean;
-  /** For WARRANTY_CLAIM: reference to prior sold phone */
+  /** For WARRANTY_CLAIM: reference to prior sold phone & specific reported defect */
   warrantyRecord?: SoldPhoneRecord;
+  warrantyDefectId?: DefectId;
+  warrantyFaultDetail?: string;
   warrantyRepairCost?: number;
   warrantyRefundCost?: number;
+  /** Customer's verbal/written fault report describing where the issue is */
+  customerFaultReport?: CustomerFaultReport;
   /** For DATA_RECOVERY */
   dataRecoveryJob?: DataRecoveryJob;
   customerPrice: number;
   initialCustomerPrice: number;
+  /** Most recent offer sent by the player (caps tactics so tea/dialogue never exceeds player ask) */
+  lastPlayerOffer?: number;
   secretLimit: number;
   patience: number;
   maxPatience: number;
@@ -348,6 +437,10 @@ export interface CustomerEncounter {
   requiredRounds?: number;
   /** Alert shown after closing a 2nd-hand purchase if an overlooked flaw or subtle trap appeared */
   postBuySurpriseAlert?: string;
+  /** True if player honestly disclosed repaired parts / overseas IMEI to the buyer */
+  buyerDisclosed?: boolean;
+  /** ID of the SoldPhoneRecord / Garanti Belgesi issued when this deal closed */
+  deliveredCertificateId?: string;
 }
 
 export type UpgradeId =
@@ -386,6 +479,9 @@ export interface ShopUpgrade {
 }
 
 export type DecorationId =
+  | 'vintage_radio'
+  | 'tea_boiler'
+  | 'prestige_plaque'
   | 'vintage_sign'
   | 'edison_lights'
   | 'retro_shelf'
@@ -585,6 +681,9 @@ export interface DailyQuest {
   reward: number;
   xpReward: number;
   claimed: boolean;
+  /** Dynamic difficulty & playstyle tags */
+  difficultyTag?: 'Standart' | 'Zorlu' | 'Usta İşi';
+  playstyleFocus?: PlaystyleType;
 }
 
 export interface CareerMilestone {
@@ -661,12 +760,30 @@ export interface ShippingOrder {
   fulfilled: boolean;
 }
 
+export interface AuctionMysteryReward {
+  id: string;
+  boxLabel: string;
+  rewardTitle: string;
+  rewardDetail: string;
+  cashBonus?: number;
+  extraDevice?: PhoneDevice;
+  bonusAccessory?: { id: AccessoryId; quantity: number };
+}
+
 export interface CustomsAuctionLot {
   id: string;
   sessionLabel?: string;
   lotTitle: string;
   description: string;
   startingBid: number;
+  /** Cash / accumulated wealth threshold required to enter this auction lot */
+  requiredCash?: number;
+  /** Number of sealed mystery boxes included inside this auction lot */
+  mysteryBoxCount?: number;
+  /** Rolled rewards revealed when the player wins the auction */
+  mysteryRewards?: AuctionMysteryReward[];
+  /** Dynamic scaling difficulty tag (e.g. "Zor · VIP Mezadı") */
+  difficultyTag?: string;
   minShopTier?: ShopTier;
   riskTag?: string;
   manifestHint?: string;
@@ -754,6 +871,40 @@ export interface OfflineEarningsSummary {
   minutesAway: number;
   baseCash: number;
   sources: string[];
+}
+
+export type KermesDealKind =
+  | 'SPARE_PART_BUNDLE'
+  | 'ACCESSORY_BUNDLE'
+  | 'BARGAIN_PHONE';
+
+export interface KermesDealItem {
+  id: string;
+  kind: KermesDealKind;
+  title: string;
+  enTitle: string;
+  subtitle: string;
+  enSubtitle: string;
+  originalPrice: number;
+  kermesPrice: number;
+  discountPercent: number;
+  partId?: SparePartId;
+  partQty?: number;
+  accessoryId?: AccessoryId;
+  accessoryQty?: number;
+  phone?: PhoneDevice;
+  bought: boolean;
+}
+
+export interface SundayKermesState {
+  day: number;
+  headline: string;
+  enHeadline: string;
+  crowdBuzzLabel: string;
+  enCrowdBuzzLabel: string;
+  clearanceMultiplier: number;
+  clearanceSoldCount: number;
+  deals: KermesDealItem[];
 }
 
 export interface DayFinancials {
@@ -893,6 +1044,19 @@ export interface ShopState {
   ambientSoundEnabled?: boolean;
   storyIntroSeen: boolean;
   endlessMode: boolean;
+  /** Infinite Prestige / New Game+ progression */
+  prestigeLevel?: number;
+  prestigePoints?: number;
+  prestigePerks?: PrestigePerkId[];
+  lifetimeTotalProfit?: number;
+  /** Vintage shop radio station ('OFF' | 'ARABESK' | 'POP90') */
+  radioStation?: RadioStationId;
+  /** Workshop spare parts stock (Screen, Battery, Board/IPA Kit) */
+  spareParts?: Record<SparePartId, number>;
+  /** Full archive of post-repair / post-sale customer fault reports & warranty complaints */
+  complaintHistory?: CustomerComplaintRecord[];
+  /** Sunday-only random Esnaf Kermesi event in Piyasa (active every 7th day) */
+  sundayKermes?: SundayKermesState | null;
 }
 
 export interface FloatingFeedback {

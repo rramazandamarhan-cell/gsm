@@ -7,17 +7,19 @@ import {
   Cpu,
   Droplets,
   Flame,
+  Layers,
   Plug,
+  Smartphone,
   Sparkles,
+  Wind,
   Wrench,
   X,
   Zap,
 } from 'lucide-react';
-import { DEFECT_CATALOG } from '../game/catalog';
 import { formatTRY } from '../game/engine';
 import { getLocalizedDefect, useLanguage } from '../game/i18n';
 import { soundFX } from '../game/sound';
-import { DefectId, LegacyPathId, PhoneDevice } from '../game/types';
+import { DefectId, LegacyPathId, PhoneDevice, RepairQuality } from '../game/types';
 
 interface MiniRepairModalProps {
   phone: PhoneDevice;
@@ -25,24 +27,34 @@ interface MiniRepairModalProps {
   defectIds?: DefectId[];
   cost: number;
   legacyPath?: LegacyPathId;
+  shopLevel?: number;
+  prestigeLevel?: number;
+  hasCleanRoomLab?: boolean;
   isExpressJob?: boolean;
-  onSuccess: (masterCrafted: boolean) => void;
+  onSuccess: (masterCrafted: boolean, quality?: RepairQuality) => void;
   onCancel: () => void;
 }
 
-const SCREW_COORDS: { x: number; y: number; tr: string; en: string }[] = [
-  { x: 24, y: 24, tr: 'Sol üst Pentalobe vida', en: 'Top-left Pentalobe screw' },
-  { x: 176, y: 24, tr: 'Sağ üst Pentalobe vida', en: 'Top-right Pentalobe screw' },
-  { x: 24, y: 120, tr: 'Sol orta Y-tipi vida', en: 'Mid-left tri-point screw' },
-  { x: 176, y: 120, tr: 'Sağ orta Y-tipi vida', en: 'Mid-right tri-point screw' },
-  { x: 24, y: 216, tr: 'Sol alt kasa vidası', en: 'Bottom-left chassis screw' },
-  { x: 176, y: 216, tr: 'Sağ alt kasa vidası', en: 'Bottom-right chassis screw' },
+type RepairMode = 'SCREEN' | 'LIQUID' | 'BATTERY' | 'OPTICAL';
+
+const FOUR_SCREWS = [
+  { x: 26, y: 26, tr: 'Sol üst vida', en: 'Top-left screw' },
+  { x: 174, y: 26, tr: 'Sağ üst vida', en: 'Top-right screw' },
+  { x: 26, y: 214, tr: 'Sol alt vida', en: 'Bottom-left screw' },
+  { x: 174, y: 214, tr: 'Sağ alt vida', en: 'Bottom-right screw' },
 ];
 
-const CORROSION_SPOTS = [
-  { id: 0, x: 76, y: 78, tr: 'Güç entegresi oksidasyonu', en: 'PMIC oxidation spot' },
-  { id: 1, x: 126, y: 108, tr: 'Şarj soketi hattı oksidasyonu', en: 'Charging bus oxidation' },
-  { id: 2, x: 96, y: 156, tr: 'Anakart köprü oksidasyonu', en: 'Logic board bridge oxidation' },
+const LIQUID_SPOTS = [
+  { id: 0, x: 74, y: 68, tr: 'Güç entegresi oksidi', en: 'PMIC oxidation' },
+  { id: 1, x: 144, y: 88, tr: 'SoC çevresi oksidi', en: 'SoC bridge corrosion' },
+  { id: 2, x: 96, y: 148, tr: 'Batarya hattı oksidi', en: 'Battery rail corrosion' },
+  { id: 3, x: 140, y: 196, tr: 'Şarj soketi oksidi', en: 'Charging port oxidation' },
+];
+
+const OPTICAL_SPOTS = [
+  { id: 0, x: 46, y: 40, tr: 'Ana lens buğusu', en: 'Main lens fog' },
+  { id: 1, x: 64, y: 58, tr: 'Geniş açı sensörü', en: 'Ultrawide sensor' },
+  { id: 2, x: 100, y: 195, tr: 'Kasa contası', en: 'Frame gasket' },
 ];
 
 export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
@@ -51,6 +63,9 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
   defectIds,
   cost,
   legacyPath,
+  shopLevel = 1,
+  prestigeLevel = 0,
+  hasCleanRoomLab = false,
   isExpressJob = false,
   onSuccess,
   onCancel,
@@ -64,88 +79,140 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
       : ['screen_crack'];
   const primaryDefectId = activeDefectIds[0];
   const def = getLocalizedDefect(primaryDefectId, lang);
+
+  // Choose specialized repair flow based on defect type!
+  const mode: RepairMode = activeDefectIds.includes('liquid_damage')
+    ? 'LIQUID'
+    : activeDefectIds.some((d) => d === 'screen_crack' || d === 'screen_aftermarket')
+    ? 'SCREEN'
+    : activeDefectIds.some((d) => d === 'battery_degraded' || d === 'battery_fake_chip')
+    ? 'BATTERY'
+    : 'OPTICAL';
+
   const multiCount = activeDefectIds.length;
   const combinedLabel =
     multiCount === 1
       ? def.name
-      : bi(
-          `${multiCount} Arıza Tek Oturumda (${activeDefectIds
-            .map((d) => getLocalizedDefect(d, lang).shortLabel)
-            .join(' + ')})`,
-          `${multiCount} Faults in One Session (${activeDefectIds
-            .map((d) => getLocalizedDefect(d, lang).shortLabel)
-            .join(' + ')})`
-        );
-  const combinedShort =
-    multiCount === 1
-      ? def.shortLabel
-      : bi(`${multiCount} Arızalı Modül`, `${multiCount} Faulty Modules`);
-  const isLiquid = activeDefectIds.includes('liquid_damage');
-  const hasBatteryDefect = activeDefectIds.some(
-    (d) => d === 'battery_degraded' || d === 'battery_fake_chip'
-  );
-  const hasCameraDefect = activeDefectIds.includes('camera_fog');
+      : `${multiCount} ${bi('Arıza', 'Faults')} (${activeDefectIds
+          .map((d) => getLocalizedDefect(d, lang).shortLabel)
+          .join(' + ')})`;
+
   const isExApprentice = legacyPath === 'EX_APPRENTICE';
-  const calMin = isExApprentice ? 28 : 34;
-  const calMax = isExApprentice ? 72 : 66;
+  const tierDifficulty =
+    phone.tier === 'luxury'
+      ? 3
+      : phone.tier === 'flagship'
+      ? 2
+      : phone.tier === 'mid'
+      ? 1
+      : 0;
+  const difficultyScore =
+    Math.max(0, shopLevel - 1) + prestigeLevel * 3 + tierDifficulty;
+  // Tighter green sweet-spot as player levels up or repairs higher-tier phones!
+  const baseGreenHalf = Math.max(4.5, 11 - difficultyScore * 0.65);
+  const greenHalf =
+    baseGreenHalf + (isExApprentice ? 2.2 : 0) + (hasCleanRoomLab ? 1.8 : 0);
+  const amberHalf = Math.min(34, greenHalf + 11.5);
+  const calMin = Math.max(12, 50 - greenHalf);
+  const calMax = Math.min(88, 50 + greenHalf);
+  const stdMin = Math.max(6, 50 - amberHalf);
+  const stdMax = Math.min(94, 50 + amberHalf);
+  const needleSpeed = Math.min(5.6, 3.15 + difficultyScore * 0.24);
+  const difficultyLabel =
+    difficultyScore >= 8
+      ? bi('Usta Seviye', 'Master Diff')
+      : difficultyScore >= 4
+      ? bi('Zor Kalibrasyon', 'Hard Cal')
+      : bi('Orta Kalibrasyon', 'Standard Cal');
 
-  const stepMeta = [
-    { id: 1, label: bi('Isı & Conta', 'Heat Seal') },
-    { id: 2, label: bi('6 Vida', '6 Screws') },
-    { id: 3, label: bi('Flex & Söküm', 'Flex & Pull') },
-    { id: 4, label: bi('Montaj / IPA', 'Mount / IPA') },
-    { id: 5, label: bi('Kalibrasyon', 'Calibrate') },
-  ] as const;
+  const modeBadge =
+    mode === 'SCREEN'
+      ? bi('EKRAN DEĞİŞİMİ', 'SCREEN REPLACEMENT')
+      : mode === 'LIQUID'
+      ? bi('SIVI TEMASI & IPA BAKIMI', 'LIQUID DAMAGE RECOVERY')
+      : mode === 'BATTERY'
+      ? bi('PİL DEĞİŞİMİ & BMS', 'BATTERY REPLACEMENT')
+      : bi('OPTİK & KASA ONARIMI', 'OPTICAL & CHASSIS REPAIR');
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [heatProgress, setHeatProgress] = useState(0);
-  const [isHeating, setIsHeating] = useState(false);
-  const [screwsRemoved, setScrewsRemoved] = useState<boolean[]>([
-    false,
-    false,
-    false,
-    false,
-    false,
-    false,
-  ]);
-  const [batteryFlexDisconnected, setBatteryFlexDisconnected] = useState(false);
-  const [partExtracted, setPartExtracted] = useState(false);
-  const [corrosionCleaned, setCorrosionCleaned] = useState<boolean[]>([
-    false,
-    false,
-    false,
-  ]);
-  const [oemMounted, setOemMounted] = useState(false);
-  const [batteryFlexReconnected, setBatteryFlexReconnected] = useState(false);
-  const [needlePos, setNeedlePos] = useState(15);
-  const [calibrated, setCalibrated] = useState<'idle' | 'perfect' | 'good'>('idle');
+  const stepLabels: [string, string, string, string] =
+    mode === 'SCREEN'
+      ? [
+          bi('Camı Isıt', 'Heat Glass'),
+          bi('4 Vida Sök', '4 Screws'),
+          bi('Yeni OLED Tak', 'Fit OLED'),
+          bi('Dokunmatik', 'Touch Cal'),
+        ]
+      : mode === 'LIQUID'
+      ? [
+          bi('Gücü Kes', 'Cut Power'),
+          bi('IPA Oksit Sil', 'Scrub IPA'),
+          bi('Board Kurut', 'Hot-Air Dry'),
+          bi('Akım Testi', 'Short Test'),
+        ]
+      : mode === 'BATTERY'
+      ? [
+          bi('Flex Ayır', 'Unplug Flex'),
+          bi('Bantları Çek', 'Pull Tabs'),
+          bi('OEM Pil Tak', 'Fit Battery'),
+          bi('Voltaj Testi', 'Voltage Cal'),
+        ]
+      : [
+          bi('4 Vida Sök', '4 Screws'),
+          bi('Lens Temizle', 'Clean Optics'),
+          bi('Yeni Conta', 'Fit Gasket'),
+          bi('Odak Testi', 'Focus Cal'),
+        ];
+
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Shared interactive states tailored per mode
+  const [holdProgress, setHoldProgress] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
+  const [screwsRemoved, setScrewsRemoved] = useState<boolean[]>([false, false, false, false]);
+  const [liquidCleaned, setLiquidCleaned] = useState<boolean[]>([false, false, false, false]);
+  const [opticalCleaned, setOpticalCleaned] = useState<boolean[]>([false, false, false]);
+  const [pullTabs, setPullTabs] = useState<[boolean, boolean]>([false, false]);
+  const [oldPartRemoved, setOldPartRemoved] = useState(false);
+  const [newPartSeated, setNewPartSeated] = useState(false);
+
+  // Step 4 calibration needle
+  const [needlePos, setNeedlePos] = useState(18);
+  const [calibrated, setCalibrated] = useState<'idle' | 'master' | 'standard' | 'rough'>('idle');
   const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  useEffect(() => {
-    if (step !== 1 || !isHeating) return;
-    const stepInc = isExApprentice ? 11 : 7;
-    const interval = window.setInterval(() => {
-      soundFX.playHeatTick();
-      setHeatProgress((prev) => {
-        const next = Math.min(100, prev + stepInc);
-        if (next >= 100) {
-          setIsHeating(false);
-          soundFX.playScanOk();
-          window.setTimeout(() => setStep(2), 280);
-        }
-        return next;
-      });
-    }, 80);
-    return () => window.clearInterval(interval);
-  }, [step, isHeating, isExApprentice]);
+  // Hold-progress effect (Screen Step 1 heating OR Liquid Step 3 hot-air drying)
+  const isHoldStep =
+    (mode === 'SCREEN' && step === 1) || (mode === 'LIQUID' && step === 3);
 
   useEffect(() => {
-    if (step !== 5 || calibrated !== 'idle') return;
+    if (!isHoldStep || !isHolding) return;
+    const inc = isExApprentice ? 12 : 8;
+    const interval = window.setInterval(() => {
+      soundFX.playHeatTick();
+      setHoldProgress((prev) => Math.min(100, prev + inc));
+    }, 80);
+    return () => window.clearInterval(interval);
+  }, [isHoldStep, isHolding, isExApprentice]);
+
+  useEffect(() => {
+    if (!isHoldStep || holdProgress < 100) return;
+    setIsHolding(false);
+    soundFX.playScanOk();
+    const timer = window.setTimeout(() => {
+      setHoldProgress(0);
+      setStep((s) => (s < 4 ? ((s + 1) as 1 | 2 | 3 | 4) : s));
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [isHoldStep, holdProgress]);
+
+  // Step 4 oscillating needle (scales with shopLevel, prestige & phone tier)
+  useEffect(() => {
+    if (step !== 4 || calibrated !== 'idle') return;
     startTimeRef.current = performance.now();
     const tick = (now: number) => {
       const elapsed = (now - startTimeRef.current) / 1000;
-      const pos = 50 + Math.sin(elapsed * 3.25) * 45;
+      const pos = 50 + Math.sin(elapsed * needleSpeed) * 45;
       setNeedlePos(pos);
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -153,7 +220,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [step, calibrated]);
+  }, [step, calibrated, needleSpeed]);
 
   const handleRemoveScrew = (idx: number) => {
     if (screwsRemoved[idx]) return;
@@ -163,75 +230,107 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
     setScrewsRemoved(next);
     if (next.every(Boolean)) {
       soundFX.playScanOk();
-      window.setTimeout(() => setStep(3), 320);
+      window.setTimeout(() => setStep((s) => (s + 1) as 1 | 2 | 3 | 4), 260);
     }
   };
 
-  const handleDisconnectBatteryFlex = () => {
-    if (batteryFlexDisconnected) return;
-    soundFX.playConnectorSnap();
-    setBatteryFlexDisconnected(true);
-  };
-
-  const handleExtractPart = () => {
-    if (!batteryFlexDisconnected || partExtracted) return;
-    soundFX.playLeverage();
-    setPartExtracted(true);
-    window.setTimeout(() => setStep(4), 420);
-  };
-
-  const handleCleanCorrosion = (idx: number) => {
-    if (corrosionCleaned[idx]) return;
+  const handleCleanLiquid = (idx: number) => {
+    if (liquidCleaned[idx]) return;
     soundFX.playScanOk();
-    const next = [...corrosionCleaned];
+    const next = [...liquidCleaned];
     next[idx] = true;
-    setCorrosionCleaned(next);
+    setLiquidCleaned(next);
     if (next.every(Boolean)) {
-      setOemMounted(true);
+      window.setTimeout(() => setStep(3), 260);
     }
   };
 
-  const handleMountOemPart = () => {
-    if (oemMounted) return;
-    soundFX.playConnectorSnap();
-    setOemMounted(true);
+  const handleCleanOptical = (idx: number) => {
+    if (opticalCleaned[idx]) return;
+    soundFX.playScanOk();
+    const next = [...opticalCleaned];
+    next[idx] = true;
+    setOpticalCleaned(next);
+    if (next.every(Boolean)) {
+      window.setTimeout(() => setStep(3), 260);
+    }
   };
 
-  const handleReconnectBatteryFlex = () => {
-    if (!oemMounted || batteryFlexReconnected) return;
+  const handlePullTab = (tabIdx: 0 | 1) => {
+    if (pullTabs[tabIdx]) return;
+    soundFX.playLeverage();
+    const next: [boolean, boolean] = [pullTabs[0], pullTabs[1]];
+    next[tabIdx] = true;
+    setPullTabs(next);
+    if (next[0] && next[1]) {
+      soundFX.playScanOk();
+      window.setTimeout(() => setStep(3), 280);
+    }
+  };
+
+  const handleCutPowerStep = () => {
     soundFX.playConnectorSnap();
-    setBatteryFlexReconnected(true);
-    window.setTimeout(() => setStep(5), 360);
+    window.setTimeout(() => setStep(2), 240);
+  };
+
+  const handleLiftOldPart = () => {
+    if (oldPartRemoved) return;
+    soundFX.playLeverage();
+    setOldPartRemoved(true);
+  };
+
+  const handleSeatNewPart = () => {
+    if (newPartSeated) return;
+    soundFX.playConnectorSnap();
+    setNewPartSeated(true);
+    window.setTimeout(() => setStep(4), 300);
   };
 
   const handleCalibrateLock = () => {
     if (calibrated !== 'idle') return;
-    const isPerfect = needlePos >= calMin && needlePos <= calMax;
-    setCalibrated(isPerfect ? 'perfect' : 'good');
-    soundFX.playRepair();
+    const isMaster = needlePos >= calMin && needlePos <= calMax;
+    const isStandard = !isMaster && needlePos >= stdMin && needlePos <= stdMax;
+    const quality: RepairQuality = isMaster
+      ? 'MASTER'
+      : isStandard
+      ? 'STANDARD'
+      : 'ROUGH';
+    setCalibrated(isMaster ? 'master' : isStandard ? 'standard' : 'rough');
+    if (quality === 'ROUGH') {
+      soundFX.playScanDefect();
+    } else {
+      soundFX.playRepair();
+    }
     window.setTimeout(() => {
-      onSuccess(isPerfect);
+      onSuccess(isMaster, quality);
     }, 820);
   };
 
-  const liveTemp = Math.round(24 + (heatProgress / 100) * 86);
-  const removedScrewCount = screwsRemoved.filter(Boolean).length;
+  const liveTemp = Math.round(24 + (holdProgress / 100) * 82);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-2 select-none">
       <motion.div
         initial={{ scale: 0.94, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.18 }}
         className="w-full max-w-2xl max-h-[96dvh] flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#141C27] p-3 shadow-2xl"
       >
-        {/* Compact Top Lab Header */}
+        {/* Compact Header */}
         <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-400">
-              <Wrench className="w-3 h-3 shrink-0" />
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
+              {mode === 'LIQUID' ? (
+                <Droplets className="w-3 h-3 text-cyan-400 shrink-0" />
+              ) : mode === 'BATTERY' ? (
+                <BatteryCharging className="w-3 h-3 text-emerald-400 shrink-0" />
+              ) : mode === 'SCREEN' ? (
+                <Smartphone className="w-3 h-3 text-amber-400 shrink-0" />
+              ) : (
+                <Wrench className="w-3 h-3 shrink-0" />
+              )}
               <span>
-                {bi(`MİKRO TAMİR · ADIM ${step}/5`, `MICRO-REPAIR · STEP ${step}/5`)}
+                {modeBadge} · {bi(`ADIM ${step}/4`, `STEP ${step}/4`)}
               </span>
               {isExApprentice && (
                 <span className="text-emerald-300">
@@ -253,19 +352,22 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
           </button>
         </div>
 
-        {/* 5-Stage Progress Stepper */}
-        <div className="shrink-0 grid grid-cols-5 gap-1.5 mb-2">
-          {stepMeta.map((item) => {
-            const done = step > item.id;
-            const active = step === item.id;
+        {/* 4-Step Mode-Specific Progress Bar */}
+        <div className="shrink-0 grid grid-cols-4 gap-1.5 mb-2">
+          {stepLabels.map((lbl, idx) => {
+            const id = idx + 1;
+            const done = step > id;
+            const active = step === id;
             return (
-              <div key={item.id} className="space-y-0.5">
+              <div key={lbl} className="space-y-0.5">
                 <div
                   className={`h-1 rounded-full transition-colors ${
                     done
                       ? 'bg-emerald-500'
                       : active
-                      ? 'bg-amber-400'
+                      ? mode === 'LIQUID'
+                        ? 'bg-cyan-400'
+                        : 'bg-amber-400'
                       : 'bg-white/10'
                   }`}
                 />
@@ -274,18 +376,20 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     done
                       ? 'text-emerald-300'
                       : active
-                      ? 'text-amber-300 font-semibold'
+                      ? mode === 'LIQUID'
+                        ? 'text-cyan-300 font-bold'
+                        : 'text-amber-300 font-bold'
                       : 'text-slate-500'
                   }`}
                 >
-                  {item.id}. {item.label}
+                  {id}. {lbl}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Main Interactive ESD Repair Bench (Zero-Scroll 12-col Landscape) */}
+        {/* Main 12-Col Landscape ESD Bench */}
         <div
           className="flex-1 min-h-0 grid grid-cols-12 gap-3 rounded-xl border border-white/10 bg-[#0E151F] p-2.5 sm:p-3 overflow-hidden"
           style={{
@@ -294,28 +398,27 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
             backgroundSize: '14px 14px',
           }}
         >
-          {/* Left: Interactive Internal Smartphone Cutaway */}
+          {/* Left: Mode-Tailored Interactive Smartphone Cutaway */}
           <div className="col-span-5 flex flex-col items-center justify-center">
             <div className="relative w-[156px] h-[190px] lg:w-[184px] lg:h-[224px] flex items-start justify-center">
               <div className="relative w-[200px] h-[244px] origin-top scale-[0.78] lg:scale-[0.92] rounded-[26px] border-2 border-slate-600 bg-[#151E2C] shadow-[0_14px_30px_rgba(0,0,0,0.65)] overflow-visible shrink-0">
-                {step === 1 && (
+                {/* Glow border while heating or hot-air drying */}
+                {isHoldStep && (
                   <div
                     className="pointer-events-none absolute -inset-1.5 rounded-[30px] border-2 transition-opacity duration-150"
                     style={{
-                      borderColor: isHeating ? '#F97316' : '#F59E0B',
-                      boxShadow: isHeating
-                        ? '0 0 28px rgba(249, 115, 22, 0.6)'
-                        : '0 0 12px rgba(245, 158, 11, 0.25)',
-                      opacity: Math.max(0.25, heatProgress / 100),
+                      borderColor: mode === 'LIQUID' ? '#38BDF8' : '#F97316',
+                      boxShadow: isHolding
+                        ? mode === 'LIQUID'
+                          ? '0 0 26px rgba(56,189,248,0.6)'
+                          : '0 0 26px rgba(249,115,22,0.6)'
+                        : '0 0 10px rgba(245,158,11,0.2)',
+                      opacity: Math.max(0.3, holdProgress / 100),
                     }}
                   />
                 )}
 
-                <svg
-                  viewBox="0 0 200 244"
-                  className="h-full w-full rounded-[24px]"
-                  aria-hidden="true"
-                >
+                <svg viewBox="0 0 200 244" className="h-full w-full rounded-[24px]" aria-hidden="true">
                   <rect
                     x="8"
                     y="8"
@@ -326,131 +429,217 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     stroke="#334155"
                     strokeWidth="1.5"
                   />
-                  <rect
-                    x="18"
-                    y="18"
-                    width="64"
-                    height="52"
-                    rx="10"
-                    fill="#17202E"
-                    stroke={
-                      hasCameraDefect && step >= 3 && !oemMounted
-                        ? '#F43F5E'
-                        : '#475569'
-                    }
-                    strokeWidth="1.4"
-                  />
-                  <circle cx="38" cy="36" r="10" fill="#0B1220" stroke="#64748B" strokeWidth="1.5" />
-                  <circle cx="64" cy="52" r="9" fill="#0B1220" stroke="#64748B" strokeWidth="1.5" />
-                  <path
-                    d="M90 18 H178 Q182 18 182 22 V170 Q182 174 178 174 H136 V78 H90 Z"
-                    fill="#11382C"
-                    stroke="#10B981"
-                    strokeOpacity="0.45"
-                    strokeWidth="1.2"
-                  />
-                  <rect
-                    x="144"
-                    y="40"
-                    width="28"
-                    height="32"
-                    rx="4"
-                    fill="#1E293B"
-                    stroke="#94A3B8"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x="158"
-                    y="59"
-                    textAnchor="middle"
-                    fill="#CBD5E1"
-                    fontSize="7"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    SoC
-                  </text>
-                  <rect
-                    x="18"
-                    y="82"
-                    width="108"
-                    height="112"
-                    rx="10"
-                    fill={
-                      partExtracted && !oemMounted && hasBatteryDefect
-                        ? '#101722'
-                        : '#1B2534'
-                    }
-                    stroke={
-                      hasBatteryDefect && step >= 3 && !oemMounted
-                        ? '#F43F5E'
-                        : oemMounted
-                        ? '#10B981'
-                        : '#475569'
-                    }
-                    strokeDasharray={
-                      partExtracted && !oemMounted && hasBatteryDefect
-                        ? '4 4'
-                        : undefined
-                    }
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    x="72"
-                    y="134"
-                    textAnchor="middle"
-                    fill="#94A3B8"
-                    fontSize="9"
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="700"
-                  >
-                    Li-Ion 4420mAh
-                  </text>
-                  <text
-                    x="72"
-                    y="148"
-                    textAnchor="middle"
-                    fill={oemMounted ? '#34D399' : '#64748B'}
-                    fontSize="7.5"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    {oemMounted ? 'OEM 100%' : '3.85V · 17.0Wh'}
-                  </text>
-                  <rect
-                    x="126"
-                    y="124"
-                    width="24"
-                    height="12"
-                    rx="3"
-                    fill={
-                      batteryFlexDisconnected && !batteryFlexReconnected
-                        ? '#334155'
-                        : '#F59E0B'
-                    }
-                  />
-                  <rect
-                    x="22"
-                    y="202"
-                    width="84"
-                    height="24"
-                    rx="6"
-                    fill="#17202E"
-                    stroke="#334155"
-                    strokeWidth="1"
-                  />
-                  <rect
-                    x="116"
-                    y="202"
-                    width="64"
-                    height="24"
-                    rx="6"
-                    fill="#17202E"
-                    stroke="#334155"
-                    strokeWidth="1"
-                  />
+
+                  {mode === 'SCREEN' ? (
+                    /* SCREEN MODE CUTAWAY: Front Display Assembly */
+                    <>
+                      <rect
+                        x="16"
+                        y="16"
+                        width="168"
+                        height="212"
+                        rx="15"
+                        fill={
+                          newPartSeated
+                            ? '#0E293B'
+                            : oldPartRemoved
+                            ? '#090F17'
+                            : '#1B2432'
+                        }
+                        stroke={
+                          newPartSeated
+                            ? '#10B981'
+                            : oldPartRemoved
+                            ? '#F59E0B'
+                            : '#F43F5E'
+                        }
+                        strokeDasharray={oldPartRemoved && !newPartSeated ? '5 4' : undefined}
+                        strokeWidth="1.8"
+                      />
+                      {!oldPartRemoved && !newPartSeated && (
+                        <g stroke="#F8FAFC" strokeOpacity="0.8" strokeWidth="1.8" strokeLinecap="round">
+                          <path d="M28 42 L84 96 L56 150 L132 192" />
+                          <path d="M84 96 L154 78 L174 114" />
+                          <path d="M84 96 L112 142" />
+                        </g>
+                      )}
+                      {oldPartRemoved && !newPartSeated && (
+                        <text
+                          x="100"
+                          y="124"
+                          textAnchor="middle"
+                          fill="#F59E0B"
+                          fontSize="10"
+                          fontFamily="JetBrains Mono, monospace"
+                          fontWeight="700"
+                        >
+                          OLED FLEX YUVASI
+                        </text>
+                      )}
+                      {newPartSeated && (
+                        <g>
+                          <text
+                            x="100"
+                            y="114"
+                            textAnchor="middle"
+                            fill="#34D399"
+                            fontSize="12"
+                            fontFamily="JetBrains Mono, monospace"
+                            fontWeight="700"
+                          >
+                            OEM OLED 120Hz
+                          </text>
+                          <text
+                            x="100"
+                            y="132"
+                            textAnchor="middle"
+                            fill="#94A3B8"
+                            fontSize="8.5"
+                            fontFamily="JetBrains Mono, monospace"
+                          >
+                            TRUE-TONE READY
+                          </text>
+                        </g>
+                      )}
+                    </>
+                  ) : (
+                    /* INTERNAL PCB + BATTERY + CAMERA CUTAWAY (LIQUID / BATTERY / OPTICAL) */
+                    <>
+                      {/* Camera Module */}
+                      <rect
+                        x="18"
+                        y="18"
+                        width="64"
+                        height="52"
+                        rx="10"
+                        fill="#17202E"
+                        stroke={mode === 'OPTICAL' && !newPartSeated ? '#F59E0B' : '#475569'}
+                        strokeWidth="1.5"
+                      />
+                      <circle cx="38" cy="36" r="10" fill="#0B1220" stroke="#64748B" strokeWidth="1.5" />
+                      <circle cx="64" cy="52" r="9" fill="#0B1220" stroke="#64748B" strokeWidth="1.5" />
+
+                      {/* Logic Board */}
+                      <path
+                        d="M90 18 H178 Q182 18 182 22 V174 Q182 178 178 178 H134 V78 H90 Z"
+                        fill={mode === 'LIQUID' && step < 3 ? '#113B3D' : '#11382C'}
+                        stroke={mode === 'LIQUID' ? '#22D3EE' : '#10B981'}
+                        strokeOpacity="0.6"
+                        strokeWidth="1.4"
+                      />
+                      <rect x="144" y="40" width="28" height="32" rx="4" fill="#1E293B" stroke="#94A3B8" />
+                      <text
+                        x="158"
+                        y="59"
+                        textAnchor="middle"
+                        fill="#CBD5E1"
+                        fontSize="7"
+                        fontFamily="JetBrains Mono, monospace"
+                      >
+                        SoC
+                      </text>
+
+                      {/* Battery Cell */}
+                      <rect
+                        x="18"
+                        y="82"
+                        width="108"
+                        height="112"
+                        rx="10"
+                        fill={
+                          mode === 'BATTERY' && pullTabs[0] && pullTabs[1] && !newPartSeated
+                            ? '#0D141F'
+                            : '#1B2534'
+                        }
+                        stroke={
+                          mode === 'BATTERY'
+                            ? newPartSeated
+                              ? '#10B981'
+                              : '#F59E0B'
+                            : '#475569'
+                        }
+                        strokeDasharray={
+                          mode === 'BATTERY' && pullTabs[0] && pullTabs[1] && !newPartSeated
+                            ? '4 4'
+                            : undefined
+                        }
+                        strokeWidth="1.6"
+                      />
+                      <text
+                        x="72"
+                        y="134"
+                        textAnchor="middle"
+                        fill="#94A3B8"
+                        fontSize="9"
+                        fontFamily="JetBrains Mono, monospace"
+                        fontWeight="700"
+                      >
+                        {mode === 'BATTERY' && newPartSeated
+                          ? 'OEM 100% PIL'
+                          : mode === 'BATTERY' && pullTabs[0] && pullTabs[1]
+                          ? 'BOŞ YUVA'
+                          : 'Li-Ion 4420mAh'}
+                      </text>
+                      <text
+                        x="72"
+                        y="148"
+                        textAnchor="middle"
+                        fill={newPartSeated ? '#34D399' : '#64748B'}
+                        fontSize="7.5"
+                        fontFamily="JetBrains Mono, monospace"
+                      >
+                        {newPartSeated ? '3.88V · 0 DEVİR' : '3.85V · 17.0Wh'}
+                      </text>
+
+                      {/* Battery Pull-Tab Visuals */}
+                      {mode === 'BATTERY' && step === 2 && (
+                        <>
+                          <rect
+                            x="36"
+                            y="188"
+                            width="18"
+                            height="18"
+                            rx="3"
+                            fill={pullTabs[0] ? '#10B981' : '#F8FAFC'}
+                            fillOpacity={pullTabs[0] ? 0.3 : 0.9}
+                          />
+                          <rect
+                            x="88"
+                            y="188"
+                            width="18"
+                            height="18"
+                            rx="3"
+                            fill={pullTabs[1] ? '#10B981' : '#F8FAFC'}
+                            fillOpacity={pullTabs[1] ? 0.3 : 0.9}
+                          />
+                        </>
+                      )}
+
+                      {/* Flex Connector */}
+                      <rect
+                        x="126"
+                        y="124"
+                        width="24"
+                        height="12"
+                        rx="3"
+                        fill={
+                          (mode === 'BATTERY' || mode === 'LIQUID') && step >= 2 && !newPartSeated
+                            ? '#334155'
+                            : '#F59E0B'
+                        }
+                      />
+
+                      {/* Bottom Charge Port & Speaker */}
+                      <rect x="22" y="204" width="84" height="22" rx="6" fill="#17202E" stroke="#334155" />
+                      <rect x="116" y="204" width="64" height="22" rx="6" fill="#17202E" stroke="#334155" />
+                    </>
+                  )}
                 </svg>
 
-                {step === 2 &&
-                  SCREW_COORDS.map((sc, idx) => {
+                {/* Interactive Overlays on the Phone Body */}
+                {/* 4 Screws Overlay (Screen Step 2 OR Optical Step 1) */}
+                {((mode === 'SCREEN' && step === 2) || (mode === 'OPTICAL' && step === 1)) &&
+                  FOUR_SCREWS.map((sc, idx) => {
                     const removed = screwsRemoved[idx];
                     return (
                       <motion.button
@@ -458,19 +647,12 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                         type="button"
                         disabled={removed}
                         onClick={() => handleRemoveScrew(idx)}
-                        aria-label={bi(sc.tr, sc.en)}
                         style={{ left: sc.x - 16, top: sc.y - 16 }}
-                        whileHover={!removed ? { scale: 1.18 } : undefined}
-                        whileTap={!removed ? { scale: 0.85, rotate: -120 } : undefined}
-                        animate={
+                        whileTap={!removed ? { scale: 0.85, rotate: -110 } : undefined}
+                        className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center ${
                           removed
-                            ? { scale: 0.3, opacity: 0.2, rotate: -220 }
-                            : { scale: 1, opacity: 1, rotate: 0 }
-                        }
-                        className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          removed
-                            ? 'border-emerald-500/40 bg-emerald-500/10 cursor-default'
-                            : 'border-amber-400 bg-[#253143] shadow-[0_0_14px_rgba(245,158,11,0.5)] cursor-pointer'
+                            ? 'border-emerald-500/40 bg-emerald-500/15 opacity-40 cursor-default'
+                            : 'border-amber-400 bg-[#253143] shadow-[0_0_14px_rgba(245,158,11,0.6)] cursor-pointer'
                         }`}
                       >
                         {removed ? (
@@ -485,45 +667,39 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     );
                   })}
 
-                {step === 3 && !batteryFlexDisconnected && (
+                {/* Power Flex Unplug Button (Liquid Step 1 OR Battery Step 1) */}
+                {(mode === 'LIQUID' || mode === 'BATTERY') && step === 1 && (
                   <motion.button
                     type="button"
-                    onClick={handleDisconnectBatteryFlex}
-                    initial={{ scale: 0.9 }}
+                    onClick={handleCutPowerStep}
                     animate={{ scale: [1, 1.08, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.2 }}
-                    style={{ left: 102, top: 112 }}
-                    className="absolute flex items-center gap-1 rounded-lg border-2 border-amber-400 bg-amber-500 px-2 py-1 text-[10px] font-extrabold text-slate-950 shadow-[0_0_18px_rgba(245,158,11,0.7)] cursor-pointer whitespace-nowrap"
+                    transition={{ repeat: Infinity, duration: 1.15 }}
+                    style={{ left: 96, top: 112 }}
+                    className="absolute flex items-center gap-1 rounded-lg border-2 border-amber-400 bg-amber-500 px-2.5 py-1.5 text-[10px] font-extrabold text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.7)] cursor-pointer whitespace-nowrap"
                   >
                     <Plug className="w-3 h-3" />
                     <span>{bi('Flex Ayır', 'Unplug Flex')}</span>
                   </motion.button>
                 )}
 
-                {step === 4 &&
-                  isLiquid &&
-                  CORROSION_SPOTS.map((spot) => {
-                    const cleaned = corrosionCleaned[spot.id];
+                {/* Liquid IPA Corrosion Spots (Liquid Step 2) */}
+                {mode === 'LIQUID' &&
+                  step === 2 &&
+                  LIQUID_SPOTS.map((spot) => {
+                    const cleaned = liquidCleaned[spot.id];
                     return (
                       <motion.button
                         key={spot.id}
                         type="button"
                         disabled={cleaned}
-                        onClick={() => handleCleanCorrosion(spot.id)}
-                        aria-label={bi(spot.tr, spot.en)}
+                        onClick={() => handleCleanLiquid(spot.id)}
                         style={{ left: spot.x - 16, top: spot.y - 16 }}
-                        animate={
-                          cleaned
-                            ? { scale: 0.4, opacity: 0.15 }
-                            : { scale: [1, 1.12, 1], opacity: 1 }
-                        }
-                        transition={
-                          cleaned ? { duration: 0.2 } : { repeat: Infinity, duration: 1.3 }
-                        }
+                        animate={cleaned ? { scale: 0.45, opacity: 0.2 } : { scale: [1, 1.12, 1] }}
+                        transition={cleaned ? { duration: 0.2 } : { repeat: Infinity, duration: 1.2 }}
                         className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center ${
                           cleaned
                             ? 'border-emerald-400 bg-emerald-500/20 cursor-default'
-                            : 'border-cyan-300 bg-cyan-400/30 shadow-[0_0_16px_rgba(34,211,238,0.65)] cursor-pointer'
+                            : 'border-cyan-300 bg-cyan-400/35 shadow-[0_0_16px_rgba(34,211,238,0.7)] cursor-pointer'
                         }`}
                       >
                         {cleaned ? (
@@ -534,34 +710,44 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                       </motion.button>
                     );
                   })}
-              </div>
-            </div>
 
-            {/* Magnetic Screw Organizer Tray */}
-            <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-white/8 bg-[#141D2A] px-2.5 py-1 text-[10px] text-slate-400 tabular-nums">
-              <span>{bi('Vida Tepsisi', 'Screw Tray')}:</span>
-              <div className="flex items-center gap-1">
-                {screwsRemoved.map((rem, i) => (
-                  <span
-                    key={i}
-                    className={`h-2 w-2 rounded-full border ${
-                      rem
-                        ? 'border-amber-300 bg-amber-400'
-                        : 'border-white/15 bg-white/5'
-                    }`}
-                  />
-                ))}
+                {/* Optical Clean Spots (Optical Step 2) */}
+                {mode === 'OPTICAL' &&
+                  step === 2 &&
+                  OPTICAL_SPOTS.map((spot) => {
+                    const cleaned = opticalCleaned[spot.id];
+                    return (
+                      <motion.button
+                        key={spot.id}
+                        type="button"
+                        disabled={cleaned}
+                        onClick={() => handleCleanOptical(spot.id)}
+                        style={{ left: spot.x - 16, top: spot.y - 16 }}
+                        className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center ${
+                          cleaned
+                            ? 'border-emerald-400 bg-emerald-500/20 opacity-40 cursor-default'
+                            : 'border-sky-300 bg-sky-400/30 shadow-[0_0_16px_rgba(56,189,248,0.65)] cursor-pointer'
+                        }`}
+                      >
+                        {cleaned ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        ) : (
+                          <Sparkles className="w-3.5 h-3.5 text-sky-200" />
+                        )}
+                      </motion.button>
+                    );
+                  })}
               </div>
-              <span className="font-mono text-slate-200">{removedScrewCount}/6</span>
             </div>
           </div>
 
-          {/* Right: Active Step Tool Controls & Telemetry */}
+          {/* Right: Mode-Specific Tactile Action Panel */}
           <div className="col-span-7 flex flex-col justify-between min-h-0">
             <AnimatePresence mode="wait">
-              {step === 1 && (
+              {/* === SCREEN REPLACEMENT FLOW === */}
+              {mode === 'SCREEN' && step === 1 && (
                 <motion.div
-                  key="step1"
+                  key="scr-1"
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
@@ -569,233 +755,426 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                 >
                   <div>
                     <div className="text-xs font-bold text-amber-400 mb-0.5">
-                      {bi('Adım 1: Sıcak Hava İstasyonu', 'Step 1: Hot Air Station')}
+                      {bi('1. Ekran Yapıştırıcısını Isıt', '1. Heat Display Adhesive')}
                     </div>
                     <p className="text-[11px] text-slate-300 leading-snug">
                       {bi(
-                        'Ekran contasını çatlatmadan yumuşatmak için ısı tabancasını 110°C’ye kadar basılı tut.',
-                        'Hold the hot air gun until 110°C to soften the waterproof screen gasket cleanly.'
+                        'Kırık camı çerçeveye zarar vermeden ayırmak için ısı tabancasını 105°C’ye kadar basılı tut.',
+                        'Hold the hot air station to 105°C to soften the front glass adhesive cleanly.'
                       )}
                     </p>
                   </div>
-
                   <div className="rounded-xl border border-white/10 bg-[#141D2A] p-2.5 tabular-nums">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="text-slate-400">
-                        {bi('İstasyon Sıcaklığı', 'Nozzle Temp')}
-                      </span>
-                      <span
-                        className={`font-mono text-base font-extrabold ${
-                          liveTemp >= 90 ? 'text-orange-400' : 'text-amber-300'
-                        }`}
-                      >
-                        {liveTemp}°C / 110°C
-                      </span>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">{bi('Ekran Kenar Isısı', 'Frame Temp')}</span>
+                      <span className="font-mono font-extrabold text-orange-400">{liveTemp}°C / 106°C</span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-100"
-                        style={{ width: `${heatProgress}%` }}
+                        style={{ width: `${holdProgress}%` }}
                       />
                     </div>
                   </div>
-
                   <button
                     type="button"
-                    onPointerDown={() => setIsHeating(true)}
-                    onPointerUp={() => setIsHeating(false)}
-                    onPointerLeave={() => setIsHeating(false)}
-                    onPointerCancel={() => setIsHeating(false)}
-                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition-all cursor-pointer select-none whitespace-nowrap ${
-                      isHeating
-                        ? 'bg-orange-500 text-slate-950 scale-[0.98] shadow-[0_0_20px_rgba(249,115,22,0.5)]'
-                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                    }`}
+                    onPointerDown={() => setIsHolding(true)}
+                    onPointerUp={() => setIsHolding(false)}
+                    onPointerLeave={() => setIsHolding(false)}
+                    onPointerCancel={() => setIsHolding(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 active:scale-[0.98] cursor-pointer"
                   >
                     <Flame className="w-4 h-4" />
                     <span>
-                      {isHeating
-                        ? bi(`Isıtılıyor... (%${heatProgress})`, `Heating... (${heatProgress}%)`)
+                      {isHolding
+                        ? bi(`Isıtılıyor... (%${holdProgress})`, `Heating... (${holdProgress}%)`)
                         : bi('Isı Tabancasını Basılı Tut', 'Hold Hot Air Gun')}
                     </span>
                   </button>
                 </motion.div>
               )}
 
-              {step === 2 && (
+              {mode === 'SCREEN' && step === 2 && (
                 <motion.div
-                  key="step2"
+                  key="scr-2"
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
-                  className="space-y-3"
+                  className="space-y-2.5"
                 >
                   <div>
                     <div className="text-xs font-bold text-amber-400 mb-0.5">
-                      {bi('Adım 2: 6 Mikro Vidayı Sök', 'Step 2: Remove 6 Micro-Screws')}
+                      {bi('2. Ekran Çerçevesi 4 Köşe Vidası', '2. Remove 4 Frame Corner Screws')}
                     </div>
                     <p className="text-[11px] text-slate-300 leading-snug">
                       {bi(
-                        'Sol taraftaki cihaz gövdesinde parlayan 6 vidaya tek tek dokunup manyetik tepsiye al.',
-                        'Tap each glowing micro-screw on the chassis to move all 6 into the magnetic tray.'
+                        'Soldaki cihazın 4 köşesinde parlayan ekran tutucu vidalara tek tek dokun.',
+                        'Tap all 4 glowing display bracket screws on the corners.'
                       )}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-[#141D2A] p-3 text-xs text-slate-300 space-y-1.5 tabular-nums">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">
-                        {bi('Sökülen Vida', 'Screws Removed')}
-                      </span>
-                      <span className="font-mono font-bold text-amber-400">
-                        {removedScrewCount} / 6
-                      </span>
+                  <div className="rounded-xl border border-white/10 bg-[#141D2A] p-3 text-xs tabular-nums flex items-center justify-between">
+                    <span className="text-slate-400">{bi('Sökülen Vida', 'Screws Removed')}</span>
+                    <span className="font-mono font-bold text-amber-400">
+                      {screwsRemoved.filter(Boolean).length} / 4
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+
+              {mode === 'SCREEN' && step === 3 && (
+                <motion.div
+                  key="scr-3"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-amber-400 mb-0.5">
+                      {bi('3. Kırık Paneli Sök & Yeni OLED Tak', '3. Lift Broken Screen & Fit OEM OLED')}
                     </div>
-                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {!oldPartRemoved
+                        ? bi('Önce çatlak ekran panelini vakumla kaldır.', 'First lift the cracked panel away.')
+                        : bi('Şimdi sıfır orijinal 120Hz OLED ekranı oturt!', 'Now snap the fresh OEM 120Hz OLED into place!')}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      disabled={oldPartRemoved}
+                      onClick={handleLiftOldPart}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/50 bg-rose-500/15 px-4 py-2 text-xs font-bold text-rose-100 hover:bg-rose-500/25 disabled:opacity-40 cursor-pointer"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>
+                        {oldPartRemoved
+                          ? bi('Kırık Ekran Çıkarıldı ✓', 'Broken Panel Removed ✓')
+                          : bi('1. Kırık Paneli Vakumla Kaldır', '1. Lift Broken Screen')}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!oldPartRemoved || newPartSeated}
+                      onClick={handleSeatNewPart}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      <span>{bi('2. Yeni Orijinal OLED Paneli Tak', '2. Snap New OEM OLED')}</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === LIQUID DAMAGE FLOW === */}
+              {mode === 'LIQUID' && step === 1 && (
+                <motion.div
+                  key="liq-1"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-cyan-300 mb-0.5">
+                      {bi('1. Acil Kısa Devre Önlemi: Gücü Kes!', '1. Emergency Power Cut!')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Sıvı temaslı anakartta ilk kural: derhal batarya flex soketini ayır ki anakart yanmasın!',
+                        'First rule of liquid damage: immediately disconnect the battery flex before cleaning!'
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCutPowerStep}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                  >
+                    <Plug className="w-4 h-4" />
+                    <span>{bi('Batarya Flex Soketini Hemen Ayır', 'Disconnect Battery Flex Now')}</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {mode === 'LIQUID' && step === 2 && (
+                <motion.div
+                  key="liq-2"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-cyan-300 mb-0.5">
+                      {bi('2. IPA Fırçasıyla Oksit Lekelerini Temizle', '2. Scrub PCB Corrosion with 99% IPA')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Sol anakart üzerinde parlayan 4 mavi oksidasyon noktasına dokunup alkol fırçasıyla temizle.',
+                        'Tap all 4 glowing cyan oxidation spots on the logic board to scrub them clean.'
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3 text-xs text-cyan-100 flex items-center justify-between tabular-nums">
+                    <span>{bi('Temizlenen Oksit Noktası', 'Cleaned Corrosion Spots')}</span>
+                    <strong className="font-mono text-sm">
+                      {liquidCleaned.filter(Boolean).length} / 4
+                    </strong>
+                  </div>
+                </motion.div>
+              )}
+
+              {mode === 'LIQUID' && step === 3 && (
+                <motion.div
+                  key="liq-3"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-cyan-300 mb-0.5">
+                      {bi('3. Sıcak Hava ile Anakartı Kurut', '3. Hot-Air Dry Motherboard')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Alkol ve nem kalıntısı tamamen buharlaşana kadar kurutma tabancasını basılı tut.',
+                        'Hold the hot-air blower until motherboard moisture reaches 0%.'
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-500/25 bg-[#141D2A] p-2.5 tabular-nums">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">{bi('Kuruma Oranı', 'Dryness Level')}</span>
+                      <span className="font-mono font-extrabold text-cyan-300">{holdProgress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-amber-400 transition-all duration-150"
-                        style={{ width: `${(removedScrewCount / 6) * 100}%` }}
+                        className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-100"
+                        style={{ width: `${holdProgress}%` }}
                       />
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onPointerDown={() => setIsHolding(true)}
+                    onPointerUp={() => setIsHolding(false)}
+                    onPointerLeave={() => setIsHolding(false)}
+                    onPointerCancel={() => setIsHolding(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-cyan-300 active:scale-[0.98] cursor-pointer"
+                  >
+                    <Wind className="w-4 h-4" />
+                    <span>
+                      {isHolding
+                        ? bi(`Kurutuluyor... (%${holdProgress})`, `Drying... (${holdProgress}%)`)
+                        : bi('Sıcak Hava Kurutucuyu Basılı Tut', 'Hold Hot-Air Dryer')}
+                    </span>
+                  </button>
                 </motion.div>
               )}
 
-              {step === 3 && (
+              {/* === BATTERY REPLACEMENT FLOW === */}
+              {mode === 'BATTERY' && step === 1 && (
                 <motion.div
-                  key="step3"
+                  key="bat-1"
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
                   className="space-y-2.5"
                 >
                   <div>
-                    <div className="text-xs font-bold text-amber-400 mb-0.5">
-                      {bi('Adım 3: Flex Ayırma & Modül Sökümü', 'Step 3: Unplug Flex & Extract')}
+                    <div className="text-xs font-bold text-emerald-400 mb-0.5">
+                      {bi('1. Batarya Flex Soketini Sök', '1. Disconnect Battery Flex')}
                     </div>
                     <p className="text-[11px] text-slate-300 leading-snug">
-                      {!batteryFlexDisconnected
-                        ? bi(
-                            'Önce cihaz üzerindeki parlak "Flex Ayır" soketine dokunup batarya elektriğini kes!',
-                            'First tap the glowing "Unplug Flex" connector on the board to cut power safely!'
-                          )
-                        : bi(
-                            `Elektrik kesildi! Şimdi arızalı "${combinedShort}" parçasını çıkar.`,
-                            `Power cut! Now extract the faulty "${combinedShort}" component.`
-                          )}
+                      {bi(
+                        'Şişmiş veya sahte çipli bataryaya dokunmadan önce anakart güç bağlantısını güvenle ayır.',
+                        'Safely disconnect the battery flex ribbon from the logic board first.'
+                      )}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleCutPowerStep}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                  >
+                    <Plug className="w-4 h-4" />
+                    <span>{bi('Pil Flex Soketini Ayır', 'Unplug Battery Flex')}</span>
+                  </button>
+                </motion.div>
+              )}
 
-                  <div className="space-y-2">
-                    <div
-                      className={`flex items-center justify-between rounded-xl border px-3 py-2 text-[11px] ${
-                        batteryFlexDisconnected
-                          ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'
-                          : 'border-amber-500/35 bg-amber-500/10 text-amber-200'
+              {mode === 'BATTERY' && step === 2 && (
+                <motion.div
+                  key="bat-2"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-emerald-400 mb-0.5">
+                      {bi('2. Yapışkan Çekme Bantlarını Çek (Pull-Tabs)', '2. Pull Adhesive Battery Tabs')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Eski bataryayı delmeden çıkarmak için alttaki 2 beyaz yapışkan bandı sırayla çek!',
+                        'Pull both adhesive pull-tabs beneath the cell to safely release the old battery!'
+                      )}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={pullTabs[0]}
+                      onClick={() => handlePullTab(0)}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-extrabold transition-all cursor-pointer ${
+                        pullTabs[0]
+                          ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                          : 'border-amber-400/50 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25'
                       }`}
                     >
-                      <span className="inline-flex items-center gap-1.5 font-semibold">
-                        <BatteryCharging className="w-3.5 h-3.5" />
-                        <span>{bi('1. Batarya Flex Soketi', '1. Battery Flex Ribbon')}</span>
-                      </span>
-                      <span>
-                        {batteryFlexDisconnected
-                          ? bi('Ayrıldı', 'Disconnected')
-                          : bi('Cihazdan Tıkla', 'Tap on Phone')}
-                      </span>
-                    </div>
-
+                      {pullTabs[0] ? bi('Sol Bant Çekildi ✓', 'Left Tab Pulled ✓') : bi('← Sol Bandı Çek', '← Pull Left Tab')}
+                    </button>
                     <button
                       type="button"
-                      disabled={!batteryFlexDisconnected || partExtracted}
-                      onClick={handleExtractPart}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-rose-500/60 bg-rose-500/15 px-4 py-2.5 text-xs font-bold text-rose-100 hover:bg-rose-500/25 disabled:opacity-35 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      disabled={pullTabs[1]}
+                      onClick={() => handlePullTab(1)}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-extrabold transition-all cursor-pointer ${
+                        pullTabs[1]
+                          ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                          : 'border-amber-400/50 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25'
+                      }`}
                     >
-                      <Wrench className="w-3.5 h-3.5 text-rose-400" />
-                      <span>
-                        {partExtracted
-                          ? bi('Parçalar Çıkarıldı', 'Faulty Parts Removed')
-                          : bi(`2. ${combinedShort} Sök`, `2. Extract ${combinedShort}`)}
-                      </span>
+                      {pullTabs[1] ? bi('Sağ Bant Çekildi ✓', 'Right Tab Pulled ✓') : bi('Sağ Bandı Çek →', 'Pull Right Tab →')}
                     </button>
                   </div>
                 </motion.div>
               )}
 
-              {step === 4 && (
+              {mode === 'BATTERY' && step === 3 && (
                 <motion.div
-                  key="step4"
+                  key="bat-3"
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
                   className="space-y-2.5"
                 >
                   <div>
-                    <div className="text-xs font-bold text-amber-400 mb-0.5">
-                      {isLiquid
-                        ? bi('Adım 4: IPA Oksidasyon Temizliği', 'Step 4: IPA Corrosion Cleaning')
-                        : bi('Adım 4: Orijinal OEM Montajı', 'Step 4: Mount OEM Replacement')}
+                    <div className="text-xs font-bold text-emerald-400 mb-0.5">
+                      {bi('3. Orijinal %100 Bataryayı Yerleştir', '3. Seat Brand-New OEM Cell')}
                     </div>
                     <p className="text-[11px] text-slate-300 leading-snug">
-                      {isLiquid && !oemMounted
-                        ? bi(
-                            'Anakart üzerindeki 3 mavi oksidasyon noktasına tıklayıp izopropil alkolle temizle.',
-                            'Tap all 3 cyan corrosion spots on the motherboard to clean with 99% IPA.'
-                          )
-                        : !oemMounted
-                        ? bi(
-                            `Yeni orijinal ${combinedShort} parçalarını yuvasına oturt.`,
-                            `Seat the brand-new OEM ${combinedShort} assembly into the chassis.`
-                          )
-                        : bi(
-                            'Montaj tamam! Şimdi batarya flex kablosunu takıp gücü ver.',
-                            'Assembly seated! Reconnect the battery flex ribbon to restore power.'
-                          )}
+                      {bi(
+                        'Eski batarya güvenle çıktı! Şimdi 0 devirli orijinal OEM pili oturt ve flex kablosunu tak.',
+                        'Old battery is out! Seat the 0-cycle OEM cell and reconnect the flex cable.'
+                      )}
                     </p>
                   </div>
-
-                  {!isLiquid && !oemMounted && (
-                    <button
-                      type="button"
-                      onClick={handleMountOemPart}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer"
-                    >
-                      <Cpu className="w-4 h-4" />
-                      <span>
-                        {bi(`Yeni Orijinal ${combinedShort} Tak`, `Mount OEM ${combinedShort}`)}
-                      </span>
-                    </button>
-                  )}
-
-                  {isLiquid && !oemMounted && (
-                    <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-2.5 text-xs text-cyan-100 tabular-nums">
-                      {bi('Temizlenen Oksidasyon', 'Cleaned Spots')}:{' '}
-                      <strong className="font-mono">
-                        {corrosionCleaned.filter(Boolean).length} / 3
-                      </strong>
-                    </div>
-                  )}
-
-                  {oemMounted && (
-                    <button
-                      type="button"
-                      disabled={batteryFlexReconnected}
-                      onClick={handleReconnectBatteryFlex}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span>
-                        {batteryFlexReconnected
-                          ? bi('Güç Bağlandı!', 'Power Connected!')
-                          : bi('Batarya Flex Tak & Güç Ver', 'Reconnect Battery Flex')}
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={newPartSeated}
+                    onClick={handleSeatNewPart}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                  >
+                    <BatteryCharging className="w-4 h-4" />
+                    <span>{bi('OEM Batarya Tak & Flex Bağla', 'Mount OEM Battery & Snap Flex')}</span>
+                  </button>
                 </motion.div>
               )}
 
-              {step === 5 && (
+              {/* === OPTICAL / COSMETIC FLOW === */}
+              {mode === 'OPTICAL' && step === 1 && (
                 <motion.div
-                  key="step5"
+                  key="opt-1"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-sky-300 mb-0.5">
+                      {bi('1. Arka Kasa 4 Vidayı Sök', '1. Remove 4 Rear Screws')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Lens ve kasa modülüne ulaşmak için parlayan 4 köşe vidasını sök.',
+                        'Tap the 4 glowing corner screws to access the rear optical assembly.'
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-[#141D2A] p-3 text-xs tabular-nums flex justify-between">
+                    <span className="text-slate-400">{bi('Sökülen Vida', 'Screws Removed')}</span>
+                    <span className="font-mono font-bold text-sky-300">
+                      {screwsRemoved.filter(Boolean).length} / 4
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+
+              {mode === 'OPTICAL' && step === 2 && (
+                <motion.div
+                  key="opt-2"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-sky-300 mb-0.5">
+                      {bi('2. Optik Mercek & Conta Temizliği', '2. Clean Optical Lens & Frame')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Soldaki cihazda parlayan 3 lens/conta noktasına dokunarak buğuyu ve izleri temizle.',
+                        'Tap all 3 glowing lens & gasket spots on the phone to polish them spotless.'
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sky-100 flex justify-between tabular-nums">
+                    <span>{bi('Temizlenen Bölge', 'Cleaned Zones')}</span>
+                    <strong className="font-mono">{opticalCleaned.filter(Boolean).length} / 3</strong>
+                  </div>
+                </motion.div>
+              )}
+
+              {mode === 'OPTICAL' && step === 3 && (
+                <motion.div
+                  key="opt-3"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  className="space-y-2.5"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-sky-300 mb-0.5">
+                      {bi('3. Yeni Su Geçirmez Conta & Parça Montajı', '3. Fit New Seal & OEM Module')}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      {bi(
+                        'Temizlik tamam! Yeni orijinal conta ve lens/kasa parçasını yerine oturt.',
+                        'Cleaning done! Seat the brand-new OEM seal and module cleanly.'
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={newPartSeated}
+                    onClick={handleSeatNewPart}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                  >
+                    <Cpu className="w-4 h-4" />
+                    <span>{bi('Yeni Orijinal Parçayı Montajla', 'Mount New OEM Part')}</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {/* === STEP 4: TAILORED FINAL CALIBRATION === */}
+              {step === 4 && (
+                <motion.div
+                  key="step-4"
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
@@ -803,7 +1182,13 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                 >
                   <div>
                     <div className="text-xs font-bold text-amber-400 mb-0.5">
-                      {bi('Adım 5: TrueTone & Kalibrasyon', 'Step 5: TrueTone & Calibration')}
+                      {mode === 'SCREEN'
+                        ? bi('4. TrueTone & Dokunmatik Kalibrasyonu', '4. TrueTone & Touch Calibration')
+                        : mode === 'LIQUID'
+                        ? bi('4. Kısa Devre & Güç Akım Testi', '4. Short-Circuit & Current Test')
+                        : mode === 'BATTERY'
+                        ? bi('4. BMS Voltaj & Pil Kalibrasyonu', '4. BMS Voltage Calibration')
+                        : bi('4. Kamera Odak & Kasa Pres Testi', '4. Optical Focus & Seal Test')}
                     </div>
                     <p className="text-[11px] text-slate-300 leading-snug">
                       {bi(
@@ -821,15 +1206,31 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                     </p>
                   </div>
 
-                  <div className="relative w-full h-9 rounded-xl bg-[#1A2434] border border-white/12 overflow-hidden">
-                    <div
-                      className="absolute inset-y-0 bg-emerald-500/30 border-x-2 border-emerald-400"
-                      style={{ left: `${calMin}%`, width: `${calMax - calMin}%` }}
-                    />
-                    <div
-                      className="absolute inset-y-1 w-2.5 -ml-1.25 rounded-full bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.9)]"
-                      style={{ left: `${needlePos}%` }}
-                    />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[9.5px] font-mono">
+                      <span className="text-slate-400">
+                        {difficultyLabel} · {bi('Yeşil', 'Green')}: %{Math.round(calMax - calMin)}
+                      </span>
+                      <span className="text-rose-300/90">
+                        {bi('Kırmızı = Geri Dönüş Riski', 'Red = Comeback Risk')}
+                      </span>
+                    </div>
+                    <div className="relative w-full h-9 rounded-xl bg-rose-950/60 border border-white/12 overflow-hidden">
+                      {/* Amber Standard Zone */}
+                      <div
+                        className="absolute inset-y-0 bg-amber-500/22 border-x border-amber-400/45"
+                        style={{ left: `${stdMin}%`, width: `${stdMax - stdMin}%` }}
+                      />
+                      {/* Green Master-Crafted Sweet Spot */}
+                      <div
+                        className="absolute inset-y-0 bg-emerald-500/35 border-x-2 border-emerald-400"
+                        style={{ left: `${calMin}%`, width: `${calMax - calMin}%` }}
+                      />
+                      <div
+                        className="absolute inset-y-1 w-2.5 -ml-1.25 rounded-full bg-white shadow-[0_0_12px_rgba(245,158,11,0.95)]"
+                        style={{ left: `${needlePos}%` }}
+                      />
+                    </div>
                   </div>
 
                   {calibrated === 'idle' ? (
@@ -838,23 +1239,37 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                       onClick={handleCalibrateLock}
                       className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 active:scale-[0.98] transition-all cursor-pointer"
                     >
-                      <Sparkles className="w-4 h-4" />
-                      <span>
-                        {bi('Kalibre Et & Kasayı Presle', 'Calibrate & Seal Chassis')}
-                      </span>
+                      <Zap className="w-4 h-4" />
+                      <span>{bi('Kalibre Et & Onarımı Bitir', 'Calibrate & Complete Repair')}</span>
                     </button>
                   ) : (
                     <motion.div
                       initial={{ scale: 0.85, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/12 p-2.5 text-center"
+                      className={`rounded-xl border p-2.5 text-center ${
+                        calibrated === 'master'
+                          ? 'border-emerald-500/45 bg-emerald-500/14'
+                          : calibrated === 'standard'
+                          ? 'border-amber-400/40 bg-amber-500/12'
+                          : 'border-rose-500/45 bg-rose-500/14'
+                      }`}
                     >
-                      <div className="inline-flex items-center gap-1.5 font-display text-sm font-extrabold text-emerald-300">
-                        <Award className="w-4 h-4 text-amber-400" />
+                      <div
+                        className={`inline-flex items-center gap-1.5 font-display text-sm font-extrabold ${
+                          calibrated === 'master'
+                            ? 'text-emerald-300'
+                            : calibrated === 'standard'
+                            ? 'text-amber-300'
+                            : 'text-rose-300'
+                        }`}
+                      >
+                        <Award className="w-4 h-4" />
                         <span>
-                          {calibrated === 'perfect'
+                          {calibrated === 'master'
                             ? bi('MÜKEMMEL! USTA İŞİ (+%12)', 'PERFECT! MASTER-CRAFTED (+12%)')
-                            : bi('ONARIM TAMAMLANDI!', 'REPAIR COMPLETE!')}
+                            : calibrated === 'standard'
+                            ? bi('ONARIM TAMAMLANDI (STANDART)', 'REPAIR COMPLETE (STANDARD)')
+                            : bi('KABA İŞÇİLİK! (3–5 GÜN İÇİNDE ARIZA RİSKİ)', 'ROUGH FINISH! (COMEBACK RISK IN 3–5 DAYS)')}
                         </span>
                       </div>
                     </motion.div>
@@ -865,11 +1280,13 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
 
             <div className="mt-2 pt-2 border-t border-white/8 flex items-center justify-between text-[10.5px] text-slate-400 tabular-nums">
               <span>
-                {bi('Parça', 'Parts')}:{' '}
-                <strong className="text-slate-100">{formatTRY(cost)}</strong>
+                {bi('Parça Maliyeti', 'Parts Cost')}:{' '}
+                <strong className="text-slate-100">
+                  {cost === 0 ? bi('0 ₺ (Stoktan!)', '0 ₺ (Stock!)') : formatTRY(cost)}
+                </strong>
               </span>
               <span className="text-amber-300/90">
-                {bi('Yeşil bölge = Usta İşi (+%12)', 'Green zone = Master (+12%)')}
+                {bi('Yeşil = Usta İşi · Sarı = Normal', 'Green = Master · Amber = Normal')}
               </span>
             </div>
           </div>
@@ -878,4 +1295,3 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
     </div>
   );
 };
-

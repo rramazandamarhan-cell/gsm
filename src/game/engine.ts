@@ -27,6 +27,7 @@ import {
   SHOP_DECORATIONS,
   SHOP_STAFF,
   SHOP_TIERS,
+  SPARE_PARTS_CATALOG,
   STARTING_CASH,
   STORY_CHAPTERS,
   TEA_REACTIONS,
@@ -40,10 +41,13 @@ import {
   AccessoryOrderLine,
   AccessoryStockItem,
   ActiveLoan,
+  AuctionMysteryReward,
   BranchId,
   CareerMilestone,
   CustomerArchetypeId,
+  CustomerComplaintRecord,
   CustomerEncounter,
+  CustomerFaultReport,
   CustomerMood,
   CustomerReview,
   CustomsAuctionLot,
@@ -53,10 +57,14 @@ import {
   DayFinancials,
   DayHistoryEntry,
   DefectId,
+  DevicePartReportRow,
   FlashWholesaleDeal,
   InspectionCategory,
+  KermesDealItem,
   LegacyPathId,
   MuseumItemId,
+  PlaystyleType,
+  PrestigePerkId,
   NegotiationPace,
   NegotiationTone,
   NextCustomerEventEffect,
@@ -67,14 +75,18 @@ import {
   PhoneDevice,
   PhoneModelSpec,
   PhoneTier,
+  RadioStationId,
   RandomStoreEvent,
+  RepairQuality,
   ShippingOrder,
+  SparePartId,
   ShopState,
   ShopTab,
   ShopTier,
   StaffId,
   StaffRepairJob,
   StoryChapter,
+  SundayKermesState,
   TimedProject,
   UpgradeId,
 } from './types';
@@ -220,15 +232,29 @@ export function tickRivalFlashSnatch(
   };
 }
 
-// Sustainable 10-level progression curve — meaningful climb from arcade stall to GSM Plaza
-const LEVEL_XP_THRESHOLDS = [0, 320, 780, 1450, 2400, 3700, 5400, 7600, 10500, 14500];
+// Infinite, slow, sustainable Esnaf Rank curve (never gates shops/features — rewards long-term mastery)
+export function getXpSpanForLevel(level: number): number {
+  const safeLvl = Math.max(1, Math.floor(level));
+  return Math.round(1250 * Math.pow(safeLvl, 1.55));
+}
+
+export function getXpThresholdForLevel(level: number): number {
+  let total = 0;
+  for (let l = 1; l < Math.max(1, Math.floor(level)); l++) {
+    total += getXpSpanForLevel(l);
+  }
+  return total;
+}
 
 export function getLevelFromXp(xp: number): number {
+  const safeXp = Math.max(0, Math.floor(xp));
   let lvl = 1;
-  for (let i = 0; i < LEVEL_XP_THRESHOLDS.length; i++) {
-    if (xp >= LEVEL_XP_THRESHOLDS[i]) {
-      lvl = i + 1;
-    }
+  let cumulative = 0;
+  while (lvl < 999) {
+    const span = getXpSpanForLevel(lvl);
+    if (safeXp < cumulative + span) break;
+    cumulative += span;
+    lvl += 1;
   }
   return lvl;
 }
@@ -239,12 +265,11 @@ export function getLevelProgress(xp: number): {
   neededForNext: number;
   percent: number;
 } {
-  const level = getLevelFromXp(xp);
-  const currentThreshold = LEVEL_XP_THRESHOLDS[level - 1] ?? 0;
-  const nextThreshold =
-    LEVEL_XP_THRESHOLDS[level] ?? currentThreshold + 1200;
-  const span = Math.max(1, nextThreshold - currentThreshold);
-  const currentInLevel = Math.max(0, xp - currentThreshold);
+  const safeXp = Math.max(0, Math.floor(xp));
+  const level = getLevelFromXp(safeXp);
+  const currentThreshold = getXpThresholdForLevel(level);
+  const span = Math.max(1, getXpSpanForLevel(level));
+  const currentInLevel = Math.max(0, safeXp - currentThreshold);
   return {
     level,
     currentInLevel,
@@ -253,10 +278,20 @@ export function getLevelProgress(xp: number): {
   };
 }
 
+export function getLevelUpBonusCash(newLevel: number): number {
+  return roundPrice(Math.min(150000, 1800 * Math.pow(Math.max(1, newLevel), 1.2)));
+}
+
+/** Express delivery / instant-bench fee added when choosing Quick Repair instead of hands-on Mini Repair */
+export function getQuickRepairExpressFee(baseCost: number): number {
+  if (baseCost <= 0) return 0;
+  return roundPrice(Math.max(450, baseCost * 0.28));
+}
+
 export function getStreakBonusCash(streak: number, level: number): number {
   if (streak < 2) return 0;
-  const base = Math.min(2400, (streak - 1) * 350);
-  return level >= 8 ? Math.round(base * 1.5) : base;
+  const base = Math.min(2600, (streak - 1) * 350);
+  return level >= 5 ? Math.round(base * (1 + Math.min(0.6, (level - 4) * 0.08))) : base;
 }
 
 export function createInitialAccessories(): Record<AccessoryId, AccessoryStockItem> {
@@ -688,118 +723,413 @@ export function countClaimableRewards(state: ShopState): number {
   return readyQuests + readyMilestones + readyChapters;
 }
 
+export function detectPlayerPlaystyle(
+  state: Pick<
+    ShopState,
+    'totalPhonesRepaired' | 'totalPhonesSold' | 'totalDefectsExposed' | 'totalAccessoriesSold'
+  >
+): PlaystyleType {
+  const repaired = state.totalPhonesRepaired ?? 0;
+  const sold = state.totalPhonesSold ?? 0;
+  const exposed = state.totalDefectsExposed ?? 0;
+  if (repaired >= 3 && repaired >= sold * 0.7) {
+    return 'REPAIR_MASTER';
+  }
+  if (exposed >= 5 && exposed >= sold * 1.15 && exposed >= repaired * 1.4) {
+    return 'DETECTIVE';
+  }
+  if (sold >= 4 && sold > repaired * 1.35) {
+    return 'TRADER_SHARK';
+  }
+  return 'BALANCED';
+}
+
+export function getPlaystyleLabel(style: PlaystyleType): {
+  title: string;
+  diplomaTitle: string;
+  tagline: string;
+} {
+  switch (style) {
+    case 'REPAIR_MASTER':
+      return {
+        title: bi('Tamir Ustası', 'Repair Master'),
+        diplomaTitle: bi('Mikro-Lehim & Atölye Profesörü', 'Micro-Soldering & Bench Professor'),
+        tagline: bi(
+          'Atölye ağırlıklı oynadığın için görevler tamir ve donanım teşhisine odaklanıyor.',
+          'Since you focus on repairs, daily quests prioritize bench diagnostics & fixes.'
+        ),
+      };
+    case 'TRADER_SHARK':
+      return {
+        title: bi('Al-Sat Kurdu', 'Trading Shark'),
+        diplomaTitle: bi('Pasaj Kelepir & Vitrin Doçenti', 'Arcade Bargain & Sales Associate'),
+        tagline: bi(
+          'Sıcak al-sat odaklı oynadığın için görevler pazarlık, kelepir alım ve satış ağırlıklı.',
+          'Since you focus on trading, daily quests prioritize bargains & high-volume sales.'
+        ),
+      };
+    case 'DETECTIVE':
+      return {
+        title: bi('Dedektif Eksper', 'Inspection Detective'),
+        diplomaTitle: bi('BTK & Gizli Kusur Başmüfettişi', 'Chief Hidden-Defect Inspector'),
+        tagline: bi(
+          'Kusur yakalamada keskin olduğun için görevler ekspertiz ve koz vurma odaklı.',
+          'Your keen eye for defects unlocks higher-stakes inspection & leverage quests.'
+        ),
+      };
+    default:
+      return {
+        title: bi('Dengeli Esnaf', 'All-Round Merchant'),
+        diplomaTitle: bi('Pasaj Çok Yönlü Esnaf Diploması', 'Certified Arcade All-Rounder'),
+        tagline: bi(
+          'Hem tamir hem al-sat dengeli gittiğin için görevler karma ve çok yönlü geliyor.',
+          'Balanced trading & repairs unlock a mixed pool of counter and workshop quests.'
+        ),
+      };
+  }
+}
+
 export function generateDailyQuests(
   day: number,
   upgrades: UpgradeId[],
-  level = 1
+  level = 1,
+  playstyle: PlaystyleType = 'BALANCED',
+  prestigeLevel = 0
 ): DailyQuest[] {
-  const pool: Omit<DailyQuest, 'id' | 'progress' | 'claimed'>[] = [
+  // Always 3 dynamic daily quests scaled by player level, day, prestige, and playstyle
+  const levelTier = Math.floor((Math.max(1, level) - 1) / 3);
+  const tierBump = Math.min(4, levelTier + (day >= 12 ? 2 : day >= 5 ? 1 : 0) + prestigeLevel);
+  const diffTag: 'Standart' | 'Zorlu' | 'Usta İşi' =
+    tierBump >= 3 ? 'Usta İşi' : tierBump >= 1 ? 'Zorlu' : 'Standart';
+
+  const inspectTarget = 2 + Math.min(4, tierBump + (playstyle === 'DETECTIVE' ? 1 : 0));
+  const leverageTarget = 2 + Math.min(4, tierBump + (playstyle === 'DETECTIVE' ? 1 : 0));
+  const sellTarget = 2 + Math.min(4, tierBump + (playstyle === 'TRADER_SHARK' ? 1 : 0));
+  const teaTarget = 3 + Math.min(3, Math.floor(tierBump / 2) + (day >= 8 ? 1 : 0));
+  const bargainTarget = 2 + Math.min(3, Math.floor(tierBump / 2) + (playstyle === 'TRADER_SHARK' ? 1 : 0));
+  const rewardScale =
+    (1 + Math.min(2.6, (day - 1) * 0.08 + (level - 1) * 0.12)) *
+    (1 + prestigeLevel * 0.25);
+
+  type QuestCandidate = Omit<DailyQuest, 'id' | 'progress' | 'claimed'> & {
+    weight: number;
+  };
+
+  const pool: QuestCandidate[] = [
     {
       kind: 'INSPECT_FULL',
       title: bi('Detaylı Ekspertiz Uzmanı', 'Full Inspection Specialist'),
       description: bi(
-        'Tezgaha konulan 2 telefonun tüm 4 donanım testini eksiksiz tamamla.',
-        'Complete all 4 hardware tests on 2 phones placed on the counter.'
+        `Tezgaha konulan ${inspectTarget} telefonun tüm 4 donanım testini elle eksiksiz tamamla.`,
+        `Complete all 4 hands-on hardware checks on ${inspectTarget} phones.`
       ),
-      target: 2,
-      reward: 1200 + day * 180,
-      xpReward: 45,
+      target: inspectTarget,
+      reward: roundPrice(1700 * rewardScale),
+      xpReward: 55 + tierBump * 16,
+      difficultyTag: diffTag,
+      playstyleFocus: 'DETECTIVE',
+      weight: playstyle === 'DETECTIVE' ? 4 : playstyle === 'REPAIR_MASTER' ? 2.5 : 1.5,
     },
     {
       kind: 'USE_LEVERAGE',
       title: bi('Kartal Gözlü Pazarlıkçı', 'Eagle-Eyed Negotiator'),
       description: bi(
-        'Ekspertizde yakaladığın 2 gizli kusuru satıcıya karşı koz olarak kullan.',
-        'Expose 2 hidden defects during inspection and use them as leverage.'
+        `Ekspertizde yakaladığın ${leverageTarget} gizli kusuru satıcıya karşı koz olarak kullan.`,
+        `Expose ${leverageTarget} hidden defects during inspection and use them as leverage.`
       ),
-      target: 2,
-      reward: 1450 + day * 200,
-      xpReward: 55,
+      target: leverageTarget,
+      reward: roundPrice(2000 * rewardScale),
+      xpReward: 65 + tierBump * 16,
+      difficultyTag: diffTag,
+      playstyleFocus: 'DETECTIVE',
+      weight: playstyle === 'DETECTIVE' ? 4 : playstyle === 'TRADER_SHARK' ? 2.2 : 1.6,
     },
     {
       kind: 'SELL_PHONE',
-      title: bi('Sıcak Vitrin Satışı', 'Hot Showcase Sale'),
+      title: bi('Sıcak Vitrin Satışı', 'Hot Showcase Sales'),
       description: bi(
-        'Bugün vitrininden en az 1 cihazı alıcıyla el sıkışarak sat.',
-        'Close at least 1 phone sale from your showcase today.'
+        `Bugün vitrininden en az ${sellTarget} cihazı alıcılarla el sıkışarak sat.`,
+        `Close at least ${sellTarget} phone sales from your showcase today.`
       ),
-      target: 1,
-      reward: 1350 + day * 200,
-      xpReward: 50,
+      target: sellTarget,
+      reward: roundPrice(2150 * rewardScale),
+      xpReward: 70 + tierBump * 18,
+      difficultyTag: diffTag,
+      playstyleFocus: 'TRADER_SHARK',
+      weight: playstyle === 'TRADER_SHARK' ? 4 : 2,
     },
     {
       kind: 'SERVE_TEA',
       title: bi('Pasaj Misafirperverliği', 'Arcade Hospitality'),
       description: bi(
-        '2 müşteriye ince belli bardakta çay ikram ederek pazarlığı yumuşat.',
-        'Serve Turkish tea to 2 customers to soften negotiations.'
+        `${teaTarget} müşteriye ince belli bardakta çay ikram ederek pazarlığı yumuşat.`,
+        `Serve Turkish tea to ${teaTarget} customers to soften negotiations.`
       ),
-      target: 2,
-      reward: 1000 + day * 140,
-      xpReward: 40,
+      target: teaTarget,
+      reward: roundPrice(1400 * rewardScale),
+      xpReward: 45 + tierBump * 12,
+      difficultyTag: tierBump >= 2 ? 'Zorlu' : 'Standart',
+      playstyleFocus: 'BALANCED',
+      weight: playstyle === 'BALANCED' ? 2.2 : 1.1,
     },
     {
       kind: 'BUY_BARGAIN',
       title: bi('Kelepir Avcısı', 'Bargain Hunter'),
       description: bi(
-        '1 cihazı gerçek piyasa değerinin altında kapatarak kâr marjı aç.',
-        'Buy 1 device below its true market value for solid profit margin.'
+        `${bargainTarget} cihazı gerçek piyasa değerinin altında kapatarak yüksek kâr marjı aç.`,
+        `Buy ${bargainTarget} devices below their true market value.`
       ),
-      target: 1,
-      reward: 1600 + day * 200,
-      xpReward: 60,
+      target: bargainTarget,
+      reward: roundPrice(2350 * rewardScale),
+      xpReward: 75 + tierBump * 18,
+      difficultyTag: diffTag,
+      playstyleFocus: 'TRADER_SHARK',
+      weight: playstyle === 'TRADER_SHARK' ? 4 : playstyle === 'DETECTIVE' ? 2.4 : 1.5,
     },
   ];
 
-  if (level >= 2 && upgrades.includes('accessory_license')) {
+  if (upgrades.includes('accessory_license')) {
+    const accTarget = 4 + Math.min(8, tierBump * 2);
     pool.push({
       kind: 'SELL_ACCESSORY',
       title: bi('Aksesuar Reyon Hareketi', 'Accessory Shelf Action'),
       description: bi(
-        'Tezgahta, telefon yanında çapraz satışta veya gün sonunda toplam 3 aksesuar sat.',
-        'Sell 3 accessories via counter, phone cross-sell, or end-of-day shelf.'
+        `Tezgahta, telefon yanında çapraz satışta veya gün sonunda toplam ${accTarget} aksesuar sat.`,
+        `Sell ${accTarget} accessories via counter, cross-sell, or end-of-day shelf.`
       ),
-      target: 3,
-      reward: 1400 + day * 180,
-      xpReward: 55,
+      target: accTarget,
+      reward: roundPrice(2050 * rewardScale),
+      xpReward: 65 + tierBump * 16,
+      difficultyTag: diffTag,
+      playstyleFocus: 'TRADER_SHARK',
+      weight: playstyle === 'TRADER_SHARK' ? 3 : 1.7,
     });
   }
 
-  if (upgrades.includes('repair_bench') || level >= 2 || day >= 2) {
+  if (upgrades.includes('repair_bench') || day >= 2) {
+    const repairTarget =
+      2 + Math.min(4, Math.floor(tierBump / 2) + (playstyle === 'REPAIR_MASTER' ? 1 : 0));
     pool.push({
       kind: 'REPAIR_PHONE',
       title: bi('Mikro Tamir Mesaisi', 'Micro Repair Shift'),
       description: bi(
-        'Atölye tezgahında veya acil serviste en az 1 cihaz arızasını onar.',
-        'Repair at least 1 device defect at the workshop or express service.'
+        `Atölye tezgahında veya acil serviste en az ${repairTarget} cihaz arızasını onar.`,
+        `Repair at least ${repairTarget} device defects at the workshop or express service.`
       ),
-      target: 1,
-      reward: 1900 + day * 220,
-      xpReward: 65,
+      target: repairTarget,
+      reward: roundPrice(2550 * rewardScale),
+      xpReward: 85 + tierBump * 18,
+      difficultyTag: diffTag,
+      playstyleFocus: 'REPAIR_MASTER',
+      weight: playstyle === 'REPAIR_MASTER' ? 5 : 2,
     });
   }
 
-  if (level >= 4 && upgrades.includes('brand_new_license')) {
+  if (upgrades.includes('brand_new_license')) {
+    const bnTarget = 1 + (tierBump >= 2 ? 1 : 0);
     pool.push({
       kind: 'SELL_BRAND_NEW',
       title: bi('Sıfır Kutu Satışı', 'Sealed Box Sale'),
       description: bi(
-        'Toptancıdan getirdiğin 1 adet Sıfır Kapalı Kutu telefonu müşteriye sat.',
-        'Sell 1 brand-new factory-sealed phone ordered from a distributor.'
+        `Toptancıdan getirdiğin ${bnTarget} adet Sıfır Kapalı Kutu telefonu müşteriye sat.`,
+        `Sell ${bnTarget} brand-new factory-sealed phone(s) ordered from a distributor.`
       ),
-      target: 1,
-      reward: 2600 + day * 280,
-      xpReward: 85,
+      target: bnTarget,
+      reward: roundPrice(3300 * rewardScale),
+      xpReward: 95 + tierBump * 22,
+      difficultyTag: 'Usta İşi',
+      playstyleFocus: 'TRADER_SHARK',
+      weight: playstyle === 'TRADER_SHARK' ? 3.2 : 1.8,
     });
   }
 
-  const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
-  return shuffled.map((q) => ({
+  // Weighted random pick of 3 distinct daily quests favoring the player's style
+  const remaining = [...pool];
+  const chosen: QuestCandidate[] = [];
+  while (chosen.length < 3 && remaining.length > 0) {
+    const totalW = remaining.reduce((s, q) => s + q.weight, 0);
+    let r = Math.random() * totalW;
+    let pickIdx = 0;
+    for (let i = 0; i < remaining.length; i += 1) {
+      r -= remaining[i].weight;
+      if (r <= 0) {
+        pickIdx = i;
+        break;
+      }
+    }
+    chosen.push(remaining.splice(pickIdx, 1)[0]);
+  }
+
+  return chosen.map(({ weight: _w, ...q }) => ({
     ...q,
     id: makeId('quest'),
     progress: 0,
     claimed: false,
   }));
+}
+
+export interface PrestigePerkSpec {
+  id: PrestigePerkId;
+  cost: number;
+  trName: string;
+  enName: string;
+  trEffect: string;
+  enEffect: string;
+}
+
+export const PRESTIGE_PERKS: PrestigePerkSpec[] = [
+  {
+    id: 'golden_pliers',
+    cost: 2,
+    trName: 'Altın Pense & Kalıcı Tezgah',
+    enName: 'Golden Pliers & Permanent Bench',
+    trEffect: 'Her yeni döneme Tamir Tezgahı açık başla + tüm parçalarda kalıcı %15 indirim.',
+    enEffect: 'Start every cycle with Repair Bench unlocked + permanent 15% parts discount.',
+  },
+  {
+    id: 'silver_tongue',
+    cost: 3,
+    trName: 'Pasaj Efsanesi İtibarı',
+    enName: 'Arcade Legend Reputation',
+    trEffect: 'Her yeni döneme +0.5★ yüksek itibar ve satışlarda kalıcı +%10 değer bonusuyla başla.',
+    enEffect: 'Start every cycle with +0.5★ reputation and permanent +10% resale value bonus.',
+  },
+  {
+    id: 'seed_capital',
+    cost: 3,
+    trName: 'Baba Sermayesi & Aksesuar İzni',
+    enName: 'Seed Capital & Accessory Permit',
+    trEffect: 'Her sıfırlamada +25.000 ₺ ekstra nakit ve Aksesuar Lisansı açık başla.',
+    enEffect: 'Start every cycle with +25,000 ₺ bonus cash and Accessory License unlocked.',
+  },
+  {
+    id: 'vip_network',
+    cost: 4,
+    trName: 'VIP Esnaf Ağı',
+    enName: 'VIP Merchant Network',
+    trEffect: 'Tüm işlemlerden kalıcı +%30 XP kazancı ve Sarı İlan Lisansı baştan açık.',
+    enEffect: 'Permanent +30% XP gain on all deals and Classifieds License unlocked from Day 1.',
+  },
+];
+
+export function getPrestigeCashTarget(prestigeLevel = 0): number {
+  return Math.round(150000 * Math.pow(2, Math.max(0, prestigeLevel)));
+}
+
+export function getPrestigePointsEarned(state: ShopState): number {
+  const target = getPrestigeCashTarget(state.prestigeLevel ?? 0);
+  if (state.cash < target) return 0;
+  const cashRatioBonus = Math.floor(state.cash / Math.max(75000, target * 0.5));
+  const levelBonus = Math.floor(state.level / 2);
+  const tierBonus = Math.max(0, state.shopTier - 1);
+  return Math.max(2, cashRatioBonus + levelBonus + tierBonus);
+}
+
+export function getPrestigeIncomeMultiplier(state: Pick<ShopState, 'prestigeLevel' | 'prestigePerks'>): number {
+  const pLvl = state.prestigeLevel ?? 0;
+  const silverBonus = (state.prestigePerks ?? []).includes('silver_tongue') ? 0.1 : 0;
+  return 1 + pLvl * 0.1 + silverBonus;
+}
+
+export function buildCustomerFaultReport(
+  device: PhoneDevice,
+  archetypeId: CustomerArchetypeId,
+  isServiceOrder = false
+): CustomerFaultReport | undefined {
+  if (device.defects.length === 0) return undefined;
+
+  const symptomMap: Record<DefectId, { headline: string; symptom: string }> = {
+    screen_crack: {
+      headline: bi('Ekran / Dokunmatik Şikayeti', 'Screen / Touch Issue'),
+      symptom: bi(
+        '“Ekran kenardan çatladı, bazen üst kısım donuyor ve dokunmatik geç algılıyor.”',
+        '“The glass cracked near the edge — top touch sometimes freezes or lags.”'
+      ),
+    },
+    screen_aftermarket: {
+      headline: bi('Ekran Görüntü Notu', 'Display Quality Note'),
+      symptom: bi(
+        '“Geçen sene ekranı değişmişti, güneş altında biraz soluk duruyor sanki.”',
+        '“Screen was replaced last year; colors look a bit washed out outdoors.”'
+      ),
+    },
+    battery_degraded: {
+      headline: bi('Pil / Şarj Şikayeti', 'Battery / Charging Issue'),
+      symptom: bi(
+        '“Şarjı öğlene kadar zor dayanıyor, %20’lere inince pat diye kapanıyor.”',
+        '“Battery barely lasts half a day and randomly shuts off around 20%.”'
+      ),
+    },
+    battery_fake_chip: {
+      headline: bi('Pil Yüzdesi Şüphesi', 'Battery Reading Anomaly'),
+      symptom: bi(
+        '“Ayarlarda pil %100 gözüküyor ama nedense 2 saatte su gibi bitiyor.”',
+        '“Settings shows 100% battery health, yet it drains in 2 hours somehow.”'
+      ),
+    },
+    imei_unregistered: {
+      headline: bi('Şebeke / Hat Uyarısı', 'Network / Signal Note'),
+      symptom: bi(
+        '“Yurt dışından geldi, arada bir şebeke çekmiyor gibi uyarı veriyor.”',
+        '“Brought from abroad; occasionally drops cellular signal or warns about SIM.”'
+      ),
+    },
+    liquid_damage: {
+      headline: bi('Ses & Sıvı Teması Şüphesi', 'Audio & Liquid Exposure'),
+      symptom: bi(
+        '“Geçen hafta üstüne biraz su döküldü, hoparlörden ses cızırtılı/kısık geliyor.”',
+        '“Got splashed with water last week — speaker sounds muffled and crackly.”'
+      ),
+    },
+    camera_fog: {
+      headline: bi('Kamera Odak Şikayeti', 'Camera Focus Issue'),
+      symptom: bi(
+        '“Arka kamerayı açınca görüntü buğulu çıkıyor, bir türlü netlemiyor.”',
+        '“Rear camera shots come out foggy and refuse to focus properly.”'
+      ),
+    },
+    cosmetic_worn: {
+      headline: bi('Kasa Kozmetik Notu', 'Chassis Wear Note'),
+      symptom: bi(
+        '“Kılıfsız kullandım, kasa kenarlarında ufak darbeler ve çizikler var.”',
+        '“Used without a case, so the frame edges have noticeable scuffs.”'
+      ),
+    },
+  };
+
+  const primaryDefect = device.defects[0];
+  const entry = symptomMap[primaryDefect];
+
+  if (isServiceOrder) {
+    return {
+      headline: entry.headline,
+      symptomText: entry.symptom,
+      honesty: 'HONEST',
+      mentionedDefectId: primaryDefect,
+    };
+  }
+
+  // Shady hustlers often hide defects or give vague excuses; regular customers disclose at least 1 symptom
+  if (archetypeId === 'hustler' && Math.random() < 0.55) {
+    return {
+      headline: bi('Müşteri Beyanı (Şüpheli)', 'Seller Claim (Suspicious)'),
+      symptomText: bi(
+        '“Vallahi tertemiz cihaz usta, hiç tamir görmedi! Sadece arada biraz ısınıyor olabilir.”',
+        '“Spotless phone boss, never opened! Maybe runs slightly warm now and then.”'
+      ),
+      honesty: 'HIDING',
+    };
+  }
+
+  return {
+    headline:
+      device.defects.length > 1
+        ? bi(`${entry.headline} (+Gizli Risk?)`, `${entry.headline} (+More?)`)
+        : entry.headline,
+    symptomText: entry.symptom,
+    honesty: device.defects.length > 1 ? 'PARTIAL' : 'HONEST',
+    mentionedDefectId: primaryDefect,
+  };
 }
 
 export function advanceDailyQuests(
@@ -1021,7 +1351,8 @@ export function getMultiRepairCost(
   dailyNews?: DailyMarketEvent,
   externalOutsource = false,
   shopLevel = 1,
-  legacyPath?: LegacyPathId
+  legacyPath?: LegacyPathId,
+  prestigePerks?: PrestigePerkId[]
 ): number {
   const raw = defectIds.reduce(
     (sum, id) =>
@@ -1029,10 +1360,571 @@ export function getMultiRepairCost(
     0
   );
   // Single-session bundle efficiency: 10% cheaper when fixing 2+ defects at once!
-  if (defectIds.length >= 2 && !externalOutsource) {
-    return Math.round((raw * 0.9) / 50) * 50;
+  let total =
+    defectIds.length >= 2 && !externalOutsource ? Math.round((raw * 0.9) / 50) * 50 : raw;
+  if (!externalOutsource && (prestigePerks ?? []).includes('golden_pliers')) {
+    total = Math.max(100, Math.round((total * 0.85) / 50) * 50);
   }
-  return raw;
+  return total;
+}
+
+export function getPrestigePlaqueStyle(prestigeLevel: number): {
+  unlocked: boolean;
+  tierName: string;
+  enTierName: string;
+  tierLabelTr: string;
+  tierLabelEn: string;
+  badgeCode: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentHex: string;
+  borderColor: string;
+  bgGradient: string;
+  glowRgba: string;
+  borderClass: string;
+  bgClass: string;
+  glowClass: string;
+  textClass: string;
+} {
+  if (prestigeLevel <= 0) {
+    return {
+      unlocked: false,
+      tierName: 'Kilitli (Prestij 1 Gerekli)',
+      enTierName: 'Locked (Prestige 1 Needed)',
+      tierLabelTr: 'Kilitli (P1)',
+      tierLabelEn: 'Locked (P1)',
+      badgeCode: 'P0',
+      primaryColor: '#94A3B8',
+      secondaryColor: '#64748B',
+      accentHex: '#94A3B8',
+      borderColor: 'rgba(148,163,184,0.35)',
+      bgGradient: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+      glowRgba: 'rgba(148,163,184,0.15)',
+      borderClass: 'border-slate-500/40',
+      bgClass: 'bg-slate-900/80',
+      glowClass: 'shadow-none',
+      textClass: 'text-slate-300',
+    };
+  }
+  if (prestigeLevel === 1) {
+    return {
+      unlocked: true,
+      tierName: 'Bronz Prestij Plaketi',
+      enTierName: 'Bronze Prestige Plaque',
+      tierLabelTr: 'Bronz · P1',
+      tierLabelEn: 'Bronze · P1',
+      badgeCode: 'BRONZ · P1',
+      primaryColor: '#E8A87C',
+      secondaryColor: '#CD7F32',
+      accentHex: '#E09658',
+      borderColor: 'rgba(205,127,50,0.72)',
+      bgGradient: 'linear-gradient(135deg, #3B2314 0%, #1F120A 100%)',
+      glowRgba: 'rgba(205,127,50,0.35)',
+      borderClass: 'border-amber-700/80',
+      bgClass: 'bg-gradient-to-br from-amber-950/90 via-stone-900/90 to-orange-950/90',
+      glowClass: 'shadow-[0_0_16px_rgba(205,127,50,0.35)]',
+      textClass: 'text-amber-300',
+    };
+  }
+  if (prestigeLevel === 2) {
+    return {
+      unlocked: true,
+      tierName: 'Gümüş Prestij Plaketi',
+      enTierName: 'Silver Prestige Plaque',
+      tierLabelTr: 'Gümüş · P2',
+      tierLabelEn: 'Silver · P2',
+      badgeCode: 'GÜMÜŞ · P2',
+      primaryColor: '#F1F5F9',
+      secondaryColor: '#94A3B8',
+      accentHex: '#CBD5E1',
+      borderColor: 'rgba(203,213,225,0.75)',
+      bgGradient: 'linear-gradient(135deg, #334155 0%, #111827 100%)',
+      glowRgba: 'rgba(203,213,225,0.35)',
+      borderClass: 'border-slate-300/75',
+      bgClass: 'bg-gradient-to-br from-slate-700/90 via-slate-800/95 to-slate-900/95',
+      glowClass: 'shadow-[0_0_16px_rgba(203,213,225,0.35)]',
+      textClass: 'text-slate-100',
+    };
+  }
+  if (prestigeLevel === 3) {
+    return {
+      unlocked: true,
+      tierName: 'Altın Prestij Plaketi',
+      enTierName: 'Gold Prestige Plaque',
+      tierLabelTr: 'Altın · P3',
+      tierLabelEn: 'Gold · P3',
+      badgeCode: 'ALTIN · P3',
+      primaryColor: '#FDE68A',
+      secondaryColor: '#F59E0B',
+      accentHex: '#FBBF24',
+      borderColor: 'rgba(245,158,11,0.82)',
+      bgGradient: 'linear-gradient(135deg, #452B08 0%, #1C1306 100%)',
+      glowRgba: 'rgba(245,158,11,0.42)',
+      borderClass: 'border-amber-400/85',
+      bgClass: 'bg-gradient-to-br from-amber-900/90 via-yellow-950/90 to-stone-950/95',
+      glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.45)]',
+      textClass: 'text-amber-200',
+    };
+  }
+  return {
+    unlocked: true,
+    tierName: `Platin Prestij Plaketi (P${prestigeLevel})`,
+    enTierName: `Platinum Prestige Plaque (P${prestigeLevel})`,
+    tierLabelTr: `Platin · P${prestigeLevel}`,
+    tierLabelEn: `Platinum · P${prestigeLevel}`,
+    badgeCode: `PLATİN · P${prestigeLevel}`,
+    primaryColor: '#E0F2FE',
+    secondaryColor: '#38BDF8',
+    accentHex: '#38BDF8',
+    borderColor: 'rgba(56,189,248,0.85)',
+    bgGradient: 'linear-gradient(135deg, #0F2B46 0%, #091326 60%, #1D1B4B 100%)',
+    glowRgba: 'rgba(56,189,248,0.45)',
+    borderClass: 'border-sky-300/85',
+    bgClass: 'bg-gradient-to-br from-sky-950/95 via-indigo-950/95 to-slate-950/95',
+    glowClass: 'shadow-[0_0_22px_rgba(56,189,248,0.5)]',
+    textClass: 'text-sky-200',
+  };
+}
+
+export function getSparePartForDefect(defectId: DefectId): SparePartId | null {
+  if (!DEFECT_CATALOG[defectId]?.repairable) return null;
+  if (defectId === 'screen_crack' || defectId === 'screen_aftermarket') return 'screen';
+  if (defectId === 'battery_degraded' || defectId === 'battery_fake_chip') return 'battery';
+  return 'board_kit';
+}
+
+export function getRequiredSpareParts(defectIds: DefectId[]): Record<SparePartId, number> {
+  const req: Record<SparePartId, number> = { screen: 0, battery: 0, board_kit: 0 };
+  for (const d of defectIds) {
+    const part = getSparePartForDefect(d);
+    if (part) req[part] += 1;
+  }
+  return req;
+}
+
+export function getRepairCostWithStock(
+  defectIds: DefectId[],
+  spareParts: Record<SparePartId, number> | undefined,
+  upgrades: UpgradeId[],
+  dailyNews?: DailyMarketEvent,
+  externalOutsource = false,
+  shopLevel = 1,
+  legacyPath?: LegacyPathId,
+  prestigePerks?: PrestigePerkId[]
+): {
+  cashCost: number;
+  rawCost: number;
+  baseCost: number;
+  usedParts: Record<SparePartId, number>;
+  usedStockCount: number;
+  savedAmount: number;
+  allCoveredByStock: boolean;
+} {
+  const rawCost = getMultiRepairCost(
+    defectIds,
+    upgrades,
+    dailyNews,
+    externalOutsource,
+    shopLevel,
+    legacyPath,
+    prestigePerks
+  );
+  const usedParts: Record<SparePartId, number> = { screen: 0, battery: 0, board_kit: 0 };
+  if (externalOutsource || !spareParts) {
+    return {
+      cashCost: rawCost,
+      rawCost,
+      baseCost: rawCost,
+      usedParts,
+      usedStockCount: 0,
+      savedAmount: 0,
+      allCoveredByStock: false,
+    };
+  }
+
+  const avail: Record<SparePartId, number> = {
+    screen: spareParts.screen ?? 0,
+    battery: spareParts.battery ?? 0,
+    board_kit: spareParts.board_kit ?? 0,
+  };
+  const uncoveredDefects: DefectId[] = [];
+  for (const d of defectIds) {
+    const part = getSparePartForDefect(d);
+    if (part && avail[part] > 0) {
+      avail[part] -= 1;
+      usedParts[part] += 1;
+    } else {
+      uncoveredDefects.push(d);
+    }
+  }
+
+  const cashCost =
+    uncoveredDefects.length === 0
+      ? 0
+      : getMultiRepairCost(
+          uncoveredDefects,
+          upgrades,
+          dailyNews,
+          false,
+          shopLevel,
+          legacyPath,
+          prestigePerks
+        );
+  const savedAmount = Math.max(0, rawCost - cashCost);
+  const usedStockCount = usedParts.screen + usedParts.battery + usedParts.board_kit;
+  return {
+    cashCost,
+    rawCost,
+    baseCost: rawCost,
+    usedParts,
+    usedStockCount,
+    savedAmount,
+    allCoveredByStock: uncoveredDefects.length === 0 && defectIds.length > 0,
+  };
+}
+
+export function applyBuyerDisclosureTactic(encounter: CustomerEncounter): {
+  updatedEncounter: CustomerEncounter;
+  reputationBonus: number;
+} {
+  if (encounter.buyerDisclosed || (encounter.type !== 'BUYER' && encounter.type !== 'TRADE_IN')) {
+    return { updatedEncounter: encounter, reputationBonus: 0 };
+  }
+  const dev = encounter.device;
+  const repairedNames = (dev.repairedDefects ?? [])
+    .map((d) => DEFECT_CATALOG[d]?.shortLabel ?? d)
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+  const isOverseas = dev.imeiStatus === 'UNREGISTERED_OVERSEAS';
+  const hasRemainingDefects = dev.defects.length > 0;
+
+  const partsSummary =
+    repairedNames.length > 0 ? `değişen/onarılan: ${repairedNames.join(', ')}` : '';
+  const imeiSummary = isOverseas ? 'cihaz yurtdışı (kayıtsız IMEI)' : '';
+  const flawSummary = hasRemainingDefects ? 'mevcut kozmetik/donanım durumu açıkça gösterildi' : '';
+  const details = [partsSummary, imeiSummary, flawSummary].filter(Boolean).join(' · ');
+
+  // Honest disclosure builds trust & mood (+8) and shields against angry warranty comebacks!
+  // Slight realistic price softening (-3% for repairs, -6% for overseas)
+  const priceAdjustRatio = isOverseas ? 0.95 : repairedNames.length > 0 ? 0.975 : 0.99;
+  const nextSecretLimit = Math.max(
+    1000,
+    roundPrice(encounter.secretLimit * priceAdjustRatio)
+  );
+  const nextCustomerPrice = Math.min(encounter.customerPrice, nextSecretLimit);
+  const nextMoodScore = Math.min(100, encounter.moodScore + 10);
+  const nextPatience = Math.min(encounter.maxPatience, encounter.patience + 10);
+
+  return {
+    reputationBonus: 0.08,
+    updatedEncounter: {
+      ...encounter,
+      buyerDisclosed: true,
+      customerPrice: nextCustomerPrice,
+      secretLimit: nextSecretLimit,
+      moodScore: nextMoodScore,
+      mood: deriveMoodFromScore(nextMoodScore),
+      patience: nextPatience,
+      lastMoodReason: 'Şeffaf Esnaf Beyanı (+10 Güven)',
+      messages: [
+        ...encounter.messages,
+        {
+          id: makeId('msg'),
+          speaker: 'player',
+          text: `Kardeşim dürüst esnaflık gereği baştan söyleyeyim: ${
+            details || 'cihazın tüm geçmişi şeffaf'
+          }. Aklında hiçbir soru işareti kalmasın!`,
+        },
+        {
+          id: makeId('msg'),
+          speaker: 'customer',
+          text: isOverseas
+            ? 'Yurtdışı olduğunu baştan dürüstçe söylemen çok değerli usta! Fiyatı ufak güncelledim ama içim rahat alırım.'
+            : 'Helal olsun abi, çoğu telefoncu değişen parçayı saklar! Dürüstlüğüne güvendim, gönül rahatlığıyla pazarlık yapalım.',
+          tone: 'positive',
+        },
+      ],
+    },
+  };
+}
+
+export function generateCertificateNumber(day: number): string {
+  const dayStr = String(Math.max(1, day)).padStart(2, '0');
+  const randCode = String(1000 + Math.floor(Math.random() * 9000));
+  return `GSM-G${dayStr}-${randCode}`;
+}
+
+export function buildDevicePartBreakdown(device: PhoneDevice): DevicePartReportRow[] {
+  const defects = device.defects ?? [];
+  const repaired = device.repairedDefects ?? [];
+  const origins = device.repairedPartOrigins ?? {};
+
+  // 1. Screen / Display
+  let screenRow: DevicePartReportRow;
+  if (defects.includes('screen_aftermarket')) {
+    screenRow = {
+      component: 'screen',
+      label: 'Ekran & Dokunmatik',
+      enLabel: 'Display & Touch',
+      origin: 'AFTERMARKET',
+      note: 'Yan sanayi LCD panel takılı (TrueTone kapalı)',
+      enNote: 'Aftermarket LCD panel installed (No TrueTone)',
+    };
+  } else if (defects.includes('screen_crack')) {
+    screenRow = {
+      component: 'screen',
+      label: 'Ekran & Dokunmatik',
+      enLabel: 'Display & Touch',
+      origin: 'ORIGINAL_FACTORY',
+      note: 'Orijinal panel fakat ön cam çatlak / hasarlı',
+      enNote: 'Original panel with cracked front glass',
+    };
+  } else if (repaired.includes('screen_crack') || repaired.includes('screen_aftermarket')) {
+    const src = origins.screen_crack ?? origins.screen_aftermarket ?? 'SERVICE_PART';
+    screenRow = {
+      component: 'screen',
+      label: 'Ekran & Dokunmatik',
+      enLabel: 'Display & Touch',
+      origin: src,
+      note:
+        src === 'OEM_STOCK'
+          ? 'Atölye stoğundan 1. sınıf OEM OLED panel takıldı'
+          : 'Toptancı servis ekranı ile yenilendi',
+      enNote:
+        src === 'OEM_STOCK'
+          ? 'Replaced with Grade-A OEM OLED panel from stock'
+          : 'Replaced with wholesale service display assembly',
+    };
+  } else {
+    screenRow = {
+      component: 'screen',
+      label: 'Ekran & Dokunmatik',
+      enLabel: 'Display & Touch',
+      origin: 'ORIGINAL_FACTORY',
+      note: device.isBrandNew
+        ? 'Fabrika çıkışı kapalı kutu orijinal ekran'
+        : 'Değişensiz fabrika çıkışı orijinal ekran',
+      enNote: device.isBrandNew
+        ? 'Factory-sealed original display'
+        : 'Untouched factory original display',
+    };
+  }
+
+  // 2. Battery
+  let batteryRow: DevicePartReportRow;
+  if (defects.includes('battery_fake_chip')) {
+    batteryRow = {
+      component: 'battery',
+      label: 'Batarya & Pil BMS',
+      enLabel: 'Battery & BMS',
+      origin: 'AFTERMARKET',
+      note: 'Yan sanayi / sahte çipli pil (sağlık yanıltıcı)',
+      enNote: 'Aftermarket / spoofed-chip battery cell',
+    };
+  } else if (defects.includes('battery_degraded')) {
+    batteryRow = {
+      component: 'battery',
+      label: 'Batarya & Pil BMS',
+      enLabel: 'Battery & BMS',
+      origin: 'ORIGINAL_FACTORY',
+      note: `Orijinal pil ama ömrü düşmüş (%${device.batteryHealth})`,
+      enNote: `Original battery, degraded health (${device.batteryHealth}%)`,
+    };
+  } else if (repaired.includes('battery_degraded') || repaired.includes('battery_fake_chip')) {
+    const src = origins.battery_degraded ?? origins.battery_fake_chip ?? 'SERVICE_PART';
+    batteryRow = {
+      component: 'battery',
+      label: 'Batarya & Pil BMS',
+      enLabel: 'Battery & BMS',
+      origin: src,
+      note:
+        src === 'OEM_STOCK'
+          ? '0-devir OEM stok batarya takıldı (%100 sağlık)'
+          : 'Servis tipi sıfır batarya takıldı (%100 sağlık)',
+      enNote:
+        src === 'OEM_STOCK'
+          ? '0-cycle OEM stock battery installed (100% health)'
+          : 'Fresh service-grade battery installed (100% health)',
+    };
+  } else {
+    batteryRow = {
+      component: 'battery',
+      label: 'Batarya & Pil BMS',
+      enLabel: 'Battery & BMS',
+      origin: 'ORIGINAL_FACTORY',
+      note: `Fabrika çıkışı orijinal pil (%${device.batteryHealth} sağlık)`,
+      enNote: `Factory original battery (${device.batteryHealth}% health)`,
+    };
+  }
+
+  // 3. Motherboard & Liquid Seal
+  let boardRow: DevicePartReportRow;
+  if (defects.includes('liquid_damage')) {
+    boardRow = {
+      component: 'board',
+      label: 'Anakart & Sıvı Bandı',
+      enLabel: 'Logic Board & Seal',
+      origin: 'AFTERMARKET',
+      note: 'Sıvı teması / oksit uyarısı mevcut!',
+      enNote: 'Active liquid damage / corrosion alert!',
+    };
+  } else if (repaired.includes('liquid_damage')) {
+    const src = origins.liquid_damage ?? 'SERVICE_PART';
+    boardRow = {
+      component: 'board',
+      label: 'Anakart & Sıvı Bandı',
+      enLabel: 'Logic Board & Seal',
+      origin: src,
+      note:
+        src === 'OEM_STOCK'
+          ? 'IPA banyosu & OEM conta setiyle temizlendi'
+          : 'Ultrasonik sıvı temizliği & lehim bakımı yapıldı',
+      enNote:
+        src === 'OEM_STOCK'
+          ? 'IPA bath & OEM waterproof seal kit applied'
+          : 'Ultrasonic liquid cleaning & micro-solder serviced',
+    };
+  } else {
+    boardRow = {
+      component: 'board',
+      label: 'Anakart & Sıvı Bandı',
+      enLabel: 'Logic Board & Seal',
+      origin: 'ORIGINAL_FACTORY',
+      note: 'Anakart işlemsiz · sıvı bandı bembeyaz',
+      enNote: 'Untouched logic board · liquid indicator clean',
+    };
+  }
+
+  // 4. Camera & Chassis
+  let camRow: DevicePartReportRow;
+  if (defects.includes('camera_fog') || defects.includes('cosmetic_worn')) {
+    camRow = {
+      component: 'camera_chassis',
+      label: 'Kamera & Kasa',
+      enLabel: 'Camera & Chassis',
+      origin: 'ORIGINAL_FACTORY',
+      note: defects.includes('camera_fog')
+        ? 'Orijinal lens ama hafif buğulanma / toz var'
+        : 'Orijinal kasa, kozmetik kullanım izleri mevcut',
+      enNote: defects.includes('camera_fog')
+        ? 'Original lens with minor fogging / dust'
+        : 'Original frame with visible cosmetic wear',
+    };
+  } else if (repaired.includes('camera_fog') || repaired.includes('cosmetic_worn')) {
+    const src = origins.camera_fog ?? origins.cosmetic_worn ?? 'SERVICE_PART';
+    camRow = {
+      component: 'camera_chassis',
+      label: 'Kamera & Kasa',
+      enLabel: 'Camera & Chassis',
+      origin: src,
+      note:
+        src === 'OEM_STOCK'
+          ? 'OEM kasa / lens kitiyle sıfır gibi yenilendi'
+          : 'Lens temizliği & kasa revizyonu tamamlandı',
+      enNote:
+        src === 'OEM_STOCK'
+          ? 'Refurbished with OEM lens & frame kit'
+          : 'Lens cleaned & frame refurbished in workshop',
+    };
+  } else {
+    camRow = {
+      component: 'camera_chassis',
+      label: 'Kamera & Kasa',
+      enLabel: 'Camera & Chassis',
+      origin: 'ORIGINAL_FACTORY',
+      note: 'Fabrika çıkışı orijinal lens & temiz kasa',
+      enNote: 'Factory original optics & clean housing',
+    };
+  }
+
+  return [screenRow, batteryRow, boardRow, camRow];
+}
+
+export function buildWittyEsnafReportNote(device: PhoneDevice): {
+  tr: string;
+  en: string;
+  sealLabelTr: string;
+  sealLabelEn: string;
+  warrantyDays: number;
+} {
+  const isOverseas =
+    device.imeiStatus === 'UNREGISTERED_OVERSEAS' ||
+    device.defects.includes('imei_unregistered');
+  const hasAftermarket =
+    device.defects.includes('screen_aftermarket') ||
+    device.defects.includes('battery_fake_chip');
+  const repairedCount = (device.repairedDefects ?? []).length;
+  const quality = device.lastRepairQuality;
+
+  if (device.isBrandNew) {
+    return {
+      tr: 'Jelatini daha yeni kokuyor, tornavida yüzü görmedi! Pasajın en gönül rahatlığıyla satılan kutusu.',
+      en: 'Fresh out of the box, never touched a screwdriver! Pure flagship peace of mind.',
+      sealLabelTr: 'SIFIR KUTU · FABRİKA MÜHÜRLÜ',
+      sealLabelEn: 'BRAND NEW · FACTORY SEALED',
+      warrantyDays: 90,
+    };
+  }
+  if (isOverseas && hasAftermarket) {
+    return {
+      tr: 'Kardeşim dürüst konuşalım: ekran biraz Çin Mahallesi esintisi taşıyor, IMEI desen pasaport sırası bekliyor — ama fiyatına göre fıstık gibi cihaz!',
+      en: 'Honest shop talk: the screen is aftermarket and IMEI is unregistered overseas — priced fairly with zero surprises!',
+      sealLabelTr: 'ŞEFFAF ESNAF NOTU · DİKKAT',
+      sealLabelEn: 'TRANSPARENT NOTE · CAVEAT',
+      warrantyDays: 7,
+    };
+  }
+  if (isOverseas) {
+    return {
+      tr: 'Cihaz kasa olarak fişek gibi ama yurtdışı kayıtlı değil; 120 gün içinde BTK pasaport işini halletmeyi unutma, sonra "usta hat gitti" deme!',
+      en: 'Clean hardware, unregistered overseas IMEI — remember the 120-day BTK registration window!',
+      sealLabelTr: 'YURTDIŞI IMEI · AÇIK BEYAN',
+      sealLabelEn: 'OVERSEAS IMEI · DISCLOSED',
+      warrantyDays: 14,
+    };
+  }
+  if (quality === 'ROUGH') {
+    return {
+      tr: 'Tamiri yetiştirdik, cihaz çalışıyor ama kalibrasyon azıcık aceleye geldi. Bir tık nazik kullan, ufak bir şey olursa kapımız açık!',
+      en: 'Repaired and working, though calibration was a bit rushed. Handle gently — our counter door is always open!',
+      sealLabelTr: 'KABA İŞÇİLİK · KISA GARANTİ',
+      sealLabelEn: 'ROUGH CRAFT · SHORT WARRANTY',
+      warrantyDays: 14,
+    };
+  }
+  if (repairedCount > 0 && (quality === 'MASTER' || device.masterCrafted)) {
+    return {
+      tr: 'Usta elinden çıktı, TrueTone ve contası cillop gibi oturdu! Fabrikadaki mühendis görse "bunu biz mi yaptık?" diye alkışlar.',
+      en: 'Master-crafted at our bench with spotless TrueTone & seals! Even the factory engineer would applaud.',
+      sealLabelTr: 'USTA İŞİ · 90 GÜN PASAJ GÜVENCESİ',
+      sealLabelEn: 'MASTER CRAFT · 90-DAY WARRANTY',
+      warrantyDays: 90,
+    };
+  }
+  if (repairedCount > 0) {
+    return {
+      tr: 'Gerekli parçaları tezgâhta özenle yeniledik, testten geçti. Sıvı teması ve duvara fırlatma hariç 30 gün pasaj güvencemiz altında!',
+      en: 'Serviced and bench-tested cleanly. Covered by our 30-day shop warranty (wall-throws and tea spills excluded!).',
+      sealLabelTr: 'SERVİS ONAYLI · 30 GÜN GARANTİ',
+      sealLabelEn: 'BENCH CERTIFIED · 30-DAY WARRANTY',
+      warrantyDays: 30,
+    };
+  }
+  if (hasAftermarket) {
+    return {
+      tr: 'Biz açıp kurcalamadık ama önceki sahibi yan sanayi parça taktırmış; gözümüzden kaçmadı, sana da saklamadan söylüyoruz.',
+      en: 'Untouched by us, though a prior owner fitted an aftermarket part — spotted on our bench and shared openly.',
+      sealLabelTr: 'EKSPERTİZ ONAYLI · YAN SANAYİ NOTLU',
+      sealLabelEn: 'INSPECTED · AFTERMARKET NOTED',
+      warrantyDays: 14,
+    };
+  }
+  return {
+    tr: 'Tornavida değmemiş, içi dışı tertemiz, eski sahibi pamuklara sarıp kullanmış! Alana şimdiden hayırlı olsun.',
+    en: 'Never opened, spotless factory internals — previous owner babied this phone! Ready for a happy new home.',
+    sealLabelTr: 'ORİJİNAL · DEĞİŞENSİZ CİHAZ',
+    sealLabelEn: 'ORIGINAL · UNTOUCHED DEVICE',
+    warrantyDays: 60,
+  };
 }
 
 export function getTabUnlockLevel(_tab: ShopTab): number {
@@ -1787,6 +2679,7 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
   const requiredRounds =
     archetypeId === 'uncle' || archetypeId === 'hustler' || isStubbornOverpriced ? 3 : 2;
 
+  const faultReport = buildCustomerFaultReport(device, archetypeId, false);
   return {
     id: makeId('enc'),
     type: 'SELLER',
@@ -1795,6 +2688,7 @@ export function createSellerEncounter(state: ShopState): CustomerEncounter {
     customerTitle: arch.title,
     portraitPath: arch.portraitPath,
     device,
+    customerFaultReport: faultReport,
     customerPrice: initialAsk,
     initialCustomerPrice: initialAsk,
     secretLimit,
@@ -1910,11 +2804,13 @@ export function createBuyerEncounter(
       ? targetDevice.askingPrice
       : roundPrice(realValue * (targetDevice.isBrandNew ? 1.08 : 1.15));
 
+  const prestigeIncomeMult = getPrestigeIncomeMultiplier(state);
   const rawWillingness = roundPrice(
     realValue *
       (targetDevice.isBrandNew ? 1.05 + Math.random() * 0.11 : 1.06 + Math.random() * 0.14) *
       reputationBoost *
       prestigeBoost *
+      prestigeIncomeMult *
       newsBudgetBoost *
       levelPersuasionBoost *
       salesRepBoost *
@@ -2115,6 +3011,7 @@ export function createTradeInEncounter(
     });
   }
 
+  const tradeFaultReport = buildCustomerFaultReport(tradeInDevice, finalArchId, false);
   return {
     id: makeId('trade_enc'),
     type: 'TRADE_IN',
@@ -2124,6 +3021,7 @@ export function createTradeInEncounter(
     portraitPath: finalArch.portraitPath,
     device: { ...targetDevice, askingPrice: stickerPrice },
     tradeInDevice,
+    customerFaultReport: tradeFaultReport,
     isRegular: Boolean(returningRecord),
     regularNote: returningRecord ? pick(REGULAR_GREETING_NOTES) : undefined,
     wantsInstallment,
@@ -2159,31 +3057,123 @@ export function createWarrantyClaimEncounter(
   if (candidates.length === 0) return null;
 
   const hasCctv = state.upgrades.includes('cctv_security');
+
+  // 1. Prioritize scheduled 3-5 day repair comebacks or undisclosed overseas complaints!
+  const scheduledDue = candidates.filter(
+    (r) => typeof r.comebackDay === 'number' && state.day >= r.comebackDay
+  );
+  const undisclosedRisk = candidates.filter(
+    (r) =>
+      state.day - r.daySold >= 3 &&
+      !r.wasDisclosed &&
+      (r.wasOverseas || r.hadDefects || (r.repairedDefects?.length ?? 0) > 0)
+  );
   const faultyFirst = candidates.filter((r) => r.hadDefects);
-  const record =
-    faultyFirst.length > 0
-      ? Math.random() < (hasCctv ? 0.65 : 1)
-        ? faultyFirst[0]
-        : null
-      : Math.random() < (hasCctv ? 0.18 : 0.35)
-      ? pick(candidates)
-      : null;
+
+  let record = scheduledDue[0] ?? null;
+  if (!record && undisclosedRisk.length > 0 && Math.random() < (hasCctv ? 0.55 : 0.78)) {
+    record = undisclosedRisk[0];
+  }
+  if (!record && faultyFirst.length > 0 && Math.random() < (hasCctv ? 0.5 : 0.8)) {
+    record = faultyFirst[0];
+  }
+  if (!record && Math.random() < (hasCctv ? 0.12 : 0.24)) {
+    record = pick(candidates);
+  }
   if (!record) return null;
 
   const arch = CUSTOMER_ARCHETYPES[record.archetypeId];
   const dummyDevice = generateBrandNewPhone(PHONE_CATALOG[0], 0);
-  const repairCost = roundPrice(Math.max(850, Math.min(2600, record.salePrice * 0.1)));
-  const refundCost = roundPrice(Math.max(1200, Math.min(3500, record.salePrice * 0.14)));
+  const daysElapsed = Math.max(1, state.day - record.daySold);
+
+  const faultMap: Record<
+    DefectId,
+    { detail: string; customerComplaint: string }
+  > = {
+    screen_crack: {
+      detail: 'Değiştirilen ekranda dokunmatik üst bölgede donuyor ve kenardan ışık sızması başladı.',
+      customerComplaint:
+        'ekranı tamir edildi demiştin ama 5 güne kalmadan üst dokunmatik takılmaya başladı!',
+    },
+    screen_aftermarket: {
+      detail: 'Takılan panelde TrueTone / dokunmatik kalibrasyonu kaydı, ekranda titreme var.',
+      customerComplaint:
+        'ekran yeni takıldı demiştin ama parlaklık titriyor ve dokunmatik bazen basmıyor!',
+    },
+    battery_degraded: {
+      detail: 'Pil %35’te aniden kapanıyor ve şarj alırken arka kapak aşırı ısınıyor.',
+      customerComplaint:
+        'pili yeni taktım demiştin ama %35’te pat diye kapanıyor, şarjı yarım gün gitmiyor!',
+    },
+    battery_fake_chip: {
+      detail: 'Batarya BMS devresi yanlış yüzde gösteriyor ve hızlı şarj kesiliyor.',
+      customerComplaint:
+        'pil tamiri yapılmıştı ama şarj yüzdesi kafasına göre zıplayıp kapanıyor!',
+    },
+    liquid_damage: {
+      detail: 'Anakart şarj hattında oksit tekrar nüksetti, cihaz kendi kendine yeniden başlıyor.',
+      customerComplaint:
+        'sıvı teması tamamen temizlendi demiştin ama cihaz yine kendi kendine reset atıyor!',
+    },
+    camera_fog: {
+      detail: 'Arka ana kamera tekrar odak kaçırıyor ve lens içinde hafif buğulanma oluştu.',
+      customerComplaint:
+        'kamera temizlendi demiştin ama fotoğraflar yine bulanık ve buğulu çıkıyor!',
+    },
+    cosmetic_worn: {
+      detail: 'Kasa kenar contası gevşedi ve güç tuşu zor basıyor.',
+      customerComplaint:
+        'kasa bakımını yaptım demiştin ama kenar çıtası ayrıldı, tuş zor basıyor!',
+    },
+    imei_unregistered: {
+      detail: 'BTK sisteminden 120 günlük yurtdışı kayıt uyarı SMS’i geldi!',
+      customerComplaint:
+        'bu telefon yurtdışı kayıtsız çıktı, BTK’dan kapanma mesajı geldi! Satarken hiç söylemedin!',
+    },
+  };
+
+  let chosenDefectId: DefectId;
+  let introReason: string;
+  if (record.wasOverseas && !record.wasDisclosed) {
+    chosenDefectId = 'imei_unregistered';
+    introReason = `${daysElapsed} gün önce sattığın ${record.deviceName} yurtdışı kayıtsızmış — `;
+  } else if (record.repairedDefects && record.repairedDefects.length > 0) {
+    chosenDefectId = record.repairedDefects[0];
+    const partLabel = DEFECT_CATALOG[chosenDefectId].shortLabel;
+    introReason = `${daysElapsed} gün önce "${partLabel} tamir edildi, sorunsuz" deyip verdiğin ${record.deviceName} cihazında yine sıkıntı çıktı — `;
+  } else {
+    chosenDefectId = pick(['screen_crack', 'battery_degraded', 'camera_fog', 'liquid_damage'] as DefectId[]);
+    introReason = `${daysElapsed} gün önce (${record.daySold}. gün) senden aldığım ${record.deviceName} cihazında ${
+      record.hadDefects ? 'söylemediğin arıza büyüdü — ' : 'sorun çıktı — '
+    }`;
+  }
+
+  const chosenFault = faultMap[chosenDefectId];
+  const defectBaseRepair = DEFECT_CATALOG[chosenDefectId].repairCost || 1400;
+  const repairCost = roundPrice(
+    Math.max(700, Math.min(2800, Math.round((defectBaseRepair + record.salePrice * 0.05) * 0.52)))
+  );
+  const refundCost = roundPrice(Math.max(1200, Math.min(4200, record.salePrice * 0.16)));
 
   return {
     id: makeId('war_enc'),
     type: 'WARRANTY_CLAIM',
     archetypeId: record.archetypeId,
     customerName: record.customerName,
-    customerTitle: `${arch.title} · Garanti & İade Talebi`,
+    customerTitle: `${arch.title} · Garanti & Tekrar Arıza`,
     portraitPath: arch.portraitPath,
-    device: { ...dummyDevice, brand: '', model: record.deviceName },
+    device: {
+      ...dummyDevice,
+      brand: '',
+      model: record.deviceName,
+      defects: [chosenDefectId],
+      repairedDefects: record.repairedDefects ?? [],
+      imeiStatus: record.wasOverseas ? 'UNREGISTERED_OVERSEAS' : 'TR_REGISTERED',
+      inspected: { screen: true, battery: true, imei: true, hardware: true },
+    },
     warrantyRecord: record,
+    warrantyDefectId: chosenDefectId,
+    warrantyFaultDetail: chosenFault.detail,
     warrantyRepairCost: repairCost,
     warrantyRefundCost: refundCost,
     customerPrice: repairCost,
@@ -2191,9 +3181,9 @@ export function createWarrantyClaimEncounter(
     secretLimit: repairCost,
     patience: 55,
     maxPatience: 100,
-    moodScore: 34,
+    moodScore: record.wasOverseas && !record.wasDisclosed ? 22 : 34,
     mood: 'annoyed',
-    lastMoodReason: 'Cihazda Arıza Çıktı (-25)',
+    lastMoodReason: `Tekrar Arıza (${daysElapsed} gün sonra): ${DEFECT_CATALOG[chosenDefectId].shortLabel}`,
     usedLeverageDefects: [],
     teaServed: false,
     bluffUsed: false,
@@ -2205,7 +3195,7 @@ export function createWarrantyClaimEncounter(
       {
         id: makeId('msg'),
         speaker: 'customer',
-        text: `Usta merhaba! ${record.daySold}. gün senden aldığım ${record.deviceName} cihazında ${record.hadDefects ? 'söylemediğin gizli arıza büyüdü, ekran ve şarj tekliyor!' : 'dün birden şarj soketi ve dokunmatik gitmeye başladı!'} Dükkanına güvenip aldım, nasıl çözeceğiz?`,
+        text: `Usta merhaba! ${introReason}${chosenFault.customerComplaint} (${DEFECT_CATALOG[chosenDefectId].name}) Dükkanına güvenip geldim, bunu nasıl çözeceğiz?`,
         tone: 'warning',
       },
     ],
@@ -2372,6 +3362,7 @@ export function createExpressRepairEncounter(state: ShopState): CustomerEncounte
   const cleanRoomMult = state.upgrades.includes('clean_room_lab') ? 1.35 : 1;
   const payout = roundPrice((partCost + 1800 + spec.baseValue * 0.06) * cleanRoomMult);
 
+  const expressFaultReport = buildCustomerFaultReport(device, archetypeId, true);
   return {
     id: makeId('enc'),
     type: 'EXPRESS_REPAIR',
@@ -2380,6 +3371,7 @@ export function createExpressRepairEncounter(state: ShopState): CustomerEncounte
     customerTitle: `${arch.title} · Acil Servis`,
     portraitPath: arch.portraitPath,
     device,
+    customerFaultReport: expressFaultReport,
     customerPrice: payout,
     initialCustomerPrice: payout,
     secretLimit: payout,
@@ -2400,7 +3392,7 @@ export function createExpressRepairEncounter(state: ShopState): CustomerEncounte
       {
         id: makeId('msg'),
         speaker: 'customer',
-        text: `Usta acil yardım! ${device.brand} ${device.model} cihazımda "${def.name}" sorunu var. Hemen tamir edersen ${formatTRY(payout)} nakit öderim!`,
+        text: `Usta acil yardım! ${device.brand} ${device.model} cihazımda "${def.name}" sorunu var. ${expressFaultReport?.symptomText ?? ''} Hemen tamir edersen ${formatTRY(payout)} nakit öderim!`,
         tone: 'neutral',
       },
     ],
@@ -2763,7 +3755,7 @@ const AUCTION_TIER_PRESETS: Array<{
     budgetFloor: 14000,
     startRatio: 0.5,
     riskTag: 'Düşük Risk',
-    manifestHint: 'Giriş & orta segment 2. el koli · Hızlı nakit dönüşü',
+    manifestHint: 'Giriş & orta segment 2. el koli + 1 Gizemli Kutu',
     archetype: 'student',
     bonusAccessories: [
       { id: 'tempered_glass', quantity: 4 },
@@ -2773,11 +3765,11 @@ const AUCTION_TIER_PRESETS: Array<{
   {
     sessionLabel: 'Semt İkinci El Sandığı',
     minShopTier: 1,
-    deviceCount: 2,
-    budgetFloor: 28000,
-    startRatio: 0.52,
+    deviceCount: 3,
+    budgetFloor: 32000,
+    startRatio: 0.54,
     riskTag: 'Orta Risk',
-    manifestHint: 'Karma vitrin cihazları · Kozmetik kusur ihtimali var',
+    manifestHint: 'Karma vitrin cihazları + 1 Gizemli Kutu · Kozmetik sürprizler',
     archetype: 'hustler',
     bonusAccessories: [
       { id: 'car_mount', quantity: 2 },
@@ -2788,10 +3780,10 @@ const AUCTION_TIER_PRESETS: Array<{
     sessionLabel: 'Gümrük Kapalı Paleti',
     minShopTier: 2,
     deviceCount: 3,
-    budgetFloor: 58000,
-    startRatio: 0.54,
+    budgetFloor: 72000,
+    startRatio: 0.57,
     riskTag: 'Orta-Yüksek Risk',
-    manifestHint: 'Gümrük mühürlü 3 cihaz · Yurt dışı & amiral karışımı',
+    manifestHint: 'Gümrük mühürlü palet + 2 Gizemli Kutu · Yurt dışı & amiral karışımı',
     archetype: 'influencer',
     bonusAccessories: [
       { id: 'gan_charger', quantity: 3 },
@@ -2801,11 +3793,11 @@ const AUCTION_TIER_PRESETS: Array<{
   {
     sessionLabel: 'Telekom Tasfiye Kasası',
     minShopTier: 3,
-    deviceCount: 3,
-    budgetFloor: 115000,
-    startRatio: 0.56,
+    deviceCount: 4,
+    budgetFloor: 155000,
+    startRatio: 0.6,
     riskTag: 'Yüksek Risk',
-    manifestHint: 'Kurumsal filo iade cihazları · Yüksek kâr marjı potansiyeli',
+    manifestHint: 'Kurumsal filo iade kasası + 2 Gizemli Kutu · Sert rakip çekişmesi',
     archetype: 'vip',
     bonusAccessories: [
       { id: 'tws_earbuds', quantity: 2 },
@@ -2816,10 +3808,10 @@ const AUCTION_TIER_PRESETS: Array<{
     sessionLabel: 'Havalimanı VIP Konteyneri',
     minShopTier: 4,
     deviceCount: 4,
-    budgetFloor: 240000,
-    startRatio: 0.58,
+    budgetFloor: 320000,
+    startRatio: 0.63,
     riskTag: 'Yüksek Bahis',
-    manifestHint: '4 üst segment amiral & VIP cihaz · Sert rakip çekişmesi',
+    manifestHint: 'Üst segment amiral & VIP koli + 2-3 Gizemli Kutu · Büyük sermaye mezatı',
     archetype: 'vip',
     bonusAccessories: [
       { id: 'tws_earbuds', quantity: 3 },
@@ -2829,11 +3821,11 @@ const AUCTION_TIER_PRESETS: Array<{
   {
     sessionLabel: 'İthalatçı Amiral Kasası',
     minShopTier: 5,
-    deviceCount: 4,
-    budgetFloor: 480000,
-    startRatio: 0.6,
+    deviceCount: 5,
+    budgetFloor: 680000,
+    startRatio: 0.66,
     riskTag: 'VIP Büyük İhale',
-    manifestHint: 'Amiral gemisi & katlanabilir lüks seri · Dev sermaye mezatı',
+    manifestHint: 'Amiral gemisi & katlanabilir lüks seri + 3 Gizemli Kutu · İmparatorluk mezatı',
     archetype: 'vip',
     bonusAccessories: [
       { id: 'tws_earbuds', quantity: 4 },
@@ -2842,19 +3834,141 @@ const AUCTION_TIER_PRESETS: Array<{
   },
 ];
 
+// Base accumulated-cash thresholds for the 6 auction tiers (dynamically scaled by day & player wealth!)
+const AUCTION_BASE_CASH_GATES = [0, 30000, 85000, 210000, 500000, 1200000];
+
+function rollAuctionMysteryBoxes(
+  count: number,
+  state: ShopState,
+  sessionIndex: number,
+  wealthScale: number
+): AuctionMysteryReward[] {
+  const rewards: AuctionMysteryReward[] = [];
+  const boxNames = [
+    'Mühürlü Gümrük Kutusu',
+    'Kayıtsız Depo Sandığı',
+    'VIP Sürpriz Kolisi',
+  ];
+
+  for (let i = 0; i < count; i++) {
+    const roll = Math.random();
+    const boxLabel = `${boxNames[i % boxNames.length]} #${i + 1}`;
+    if (roll < 0.42) {
+      // Surprise Bonus Phone inside the Mystery Box!
+      const tierCandidates = PHONE_CATALOG.filter((p) => {
+        if (sessionIndex >= 4) return p.tier === 'flagship' || p.tier === 'luxury';
+        if (sessionIndex >= 2) return p.tier === 'mid' || p.tier === 'flagship';
+        return p.tier === 'entry' || p.tier === 'mid';
+      });
+      const spec = pick(tierCandidates.length > 0 ? tierCandidates : PHONE_CATALOG);
+      const bonusPhone = generatePhoneDevice(spec, 'vip', state.day, 0);
+      // Mystery box phones have a chance of being crisp or having 1 minor quirk
+      if (Math.random() < 0.55) {
+        bonusPhone.defects = [];
+        bonusPhone.imeiStatus = 'TR_REGISTERED';
+      }
+      rewards.push({
+        id: makeId('mbox'),
+        boxLabel,
+        rewardTitle: `Sürpriz Cihaz: ${bonusPhone.brand} ${bonusPhone.model}`,
+        rewardDetail:
+          bonusPhone.defects.length === 0
+            ? 'Kutudan tertemiz, TR kayıtlı ekstra cihaz çıktı!'
+            : 'Kutudan ekstra 2. el cihaz çıktı — atölyede incele!',
+        extraDevice: bonusPhone,
+      });
+    } else if (roll < 0.74) {
+      // Hidden Cash Envelope / Unclaimed Warranty Refund Voucher
+      const cashBonus = roundPrice(
+        (2500 + sessionIndex * 4500) * wealthScale * (0.85 + Math.random() * 0.45)
+      );
+      rewards.push({
+        id: makeId('mbox'),
+        boxLabel,
+        rewardTitle: `Koli İçi Nakit İade & Çek: +${formatTRY(cashBonus)}`,
+        rewardDetail: 'Gümrük ganimetinden toptan nakit iade çeki çıktı, doğrudan kasaya eklendi!',
+        cashBonus,
+      });
+    } else {
+      // High-margin Bulk Accessory Stash
+      const accPool: AccessoryId[] =
+        sessionIndex >= 3
+          ? ['tws_earbuds', 'powerbank', 'gan_charger']
+          : ['magsafe_case', 'tempered_glass', 'gan_charger', 'car_mount'];
+      const accId = pick(accPool);
+      const accSpec = getAccessorySpec(accId);
+      const qty = 3 + Math.min(6, sessionIndex + Math.floor(Math.random() * 3));
+      rewards.push({
+        id: makeId('mbox'),
+        boxLabel,
+        rewardTitle: `Toptan Aksesuar Zulasından ${qty}x ${accSpec.name}`,
+        rewardDetail: 'Kutunun dibinden sıfır paketli aksesuar stoğu çıktı, reyona eklendi!',
+        bonusAccessory: { id: accId, quantity: qty },
+      });
+    }
+  }
+  return rewards;
+}
+
 export function generateDailyAuctionLot(
   state: ShopState,
   sessionIndex = 0
 ): CustomsAuctionLot {
   const preset = AUCTION_TIER_PRESETS[sessionIndex % AUCTION_TIER_PRESETS.length];
+
+  // Dynamic Wealth & Day Scaling Algorithm:
+  // As player gets richer (accumulated cash + career profits) and advances in days,
+  // auction device counts, values, cash unlock thresholds, and mystery boxes scale upward!
+  const effectiveWealth = Math.max(
+    state.cash,
+    state.cash + Math.max(0, state.totalProfitEarned) * 0.25
+  );
+  const dayFactor = 1 + Math.min(1.6, Math.max(0, state.day - 1) * 0.055);
+  const wealthFactor =
+    1 + Math.min(2.2, Math.log10(1 + effectiveWealth / 40000) * 0.75);
+  const combinedScale = Number((dayFactor * 0.45 + wealthFactor * 0.55).toFixed(2));
+
+  // Scale cash unlock threshold dynamically with player progress (Lot 0 always 0 ₺!)
+  const baseCashGate = AUCTION_BASE_CASH_GATES[sessionIndex] ?? 0;
+  const requiredCash =
+    baseCashGate === 0
+      ? 0
+      : roundPrice(baseCashGate * (1 + Math.min(1.15, (dayFactor - 1) * 0.45 + (wealthFactor - 1) * 0.35)));
+
+  // Scale device count slightly higher as player gets wealthy (up to 5 phones!)
+  const extraDeviceByWealth =
+    effectiveWealth >= 450000 && sessionIndex >= 2
+      ? 1
+      : effectiveWealth >= 180000 && sessionIndex >= 4
+      ? 1
+      : 0;
+  const deviceCount = Math.min(5, preset.deviceCount + extraDeviceByWealth);
+
+  // Mystery Box count scales with lot tier AND accumulated wealth (1 → 3 boxes!)
+  const baseBoxes = sessionIndex >= 4 ? 2 : sessionIndex >= 2 ? 2 : 1;
+  const bonusBox = effectiveWealth >= 250000 && sessionIndex >= 3 ? 1 : 0;
+  const mysteryBoxCount = Math.min(3, baseBoxes + bonusBox);
+
   const devices: PhoneDevice[] = [];
   let totalMarket = 0;
 
-  for (let i = 0; i < preset.deviceCount; i++) {
+  for (let i = 0; i < deviceCount; i++) {
+    const scaledBudget = Math.max(
+      preset.budgetFloor * combinedScale,
+      effectiveWealth * (0.45 + sessionIndex * 0.14)
+    );
+    const virtualTier = Math.min(
+      6,
+      Math.max(
+        state.shopTier,
+        preset.minShopTier,
+        effectiveWealth >= 600000 ? 5 : effectiveWealth >= 200000 ? 4 : 1
+      )
+    ) as ShopTier;
     const spec = pickPhoneSpecForDay(
-      Math.max(state.day, preset.minShopTier * 3),
-      Math.max(preset.budgetFloor, state.cash * (0.65 + sessionIndex * 0.14)),
-      Math.max(state.shopTier, preset.minShopTier) as ShopTier,
+      Math.max(state.day + sessionIndex * 2, preset.minShopTier * 3),
+      scaledBudget,
+      virtualTier,
       preset.archetype,
       false
     );
@@ -2863,17 +3977,44 @@ export function generateDailyAuctionLot(
     totalMarket += calculateMarketValue(dev, false, state.dailyNews, state.upgrades);
   }
 
-  const startingBid = roundPrice(Math.max(6000, totalMarket * preset.startRatio));
+  // Starting bid scales with total market + dynamic difficulty multiplier + mystery box premium
+  const mysteryPremium = mysteryBoxCount * (2200 + sessionIndex * 1800) * Math.min(2, combinedScale);
+  const dynamicRatio = Math.min(0.76, preset.startRatio + Math.min(0.08, (combinedScale - 1) * 0.04));
+  const startingBid = roundPrice(Math.max(6500, totalMarket * dynamicRatio + mysteryPremium * 0.45));
+
+  const mysteryRewards = rollAuctionMysteryBoxes(
+    mysteryBoxCount,
+    state,
+    sessionIndex,
+    combinedScale
+  );
+
+  const difficultyTag =
+    sessionIndex >= 5
+      ? 'Efsanevi Zorluk · Dev Sermaye'
+      : sessionIndex >= 4
+      ? 'Çok Zor · VIP Rekabet'
+      : sessionIndex >= 3
+      ? 'Zor · Kurumsal Mezadı'
+      : sessionIndex >= 2
+      ? 'Orta-Zor · Gümrük Rekabeti'
+      : sessionIndex === 1
+      ? 'Orta · Semt Mezadı'
+      : 'Standart · Açık Giriş';
 
   return {
     id: makeId('auc_lot'),
     sessionLabel: preset.sessionLabel,
-    lotTitle: `${preset.sessionLabel} #${100 + state.day * 9 + sessionIndex} (${preset.deviceCount} Cihaz)`,
-    description: `Mühürlü koli! İçerisinde ${devices.map((d) => `${d.brand} ${d.model}`).join(', ')} ve bonus aksesuar kolisi var. Kusurları kazanınca ortaya çıkar!`,
+    lotTitle: `${preset.sessionLabel} #${100 + state.day * 9 + sessionIndex} (${deviceCount} Cihaz + ${mysteryBoxCount} Kutu)`,
+    description: `Mühürlü koli! İçerisinde ${deviceCount} cihaz (${devices.map((d) => `${d.brand} ${d.model}`).join(', ')}), ${mysteryBoxCount} adet sürpriz Gizemli Kutu ve bonus aksesuar kolisi bulunuyor!`,
     startingBid,
+    requiredCash,
+    mysteryBoxCount,
+    mysteryRewards,
+    difficultyTag,
     minShopTier: preset.minShopTier,
     riskTag: preset.riskTag,
-    manifestHint: preset.manifestHint,
+    manifestHint: `${preset.manifestHint} · Ölçek x${combinedScale.toFixed(1)}`,
     devices,
     bonusAccessories: preset.bonusAccessories,
     resolved: false,
@@ -2912,7 +4053,10 @@ export function applyEventEffectToEncounter(
   let nextPrice = encounter.customerPrice;
 
   if (encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') {
-    const cap = encounter.device.askingPrice;
+    const cap =
+      encounter.type === 'TRADE_IN'
+        ? Math.min(encounter.device.askingPrice - 500, Math.max(encounter.secretLimit, encounter.customerPrice))
+        : encounter.device.askingPrice;
     nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * effect.budgetMultiplier));
     nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * effect.budgetMultiplier));
   } else if (encounter.type === 'SELLER' && effect.budgetMultiplier !== 1) {
@@ -2988,19 +4132,33 @@ export function advanceStaffRepairsOnTurn(state: ShopState): {
         const fixedBattery =
           job.defectIds.includes('battery_degraded') ||
           job.defectIds.includes('battery_fake_chip');
+        const nextOrigins = { ...(p.repairedPartOrigins ?? {}) };
+        for (const d of job.defectIds) {
+          nextOrigins[d] = 'OEM_STOCK';
+        }
         const nextPhone: PhoneDevice = {
           ...p,
           defects: p.defects.filter((d) => !job.defectIds.includes(d)),
           repairedDefects: [...p.repairedDefects, ...job.defectIds],
+          repairedPartOrigins: nextOrigins,
           assignedToStaff: false,
           masterCrafted: true,
+          lastRepairQuality: 'MASTER',
           batteryHealth: fixedBattery ? 100 : p.batteryHealth,
           reportedBatteryHealth: fixedBattery ? 100 : p.reportedBatteryHealth,
           batteryCycles: fixedBattery ? 1 : p.batteryCycles,
         };
         nextPhone.askingPrice = Math.max(
           nextPhone.askingPrice,
-          roundPrice(calculateMarketValue(nextPhone, false, state.dailyNews, state.upgrades) * 1.15)
+          roundPrice(
+            calculateMarketValue(
+              nextPhone,
+              false,
+              state.dailyNews,
+              state.upgrades,
+              state.day
+            ) * 1.15
+          )
         );
         return nextPhone;
       });
@@ -3453,6 +4611,176 @@ function getTodayDateString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export interface WeekdayInfo {
+  index: number; // 0 = Mon .. 6 = Sun
+  nameTr: string;
+  shortTr: string;
+  nameEn: string;
+  shortEn: string;
+  isSunday: boolean;
+  daysUntilSunday: number;
+  nextSundayDay: number;
+}
+
+const WEEKDAYS_META = [
+  { nameTr: 'Pazartesi', shortTr: 'Pzt', nameEn: 'Monday', shortEn: 'Mon' },
+  { nameTr: 'Salı', shortTr: 'Sal', nameEn: 'Tuesday', shortEn: 'Tue' },
+  { nameTr: 'Çarşamba', shortTr: 'Çar', nameEn: 'Wednesday', shortEn: 'Wed' },
+  { nameTr: 'Perşembe', shortTr: 'Per', nameEn: 'Thursday', shortEn: 'Thu' },
+  { nameTr: 'Cuma', shortTr: 'Cum', nameEn: 'Friday', shortEn: 'Fri' },
+  { nameTr: 'Cumartesi', shortTr: 'Cmt', nameEn: 'Saturday', shortEn: 'Sat' },
+  { nameTr: 'Pazar', shortTr: 'Paz', nameEn: 'Sunday', shortEn: 'Sun' },
+] as const;
+
+export function getWeekdayInfo(day: number): WeekdayInfo {
+  const safeDay = Math.max(1, Math.floor(day));
+  const index = (safeDay - 1) % 7;
+  const isSunday = index === 6;
+  const daysUntilSunday = isSunday ? 0 : 6 - index;
+  const meta = WEEKDAYS_META[index];
+  return {
+    index,
+    ...meta,
+    isSunday,
+    daysUntilSunday,
+    nextSundayDay: safeDay + daysUntilSunday,
+  };
+}
+
+export function generateSundayKermes(state: ShopState): SundayKermesState {
+  const themes = [
+    {
+      headline: 'Büyük Pazar Pasaj Kermesi — Bit Pazarı & Usta Tezgâhı!',
+      enHeadline: 'Grand Sunday Arcade Fair — Clearance & Rare Parts Bazaar!',
+      buzz: 'Kalabalık Tavan · Hızlı Nakit Akışı',
+      enBuzz: 'Packed Crowd · Instant Cash Liquidity',
+    },
+    {
+      headline: 'Pazar Esnaf Şenliği — Toptan Parça & Seri Tasfiye!',
+      enHeadline: 'Sunday Merchants Festival — Deep-Discount Parts & Clearance!',
+      buzz: 'Koleksiyoncular & Tamirciler Akın Etti',
+      enBuzz: 'Collectors & Techs Flooding the Stalls',
+    },
+    {
+      headline: 'Geleneksel Pazar GSM Kermesi — Kasa Boşaltma Günü!',
+      enHeadline: 'Traditional Sunday GSM Bazaar — Quick Stock Liquidation!',
+      buzz: 'Pazarlık Kısa · Nakit Elden Anında',
+      enBuzz: 'Zero Haggling · Instant Cash Payouts',
+    },
+  ];
+  const theme = themes[Math.floor(Math.random() * themes.length)];
+  const clearanceMultiplier = Number((0.92 + Math.random() * 0.16).toFixed(2)); // 0.92..1.08
+
+  const deals: KermesDealItem[] = [];
+
+  // 1-3: Ultra-cheap rare spare part bundles (48% - 62% off!)
+  for (const part of SPARE_PARTS_CATALOG) {
+    const qty = part.id === 'battery' ? 3 + Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
+    const originalPrice = part.unitCost * qty;
+    const discountRatio = 0.48 + Math.random() * 0.14; // 48%..62% off
+    const kermesPrice = Math.max(
+      350,
+      Math.round((originalPrice * (1 - discountRatio)) / 50) * 50
+    );
+    const discountPercent = Math.round((1 - kermesPrice / originalPrice) * 100);
+    deals.push({
+      id: `kermes_part_${part.id}_${state.day}_${Math.random().toString(36).slice(2, 5)}`,
+      kind: 'SPARE_PART_BUNDLE',
+      title: `${qty}x ${part.shortTr} Kermes Sandığı`,
+      enTitle: `${qty}x ${part.shortEn} Fair Crate`,
+      subtitle: `Pazar esnafı tasfiye stoğu — atölye deposuna anında eklenir.`,
+      enSubtitle: `Sunday surplus crate — added straight to your workshop stock.`,
+      originalPrice,
+      kermesPrice,
+      discountPercent,
+      partId: part.id,
+      partQty: qty,
+      bought: false,
+    });
+  }
+
+  // 4: Surprise 4th slot — either a deeply discounted Bargain Phone OR Rare Accessory Crate
+  const spawnPhoneDeal = Math.random() < 0.65;
+  if (spawnPhoneDeal) {
+    const maxTierOrder =
+      state.cash >= 140000 || state.shopTier >= 3
+        ? ['entry', 'mid', 'flagship']
+        : state.cash >= 45000 || state.shopTier >= 2
+        ? ['entry', 'mid']
+        : ['entry'];
+    const pool = PHONE_CATALOG.filter((p) => maxTierOrder.includes(p.tier));
+    const chosenSpec = pool[Math.floor(Math.random() * pool.length)] ?? PHONE_CATALOG[0];
+    const phone = generatePhoneDevice(chosenSpec, 'hustler', state.day);
+    phone.inspected = { screen: true, battery: true, imei: true, hardware: true };
+    const fairVal = calculateMarketValue(phone, false, state.dailyNews, state.upgrades, state.day);
+    const discountRatio = 0.36 + Math.random() * 0.14; // 36%..50% off fair value!
+    const kermesPrice = Math.max(
+      1250,
+      roundPrice(fairVal * (1 - discountRatio))
+    );
+    const discountPercent = Math.max(
+      25,
+      Math.round((1 - kermesPrice / Math.max(1, fairVal)) * 100)
+    );
+    phone.purchasePrice = kermesPrice;
+    deals.push({
+      id: `kermes_phone_${state.day}_${Math.random().toString(36).slice(2, 5)}`,
+      kind: 'BARGAIN_PHONE',
+      title: `Kelepir ${phone.brand} ${phone.model}`,
+      enTitle: `Bargain ${phone.brand} ${phone.model}`,
+      subtitle:
+        phone.defects.length > 0
+          ? `${phone.storage} · ${phone.defects.length} kusurlu ama tamirle dev kâr bırakır!`
+          : `${phone.storage} · Tertemiz Pazar kelepiri, hemen vitrine koy!`,
+      enSubtitle:
+        phone.defects.length > 0
+          ? `${phone.storage} · ${phone.defects.length} defect(s) — huge repair flip margin!`
+          : `${phone.storage} · Clean Sunday steal, list immediately!`,
+      originalPrice: fairVal,
+      kermesPrice,
+      discountPercent,
+      phone,
+      bought: false,
+    });
+  } else {
+    const acc =
+      ACCESSORY_CATALOG[Math.floor(Math.random() * ACCESSORY_CATALOG.length)] ??
+      ACCESSORY_CATALOG[0];
+    const qty = 6 + Math.floor(Math.random() * 5);
+    const originalPrice = acc.wholesaleCost * qty;
+    const kermesPrice = Math.max(
+      400,
+      Math.round((originalPrice * 0.45) / 50) * 50
+    );
+    const discountPercent = Math.round((1 - kermesPrice / originalPrice) * 100);
+    deals.push({
+      id: `kermes_acc_${acc.id}_${state.day}_${Math.random().toString(36).slice(2, 5)}`,
+      kind: 'ACCESSORY_BUNDLE',
+      title: `${qty}x ${acc.name} Koli`,
+      enTitle: `${qty}x ${acc.name} Box`,
+      subtitle: `Pazar kermesi seri sonu toptan koli — reyon kârını katla!`,
+      enSubtitle: `Sunday closeout wholesale box — massive rack profit margin!`,
+      originalPrice,
+      kermesPrice,
+      discountPercent,
+      accessoryId: acc.id,
+      accessoryQty: qty,
+      bought: false,
+    });
+  }
+
+  return {
+    day: state.day,
+    headline: theme.headline,
+    enHeadline: theme.enHeadline,
+    crowdBuzzLabel: theme.buzz,
+    enCrowdBuzzLabel: theme.enBuzz,
+    clearanceMultiplier,
+    clearanceSoldCount: 0,
+    deals,
+  };
+}
+
 export function createInitialShopState(): ShopState {
   const starterSpec = PHONE_CATALOG[1];
   const starterPhone: PhoneDevice = {
@@ -3501,8 +4829,8 @@ export function createInitialShopState(): ShopState {
     inventory: [starterPhone],
     accessories: createInitialAccessories(),
     upgrades: [],
-    decorations: [],
-    activeDecorations: [],
+    decorations: ['vintage_radio', 'tea_boiler'],
+    activeDecorations: ['vintage_radio', 'tea_boiler'],
     staff: [],
     staffLevels: { apprentice: 1, master_tech: 1, sales_rep: 1, accountant: 1 },
     branches: [],
@@ -3571,6 +4899,14 @@ export function createInitialShopState(): ShopState {
     ambientSoundEnabled: false,
     storyIntroSeen: false,
     endlessMode: false,
+    prestigeLevel: 0,
+    prestigePoints: 0,
+    prestigePerks: [],
+    lifetimeTotalProfit: 0,
+    radioStation: 'OFF',
+    spareParts: { screen: 1, battery: 1, board_kit: 1 },
+    complaintHistory: [],
+    sundayKermes: null,
   };
 
   baseState.dailyQueue = generateDailyQueue(baseState);
@@ -3579,6 +4915,77 @@ export function createInitialShopState(): ShopState {
   baseState.dailyAuctionLots = generateDailyAuctionLots(baseState);
   baseState.dailyAuctionLot = baseState.dailyAuctionLots[0] ?? null;
   return baseState;
+}
+
+export function executePrestigeReset(state: ShopState): ShopState {
+  const earnedPoints = getPrestigePointsEarned(state);
+  const nextPrestigeLevel = (state.prestigeLevel ?? 0) + 1;
+  const perks = state.prestigePerks ?? [];
+  const nextPoints = (state.prestigePoints ?? 0) + earnedPoints;
+
+  const fresh = createInitialShopState();
+  const keptUpgrades: UpgradeId[] = [];
+  if (perks.includes('golden_pliers')) keptUpgrades.push('repair_bench');
+  if (perks.includes('seed_capital')) keptUpgrades.push('accessory_license');
+  if (perks.includes('vip_network')) keptUpgrades.push('classifieds_license');
+
+  const startingCashBonus =
+    (perks.includes('seed_capital') ? 25000 : 0) + nextPrestigeLevel * 6000;
+  const startingRepBonus =
+    (perks.includes('silver_tongue') ? 0.5 : 0) + Math.min(0.6, nextPrestigeLevel * 0.15);
+
+  const playstyle = detectPlayerPlaystyle(state);
+
+  const resetState: ShopState = {
+    ...fresh,
+    cash: fresh.cash + startingCashBonus,
+    reputation: Math.min(4.8, Number((fresh.reputation + startingRepBonus).toFixed(2))),
+    xp: state.xp,
+    level: state.level,
+    legacyPath: state.legacyPath,
+    decorations: ['vintage_radio', 'tea_boiler', 'prestige_plaque'],
+    activeDecorations: ['vintage_radio', 'tea_boiler', 'prestige_plaque'],
+    upgrades: keptUpgrades,
+    museumItems: [...state.museumItems],
+    ownedOutfits: [...state.ownedOutfits],
+    equippedOutfit: state.equippedOutfit,
+    discoveredSpecIds: [...state.discoveredSpecIds],
+    claimedMilestoneIds: [...state.claimedMilestoneIds],
+    unlockedAchievementIds: state.unlockedAchievementIds
+      ? [...state.unlockedAchievementIds]
+      : [],
+    unlockedEarningsBadges: state.unlockedEarningsBadges
+      ? [...state.unlockedEarningsBadges]
+      : [],
+    storyIntroSeen: true,
+    tutorialDismissed: true,
+    endlessMode: true,
+    privacyAccepted: state.privacyAccepted,
+    hapticsEnabled: state.hapticsEnabled,
+    textSpeed: state.textSpeed,
+    ratedApp: state.ratedApp,
+    ambientSoundEnabled: state.ambientSoundEnabled,
+    radioStation: state.radioStation ?? 'OFF',
+    spareParts: { screen: 2, battery: 2, board_kit: 2 },
+    prestigeLevel: nextPrestigeLevel,
+    prestigePoints: nextPoints,
+    prestigePerks: [...perks],
+    lifetimeTotalProfit: (state.lifetimeTotalProfit ?? 0) + state.totalProfitEarned,
+    dailyQuests: generateDailyQuests(1, keptUpgrades, state.level, playstyle, nextPrestigeLevel),
+    morningNotifications: [
+      bi(
+        `Prestij ${nextPrestigeLevel}. Dönem Başladı! +${earnedPoints} Prestij Puanı kazandın; duvarına ${getPrestigePlaqueStyle(nextPrestigeLevel).tierName} asıldı!`,
+        `Prestige Cycle ${nextPrestigeLevel} Started! Earned +${earnedPoints} PP; ${getPrestigePlaqueStyle(nextPrestigeLevel).enTierName} mounted on your shop wall!`
+      ),
+    ],
+  };
+
+  resetState.dailyQueue = generateDailyQueue(resetState);
+  resetState.onlineListings = generateOnlineClassifieds(resetState);
+  resetState.shippingOrders = generateShippingOrders(resetState);
+  resetState.dailyAuctionLots = generateDailyAuctionLots(resetState);
+  resetState.dailyAuctionLot = resetState.dailyAuctionLots[0] ?? null;
+  return resetState;
 }
 
 export interface OfferEvaluationResult {
@@ -3908,6 +5315,7 @@ export function evaluatePlayerOffer(
         negotiationHeat: nextHeat,
         patience: nextPatience,
         customerPrice: nextAsk,
+        lastPlayerOffer: playerOffer,
         moodScore: nextMoodScore,
         mood: nextMood,
         negotiationPace: pace,
@@ -4186,6 +5594,7 @@ export function evaluatePlayerOffer(
         negotiationHeat: nextHeat,
         patience: nextPatience,
         customerPrice: nextOffer,
+        lastPlayerOffer: clampedOffer,
         moodScore: nextMoodScore,
         mood: nextMood,
         negotiationPace: pace,
@@ -4216,6 +5625,29 @@ export function evaluatePlayerOffer(
   }
 }
 
+/** Compute safe upper cap for BUYER/TRADE_IN tactic raises so tactics NEVER exceed player's last offer or Trade-In fair ceiling */
+function getBuyerOrTradeCap(encounter: CustomerEncounter): number {
+  const baseCap =
+    encounter.type === 'TRADE_IN'
+      ? Math.min(
+          Math.max(encounter.customerPrice, encounter.device.askingPrice - 500),
+          Math.max(encounter.customerPrice, roundPrice(encounter.secretLimit * 1.12))
+        )
+      : encounter.device.askingPrice;
+  if (typeof encounter.lastPlayerOffer === 'number' && encounter.lastPlayerOffer > 0) {
+    return Math.min(baseCap, encounter.lastPlayerOffer);
+  }
+  return baseCap;
+}
+
+/** Compute safe lower floor for SELLER tactic drops so seller never drops below player's last offer */
+function getSellerTacticFloor(encounter: CustomerEncounter): number {
+  if (typeof encounter.lastPlayerOffer === 'number' && encounter.lastPlayerOffer > 0) {
+    return Math.max(1000, encounter.lastPlayerOffer);
+  }
+  return 1000;
+}
+
 export function applyTeaTactic(
   encounter: CustomerEncounter,
   upgrades: UpgradeId[],
@@ -4235,16 +5667,27 @@ export function applyTeaTactic(
   let nextLimit = encounter.secretLimit;
 
   if (encounter.type === 'SELLER') {
-    nextPrice = roundPrice(Math.max(1000, encounter.customerPrice * (1 - soften)));
+    const floor = getSellerTacticFloor(encounter);
+    nextPrice = Math.min(
+      encounter.customerPrice,
+      Math.max(floor, roundPrice(encounter.customerPrice * (1 - soften)))
+    );
     nextLimit = roundPrice(
-      Math.max(900, encounter.secretLimit * (1 - soften * 0.7))
+      Math.max(900, Math.min(nextPrice, encounter.secretLimit * (1 - soften * 0.7)))
     );
   } else {
-    const cap = encounter.device.askingPrice;
-    nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * (1 + soften)));
+    const cap = getBuyerOrTradeCap(encounter);
+    nextPrice = Math.max(
+      encounter.customerPrice,
+      Math.min(cap, roundPrice(encounter.customerPrice * (1 + soften)))
+    );
+    const limitCap =
+      encounter.type === 'TRADE_IN'
+        ? Math.max(cap, encounter.device.askingPrice - 500)
+        : encounter.device.askingPrice;
     nextLimit = Math.min(
-      cap,
-      roundPrice(encounter.secretLimit * (1 + soften * 0.85))
+      limitCap,
+      Math.max(nextPrice, roundPrice(encounter.secretLimit * (1 + soften * 0.85)))
     );
   }
 
@@ -4292,20 +5735,30 @@ export function applyLegacyDialogueTactic(
   let playerText = '';
   let customerText = '';
   let repDelta = 0.04;
+  const buyerCap = getBuyerOrTradeCap(encounter);
+  const sellerFloor = getSellerTacticFloor(encounter);
 
   if (legacyPath === 'EX_APPRENTICE') {
     nextMoodScore = Math.min(100, encounter.moodScore + 12);
     nextPatience = Math.min(100, encounter.patience + 8);
     if (encounter.type === 'SELLER') {
-      nextPrice = roundPrice(Math.max(1000, encounter.customerPrice * 0.93));
+      nextPrice = Math.min(
+        encounter.customerPrice,
+        Math.max(sellerFloor, roundPrice(encounter.customerPrice * 0.93))
+      );
       nextLimit = roundPrice(Math.max(900, encounter.secretLimit * 0.94));
       playerText =
         'Beş yıl Cemal Usta’nın yanında anakart söktüm kardeşim; bu kasanın iç kondisyonunu ve ileride çıkacak masrafı ezbere biliyorum. Hakkı olan rakama inelim.';
       customerText = `Vay be, gerçekten işin mutfağından geliyorsun usta! Bilgiye saygım var, fiyatı ${formatTRY(nextPrice)} çekiyorum.`;
     } else {
-      const cap = encounter.device.askingPrice;
-      nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * 1.07));
-      nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * 1.07));
+      nextPrice = Math.max(
+        encounter.customerPrice,
+        Math.min(buyerCap, roundPrice(encounter.customerPrice * 1.07))
+      );
+      nextLimit = Math.min(
+        encounter.device.askingPrice,
+        Math.max(nextPrice, roundPrice(encounter.secretLimit * 1.07))
+      );
       playerText =
         'Beş yıllık atölye tecrübemle bu cihazın her vidasını, batarya döngüsünü ve entegresini kontrol ettim. Arızasız, arkasında durduğum makine bu!';
       customerText = `İşte gerçek teknik usta farkı! Bu kadar emin konuşunca içim rahatladı, ${formatTRY(nextPrice)} çıkarabilirim.`;
@@ -4313,15 +5766,23 @@ export function applyLegacyDialogueTactic(
   } else if (legacyPath === 'BORN_MERCHANT') {
     nextMoodScore = Math.min(100, encounter.moodScore + 4);
     if (encounter.type === 'SELLER') {
-      nextPrice = roundPrice(Math.max(1000, encounter.customerPrice * 0.91));
+      nextPrice = Math.min(
+        encounter.customerPrice,
+        Math.max(sellerFloor, roundPrice(encounter.customerPrice * 0.91))
+      );
       nextLimit = roundPrice(Math.max(900, encounter.secretLimit * 0.92));
       playerText =
         'Tahtakale’de sabah toptan listesine baktım, bu serinin nakit dönüş hızı belli. Bekletmeden peşin sayıyorum, ticaret dönsün!';
       customerText = `Piyasayı benden iyi biliyorsun be kardeşim! Peşin nakit hatırına ${formatTRY(nextPrice)} olsun bakalım.`;
     } else {
-      const cap = encounter.device.askingPrice;
-      nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * 1.08));
-      nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * 1.08));
+      nextPrice = Math.max(
+        encounter.customerPrice,
+        Math.min(buyerCap, roundPrice(encounter.customerPrice * 1.08))
+      );
+      nextLimit = Math.min(
+        encounter.device.askingPrice,
+        Math.max(nextPrice, roundPrice(encounter.secretLimit * 1.08))
+      );
       playerText =
         'Pasajın tüm vitrinlerini gezsen bu temizlikte bu fiyata bulamazsın. Toptan ağım sayesinde maliyeti düşük tuttum, kaçırırsan yarına kalmaz!';
       customerText = `Haklısın, demin iki dükkana daha sordum daha pahalıydı... Tamam ${formatTRY(nextPrice)} verebilirim!`;
@@ -4332,15 +5793,23 @@ export function applyLegacyDialogueTactic(
     nextPatience = Math.min(100, encounter.patience + 18);
     repDelta = 0.08;
     if (encounter.type === 'SELLER') {
-      nextPrice = roundPrice(Math.max(1000, encounter.customerPrice * 0.94));
+      nextPrice = Math.min(
+        encounter.customerPrice,
+        Math.max(sellerFloor, roundPrice(encounter.customerPrice * 0.94))
+      );
       nextLimit = roundPrice(Math.max(900, encounter.secretLimit * 0.95));
       playerText =
         'Burası senin de dükkanın sayılır, tek seferlik alışveriş yapmıyoruz! Bir dahaki gelişinde de kapımız açık, gel tatlıya bağlayalım.';
       customerText = `Allah razı olsun ne güzel esnafsın! Gönlüm açıldı vallahi, senin için ${formatTRY(nextPrice)} yapıyorum.`;
     } else {
-      const cap = encounter.device.askingPrice;
-      nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * 1.06));
-      nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * 1.07));
+      nextPrice = Math.max(
+        encounter.customerPrice,
+        Math.min(buyerCap, roundPrice(encounter.customerPrice * 1.06))
+      );
+      nextLimit = Math.min(
+        encounter.device.askingPrice,
+        Math.max(nextPrice, roundPrice(encounter.secretLimit * 1.07))
+      );
       playerText =
         'Benden telefon alan herkes mahalle dostumdur; kurulumunu, veri aktarımını ben yaparım, en ufak sorunda kapım sonuna kadar açık!';
       customerText = `İşte aradığım esnaf samimiyeti! Bu güven için ${formatTRY(nextPrice)} gönül rahatlığıyla veririm!`;
@@ -4377,9 +5846,15 @@ export function applyPosInstallmentTactic(
   ) {
     return encounter;
   }
-  const cap = encounter.device.askingPrice;
-  const nextPrice = Math.min(cap, roundPrice(encounter.customerPrice * 1.07));
-  const nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * 1.08));
+  const cap = getBuyerOrTradeCap(encounter);
+  const nextPrice = Math.max(
+    encounter.customerPrice,
+    Math.min(cap, roundPrice(encounter.customerPrice * 1.07))
+  );
+  const nextLimit = Math.min(
+    encounter.device.askingPrice,
+    Math.max(nextPrice, roundPrice(encounter.secretLimit * 1.08))
+  );
   const nextMoodScore = Math.min(100, encounter.moodScore + 14);
   return {
     ...encounter,
@@ -4643,9 +6118,15 @@ export function applyBluffOrPitchTactic(
     if (isClean) {
       const bonusMult =
         encounter.device.isBrandNew || encounter.device.masterCrafted ? 1.13 : 1.09;
-      const cap = encounter.device.askingPrice;
-      const nextOffer = Math.min(cap, roundPrice(encounter.customerPrice * bonusMult));
-      const nextLimit = Math.min(cap, roundPrice(encounter.secretLimit * bonusMult));
+      const cap = getBuyerOrTradeCap(encounter);
+      const nextOffer = Math.max(
+        encounter.customerPrice,
+        Math.min(cap, roundPrice(encounter.customerPrice * bonusMult))
+      );
+      const nextLimit = Math.min(
+        encounter.device.askingPrice,
+        Math.max(nextOffer, roundPrice(encounter.secretLimit * bonusMult))
+      );
       const nextMoodScore = Math.min(100, encounter.moodScore + 16);
       return {
         updatedEncounter: {
@@ -5200,7 +6681,50 @@ export function loadShopState(): ShopState | null {
       ambientSoundEnabled: parsed.ambientSoundEnabled ?? false,
       storyIntroSeen: parsed.storyIntroSeen ?? true,
       endlessMode: parsed.endlessMode ?? false,
+      prestigeLevel: parsed.prestigeLevel ?? 0,
+      prestigePoints: parsed.prestigePoints ?? 0,
+      prestigePerks: Array.isArray(parsed.prestigePerks) ? parsed.prestigePerks : [],
+      lifetimeTotalProfit: parsed.lifetimeTotalProfit ?? parsed.totalProfitEarned ?? 0,
+      radioStation: parsed.radioStation ?? 'OFF',
+      spareParts: {
+        screen: parsed.spareParts?.screen ?? 1,
+        battery: parsed.spareParts?.battery ?? 1,
+        board_kit: parsed.spareParts?.board_kit ?? 1,
+      },
+      complaintHistory: Array.isArray(parsed.complaintHistory)
+        ? parsed.complaintHistory
+        : [],
+      sundayKermes: parsed.sundayKermes ?? null,
     };
+
+    // Ensure starter Vintage Radio, Copper Tea Boiler & Prestige Plaque (if P1+) are owned
+    if (!migrated.decorations.includes('vintage_radio')) {
+      migrated.decorations = ['vintage_radio', ...migrated.decorations];
+      if (!migrated.activeDecorations.includes('vintage_radio')) {
+        migrated.activeDecorations = ['vintage_radio', ...migrated.activeDecorations];
+      }
+    }
+    if (!migrated.decorations.includes('tea_boiler')) {
+      migrated.decorations = ['tea_boiler', ...migrated.decorations];
+      if (!migrated.activeDecorations.includes('tea_boiler')) {
+        migrated.activeDecorations = ['tea_boiler', ...migrated.activeDecorations];
+      }
+    }
+    if ((migrated.prestigeLevel ?? 0) >= 1) {
+      if (!migrated.decorations.includes('prestige_plaque')) {
+        migrated.decorations = ['prestige_plaque', ...migrated.decorations];
+      }
+      if (!migrated.activeDecorations.includes('prestige_plaque')) {
+        migrated.activeDecorations = ['prestige_plaque', ...migrated.activeDecorations];
+      }
+    }
+    if (getWeekdayInfo(migrated.day).isSunday) {
+      if (!migrated.sundayKermes || migrated.sundayKermes.day !== migrated.day) {
+        migrated.sundayKermes = generateSundayKermes(migrated);
+      }
+    } else {
+      migrated.sundayKermes = null;
+    }
 
     if (migrated.dailyQueue.length === 0) {
       migrated.dailyQueue = generateDailyQueue(migrated);

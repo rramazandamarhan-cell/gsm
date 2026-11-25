@@ -48,6 +48,7 @@ import {
 import {
   calculatePrestige,
   formatTRY,
+  getPrestigePlaqueStyle,
   getShowcaseCapacity,
 } from '../game/engine';
 import {
@@ -63,6 +64,7 @@ import {
   DecorationId,
   MuseumItemId,
   OutfitId,
+  RadioStationId,
   ShopTier,
   StaffId,
   TimedProject,
@@ -88,6 +90,9 @@ interface UpgradesViewProps {
   pendingProjects: TimedProject[];
   ownedOutfits: OutfitId[];
   equippedOutfit: OutfitId;
+  prestigeLevel?: number;
+  radioStation?: RadioStationId;
+  onCycleRadio?: () => void;
   onBuyUpgrade: (upgradeId: UpgradeId) => void;
   onBuyShowcaseUpgrade: () => void;
   onUpgradeShopTier: (targetTier: ShopTier) => void;
@@ -142,6 +147,9 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
   pendingProjects,
   ownedOutfits,
   equippedOutfit,
+  prestigeLevel = 0,
+  radioStation = 'OFF',
+  onCycleRadio,
   onBuyUpgrade,
   onBuyShowcaseUpgrade,
   onUpgradeShopTier,
@@ -467,48 +475,102 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: DECORATIONS (3x2 ZERO SCROLL — PURE CASH) */}
+      {/* TAB 3: DECORATIONS (3x3 ZERO SCROLL — INCLUDES RADIO, TEA BOILER & PRESTIGE PLAQUE) */}
       {subTab === 'DECOR' && (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-3 gap-1.5 overflow-hidden">
           {SHOP_DECORATIONS.map((dec) => {
             const loc = getLocalizedDecoration(dec.id, lang);
-            const owned = ownedDecorations.includes(dec.id);
-            const active = activeDecorations.includes(dec.id);
+            const isPlaque = dec.id === 'prestige_plaque';
+            const isRadio = dec.id === 'vintage_radio';
+            const plaqueStyle = getPrestigePlaqueStyle(prestigeLevel);
+            const owned = isPlaque
+              ? prestigeLevel > 0
+              : ownedDecorations.includes(dec.id);
+            const active = owned && activeDecorations.includes(dec.id);
+            const displayTitle =
+              isPlaque && prestigeLevel > 0
+                ? `${lang === 'en' ? plaqueStyle.tierLabelEn : plaqueStyle.tierLabelTr} ${bi('Plaket', 'Plaque')} (P${prestigeLevel})`
+                : loc.name;
+
             return (
               <div
                 key={dec.id}
-                className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
-                  active
+                className={`rounded-xl border p-1.5 sm:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                  isPlaque && prestigeLevel > 0
+                    ? `${plaqueStyle.borderClass} ${plaqueStyle.bgClass}`
+                    : active
                     ? 'border-amber-400/50 bg-amber-500/10'
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
                 <div className="shrink-0 flex items-center justify-between gap-1">
-                  <div className="text-xs font-extrabold text-slate-100 truncate">
-                    {loc.name}
+                  <div className="text-[11px] font-extrabold text-slate-100 truncate">
+                    {displayTitle}
                   </div>
-                  <div className="text-[10px] font-mono font-bold text-amber-300 shrink-0">
-                    +{dec.prestige} {bi('Prestij', 'Prestige')}
+                  <div className="text-[9.5px] font-mono font-bold text-amber-300 shrink-0">
+                    +{dec.prestige}
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 my-1.5 rounded-lg border border-white/8 bg-[#0D131C] p-1.5 flex items-center justify-center overflow-hidden">
+                <div className="flex-1 min-h-0 my-1 rounded-lg border border-white/8 bg-[#0D131C] p-1 flex items-center justify-center overflow-hidden">
                   <DecorPreviewArt
                     id={dec.id}
-                    className="w-full h-full max-h-24 object-contain"
+                    prestigeLevel={prestigeLevel}
+                    className="w-full h-full max-h-20 object-contain"
                   />
                 </div>
 
-                <p className="shrink-0 text-[9.5px] text-slate-400 truncate mb-1">
-                  {loc.summary}
+                <p className="shrink-0 text-[9px] text-slate-400 truncate mb-1">
+                  {isPlaque
+                    ? prestigeLevel > 0
+                      ? bi(
+                          `Prestij P${prestigeLevel} (${plaqueStyle.tierLabelTr}) — duvarda otomatik parlar.`,
+                          `Prestige P${prestigeLevel} (${plaqueStyle.tierLabelEn}) — shines on your shop wall.`
+                        )
+                      : bi('1. Prestij sıfırlamasında otomatik açılır.', 'Auto-unlocks at Prestige 1.')
+                    : loc.summary}
                 </p>
 
-                <div className="flex items-center justify-end pt-1 border-t border-white/8 tabular-nums">
-                  {owned ? (
+                <div className="flex items-center justify-between gap-1 pt-1 border-t border-white/8 tabular-nums">
+                  {isRadio && owned && onCycleRadio ? (
+                    <button
+                      type="button"
+                      onClick={onCycleRadio}
+                      className={`rounded-md px-2 py-0.5 text-[9.5px] font-extrabold cursor-pointer truncate ${
+                        radioStation === 'ARABESK'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                          : radioStation === 'POP90'
+                          ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40'
+                          : 'bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      {radioStation === 'ARABESK'
+                        ? 'FM 94.2 Arabesk'
+                        : radioStation === 'POP90'
+                        ? 'FM 98.8 90lar'
+                        : bi('Radyo Kapalı', 'Radio Off')}
+                    </button>
+                  ) : (
+                    <span className="text-[9px] font-mono text-slate-500 truncate">
+                      {isPlaque
+                        ? prestigeLevel > 0
+                          ? `P${prestigeLevel}`
+                          : bi('Kilitli', 'Locked')
+                        : dec.cost === 0
+                        ? bi('Başlangıç', 'Starter')
+                        : formatTRY(dec.cost)}
+                    </span>
+                  )}
+
+                  {isPlaque && prestigeLevel === 0 ? (
+                    <span className="rounded-md bg-white/8 px-2 py-0.5 text-[9.5px] font-bold text-slate-400 whitespace-nowrap">
+                      {bi('Prestij 1+', 'Prestige 1+')}
+                    </span>
+                  ) : owned ? (
                     <button
                       type="button"
                       onClick={() => onToggleDecoration(dec.id)}
-                      className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-bold cursor-pointer ${
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9.5px] font-bold cursor-pointer whitespace-nowrap ${
                         active
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/35'
                           : 'bg-white/10 text-slate-300 hover:text-white'
@@ -516,11 +578,11 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                     >
                       {active ? (
                         <>
-                          <Eye className="w-3 h-3" /> {bi('Dükkanında Açık', 'Displayed')}
+                          <Eye className="w-3 h-3" /> {bi('Açık', 'On')}
                         </>
                       ) : (
                         <>
-                          <EyeOff className="w-3 h-3" /> {bi('Gizli · Göster', 'Hidden · Show')}
+                          <EyeOff className="w-3 h-3" /> {bi('Gizli', 'Off')}
                         </>
                       )}
                     </button>
@@ -529,9 +591,9 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       type="button"
                       disabled={cash < dec.cost}
                       onClick={() => onBuyDecoration(dec.id)}
-                      className="rounded-md bg-amber-500 px-3 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                      className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                     >
-                      {bi('Satın Al', 'Buy')} · {formatTRY(dec.cost)}
+                      {bi('Al', 'Buy')}
                     </button>
                   )}
                 </div>

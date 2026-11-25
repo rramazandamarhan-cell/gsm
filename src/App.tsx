@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { AchievementBadgeToast } from './components/AchievementBadgeToast';
 import { BrandLogo } from './components/BrandLogo';
+import { ComplaintArchiveModal } from './components/ComplaintArchiveModal';
 import { CounterView } from './components/CounterView';
 import {
   CLASSIFIED_COD_FEE,
@@ -45,6 +46,7 @@ import {
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { TitleScreen } from './components/TitleScreen';
 import { UpgradesView } from './components/UpgradesView';
+import { WarrantyCertificateModal } from './components/WarrantyCertificateModal';
 import {
   EXPRESS_ACCESSORY_FEE,
   EXPRESS_PHONE_FEE,
@@ -62,11 +64,13 @@ import {
   LEGACY_PATHS,
   MUSEUM_ITEMS,
   PLAYER_OUTFITS,
+  RADIO_STATIONS_META,
   SHOP_DECORATIONS,
   SHOP_STAFF,
   SHOP_TIERS,
   SHOP_UPGRADES,
   SHOWCASE_UPGRADE_MAX_LEVEL,
+  SPARE_PARTS_CATALOG,
   STAFF_MAX_LEVEL,
   STORE_ACHIEVEMENTS,
   STORY_CHAPTERS,
@@ -80,6 +84,7 @@ import {
   advanceDayTimers,
   advanceStaffRepairsOnTurn,
   applyBluffOrPitchTactic,
+  applyBuyerDisclosureTactic,
   applyDefectLeverage,
   applyEventEffectToEncounter,
   applyLegacyDialogueTactic,
@@ -87,6 +92,8 @@ import {
   applyPosInstallmentTactic,
   applyTeaTactic,
   buildDayHistoryEntry,
+  buildDevicePartBreakdown,
+  buildWittyEsnafReportNote,
   calculateMarketValue,
   calculateMasterDelegateCost,
   calculatePrestige,
@@ -101,12 +108,15 @@ import {
   createInitialShopState,
   createSellerEncounter,
   createTradeInEncounter,
+  detectPlayerPlaystyle,
   evaluateClassifiedHaggle,
   evaluateCrossSellPitch,
   evaluatePlayerOffer,
   evaluatePostPurchaseSurprise,
+  executePrestigeReset,
   formatTRY,
   generateBrandNewPhone,
+  generateCertificateNumber,
   generateCustomerReview,
   generateDailyAuctionLots,
   generateDailyQueue,
@@ -114,6 +124,7 @@ import {
   generateFlashWholesaleDeal,
   generateOnlineClassifieds,
   generateShippingOrders,
+  generateSundayKermes,
   getAccessorySpec,
   getAccessoryWholesaleCost,
   getCrossSellBonusChance,
@@ -121,14 +132,20 @@ import {
   getDailyStaffWages,
   getEffectiveLoanTerms,
   getLevelFromXp,
+  getLevelUpBonusCash,
   getMasterCraftBonusPercent,
   getMasterTechSpecs,
   getMilestoneCurrentValue,
   getMultiRepairCost,
+  getPrestigePointsEarned,
+  getQuickRepairExpressFee,
+  getRepairCostWithStock,
   getScrapSaleValue,
   getShopRank,
+  getSparePartForDefect,
   getStoryChapterCurrentValue,
   getStreakBonusCash,
+  getWeekdayInfo,
   hasAccessoryLicense,
   hasBrandNewLicense,
   inspectPhoneCategory,
@@ -137,6 +154,7 @@ import {
   maybeTriggerRandomStoreEvent,
   pickDailyNewspaper,
   pickDailyWholesaleDiscountBrand,
+  PRESTIGE_PERKS,
   processEmpireEndOfDay,
   roundPrice,
   saveShopState,
@@ -150,6 +168,7 @@ import {
   AchievementBadgeNotification,
   BankLoanOffer,
   BranchId,
+  CustomerComplaintRecord,
   DailyQuestKind,
   DecorationId,
   DefectId,
@@ -165,10 +184,14 @@ import {
   PendingWholesaleOrder,
   PhoneDevice,
   PhoneModelSpec,
+  PrestigePerkId,
+  RadioStationId,
+  RepairQuality,
   ShopState,
   ShopTab,
   ShopTier,
   SoldPhoneRecord,
+  SparePartId,
   StaffId,
   StaffRepairJob,
   TimedProject,
@@ -217,6 +240,11 @@ export default function App() {
   const [showNewspaperReview, setShowNewspaperReview] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showComplianceModal, setShowComplianceModal] = useState(false);
+  const [showComplaintArchive, setShowComplaintArchive] = useState(false);
+  const [activeWarrantyModal, setActiveWarrantyModal] = useState<{
+    record: SoldPhoneRecord;
+    mode: 'HANDOVER' | 'INSPECT';
+  } | null>(null);
   const [complianceInitialTab, setComplianceInitialTab] =
     useState<ComplianceTab>('SETTINGS');
   const [complianceInitialLegal, setComplianceInitialLegal] = useState<
@@ -370,18 +398,52 @@ export default function App() {
   const applyXpGain = useCallback(
     (state: ShopState, xpDelta: number): ShopState => {
       if (xpDelta <= 0) return state;
+      const pacedDelta = Math.max(4, Math.round(xpDelta * 0.55));
       const crmBoosted = state.upgrades.includes('cloud_crm')
-        ? Math.round(xpDelta * 1.15)
-        : xpDelta;
-      const nextXp = state.xp + crmBoosted;
+        ? Math.round(pacedDelta * 1.15)
+        : pacedDelta;
+      const prestigeXpBoosted = (state.prestigePerks ?? []).includes('vip_network')
+        ? Math.round(crmBoosted * 1.3)
+        : crmBoosted;
+      const nextXp = state.xp + prestigeXpBoosted;
       const nextLevel = getLevelFromXp(nextXp);
+      if (nextLevel > state.level) {
+        let bonusCash = 0;
+        for (let lv = state.level + 1; lv <= nextLevel; lv += 1) {
+          bonusCash += getLevelUpBonusCash(lv);
+        }
+        window.setTimeout(() => {
+          soundFX.playDayComplete();
+          pushFeedback(
+            `SEVİYE ATLADIN! Sv.${nextLevel} (+${formatTRY(bonusCash)} Bonus)`,
+            'positive'
+          );
+          pushBadgeNotification({
+            kicker: `ESNAF SEVİYE ${nextLevel}`,
+            title: `+${formatTRY(bonusCash)} Seviye Bonusu!`,
+            subtitle: 'Pasajdaki ustalığın ve kasa itibarın yükseldi!',
+            accent: 'gold',
+            icon: 'trophy',
+          });
+        }, 260);
+        return {
+          ...state,
+          xp: nextXp,
+          level: nextLevel,
+          cash: state.cash + bonusCash,
+          todayStats: {
+            ...state.todayStats,
+            questRewards: state.todayStats.questRewards + bonusCash,
+          },
+        };
+      }
       return {
         ...state,
         xp: nextXp,
         level: nextLevel,
       };
     },
-    []
+    [pushBadgeNotification, pushFeedback]
   );
 
   const applyQuestProgress = useCallback(
@@ -470,7 +532,13 @@ export default function App() {
         Boolean(targetEl?.isContentEditable);
 
       if (e.key === 'Escape') {
-        if (showComplianceModal) {
+        if (activeWarrantyModal) {
+          soundFX.playClick();
+          setActiveWarrantyModal(null);
+        } else if (showComplaintArchive) {
+          soundFX.playClick();
+          setShowComplaintArchive(false);
+        } else if (showComplianceModal) {
           soundFX.playClick();
           setShowComplianceModal(false);
         } else if (showAnalyticsModal) {
@@ -491,6 +559,8 @@ export default function App() {
 
       if (
         isTypingTarget ||
+        activeWarrantyModal ||
+        showComplaintArchive ||
         showComplianceModal ||
         showAnalyticsModal ||
         showNewspaperReview ||
@@ -589,6 +659,90 @@ export default function App() {
   useEffect(() => {
     soundFX.setAmbientEnabled(Boolean(shop.ambientSoundEnabled));
   }, [shop.ambientSoundEnabled]);
+
+  // Sync Vintage Radio Web Audio engine with shop station & active screen
+  useEffect(() => {
+    const canPlay =
+      (screen === 'PLAYING' || screen === 'MORNING_NEWS' || screen === 'DAY_SUMMARY') &&
+      shop.activeDecorations.includes('vintage_radio');
+    soundFX.setRadioStation(canPlay ? (shop.radioStation ?? 'OFF') : 'OFF');
+  }, [shop.radioStation, shop.activeDecorations, screen]);
+
+  const handleCycleRadio = () => {
+    const order: RadioStationId[] = ['OFF', 'ARABESK', 'POP90'];
+    const current = shop.radioStation ?? 'OFF';
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    soundFX.playRadioStaticBurst();
+    soundFX.setRadioStation(next);
+    const meta = RADIO_STATIONS_META[next];
+    if (next === 'OFF') {
+      pushFeedback(bi('Eski Pasaj Radyosu kapatıldı.', 'Vintage Radio turned off.'), 'amber');
+    } else {
+      const sampleTrack = meta.tracks[Math.floor(Math.random() * meta.tracks.length)];
+      pushFeedback(`📻 ${meta.freq} ${meta.labelTr} · ${sampleTrack}`, 'positive');
+    }
+    setShop((prev) => ({ ...prev, radioStation: next }));
+  };
+
+  const handleBuySparePart = (partId: SparePartId, qty: 1 | 5) => {
+    const spec = SPARE_PARTS_CATALOG.find((p) => p.id === partId);
+    if (!spec) return;
+    const totalCost = qty === 5 ? spec.pack5Cost : spec.unitCost;
+    if (shop.cash < totalCost) return;
+    soundFX.playCashRegister();
+    pushFeedback(
+      `-${formatTRY(totalCost)} · +${qty} ${lang === 'en' ? spec.nameEn : spec.nameTr}`,
+      'positive'
+    );
+    setShop((prev) => ({
+      ...prev,
+      cash: prev.cash - totalCost,
+      spareParts: {
+        screen: prev.spareParts?.screen ?? 0,
+        battery: prev.spareParts?.battery ?? 0,
+        board_kit: prev.spareParts?.board_kit ?? 0,
+        [partId]: (prev.spareParts?.[partId] ?? 0) + qty,
+      },
+      todayStats: {
+        ...prev.todayStats,
+        wholesaleSpend: prev.todayStats.wholesaleSpend + totalCost,
+      },
+    }));
+  };
+
+  const handleDiscloseBuyer = () => {
+    if (
+      !currentEncounter ||
+      currentEncounter.outcome !== 'ACTIVE' ||
+      currentEncounter.buyerDisclosed ||
+      (currentEncounter.type !== 'BUYER' && currentEncounter.type !== 'TRADE_IN')
+    ) {
+      return;
+    }
+    const { updatedEncounter, reputationBonus: reputationDelta } =
+      applyBuyerDisclosureTactic(currentEncounter);
+    soundFX.playScanOk();
+    pushFeedback(
+      bi(
+        'Dürüst Beyan Verildi (+0.08★ İtibar · Şikayet Kalkanı!)',
+        'Honest Disclosure (+0.08★ Rep · Return Shield!)'
+      ),
+      'positive'
+    );
+    setShop((prev) => {
+      const nextQueue = [...prev.dailyQueue];
+      nextQueue[prev.currentQueueIndex] = updatedEncounter;
+      return {
+        ...prev,
+        reputation: Math.max(1, Math.min(5, prev.reputation + reputationDelta)),
+        dailyQueue: nextQueue,
+        todayStats: {
+          ...prev.todayStats,
+          reputationDelta: prev.todayStats.reputationDelta + reputationDelta,
+        },
+      };
+    });
+  };
 
   const currentEncounter =
     shop.currentQueueIndex < shop.dailyQueue.length
@@ -822,6 +976,33 @@ export default function App() {
     });
   };
 
+  const handleTeaBoilerFreshMotivation = () => {
+    setShop((prev) => {
+      const enc = prev.dailyQueue[prev.currentQueueIndex];
+      if (!enc || enc.outcome !== 'ACTIVE') return prev;
+      const nextQueue = [...prev.dailyQueue];
+      const boostedMood = Math.min(100, enc.moodScore + 4);
+      const boostedPatience = Math.min(100, enc.patience + 5);
+      nextQueue[prev.currentQueueIndex] = {
+        ...enc,
+        moodScore: boostedMood,
+        patience: boostedPatience,
+        mood:
+          boostedMood >= 82
+            ? 'excited'
+            : boostedMood >= 62
+            ? 'happy'
+            : boostedMood >= 40
+            ? 'calm'
+            : enc.mood,
+      };
+      return {
+        ...prev,
+        dailyQueue: nextQueue,
+      };
+    });
+  };
+
   const handleBluffOrPitch = () => {
     if (!currentEncounter || currentEncounter.outcome !== 'ACTIVE') return;
     const { updatedEncounter, reputationDelta } =
@@ -989,11 +1170,48 @@ export default function App() {
           : r
       );
 
+      const warrantyRec = currentEncounter.warrantyRecord;
+      const complaintDefect = currentEncounter.warrantyDefectId ?? 'screen_crack';
+      const newComplaintEntry: CustomerComplaintRecord = {
+        id: `cmp_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        soldRecordId: recordId ?? `unk_${Date.now()}`,
+        certificateNo:
+          warrantyRec?.certificateNo ??
+          `GSM-G${String(warrantyRec?.daySold ?? prev.day).padStart(2, '0')}`,
+        dayReported: prev.day,
+        daySold: warrantyRec?.daySold ?? prev.day,
+        customerName: currentEncounter.customerName,
+        deviceName: warrantyRec?.deviceName ?? currentEncounter.device.model,
+        defectId: complaintDefect,
+        faultHeadline: DEFECT_CATALOG[complaintDefect]?.name ?? 'Donanım Arızası',
+        faultDetail:
+          currentEncounter.warrantyFaultDetail ??
+          'Müşteri tekrar arıza bildirimiyle tezgaha geldi.',
+        customerQuote:
+          currentEncounter.messages[0]?.text ??
+          'Usta tamir edildi demiştin ama yine arıza verdi!',
+        repairQualityAtSale: warrantyRec?.repairQuality,
+        wasDisclosed: warrantyRec?.wasDisclosed,
+        wasOverseas: warrantyRec?.wasOverseas,
+        resolution:
+          choice === 'REPAIR'
+            ? 'FREE_REPAIR'
+            : choice === 'REFUND'
+            ? 'PARTIAL_REFUND'
+            : 'REJECTED',
+        costPaid: cost,
+        reputationDelta: repDelta,
+      };
+
       let nextState: ShopState = {
         ...prev,
         cash: prev.cash - cost,
         reputation: Math.max(1, Math.min(5, prev.reputation + repDelta)),
         soldHistory: nextSoldHistory,
+        complaintHistory: [newComplaintEntry, ...(prev.complaintHistory ?? [])].slice(
+          0,
+          40
+        ),
         dailyQueue: nextQueue,
         totalPhonesRepaired:
           prev.totalPhonesRepaired + (choice === 'REPAIR' ? 1 : 0),
@@ -1011,7 +1229,32 @@ export default function App() {
     });
   };
 
-  const handleResolveDataRecovery = (mode: 'SOFTWARE' | 'CLEAN_ROOM') => {
+  const handleStampWarrantyCertificate = (recordId: string) => {
+    soundFX.playScanOk();
+    pushFeedback(
+      bi(
+        'Garanti Belgesi Mühürlendi & Sunuldu (+0.03★ Güven)',
+        'Warranty Certificate Stamped & Handed Over (+0.03★ Trust)'
+      ),
+      'positive'
+    );
+    setShop((prev) => ({
+      ...prev,
+      reputation: Math.min(5, prev.reputation + 0.03),
+      soldHistory: (prev.soldHistory ?? []).map((r) =>
+        r.id === recordId ? { ...r, warrantyPresented: true } : r
+      ),
+      todayStats: {
+        ...prev.todayStats,
+        reputationDelta: prev.todayStats.reputationDelta + 0.03,
+      },
+    }));
+  };
+
+  const handleResolveDataRecovery = (
+    mode: 'SOFTWARE' | 'CLEAN_ROOM',
+    forcedSuccess?: boolean
+  ) => {
     if (
       !currentEncounter ||
       currentEncounter.type !== 'DATA_RECOVERY' ||
@@ -1021,14 +1264,19 @@ export default function App() {
       return;
     }
     const job = currentEncounter.dataRecoveryJob;
-    // Software recovery is always free (even on legacy saved encounters)
-    const cost = mode === 'CLEAN_ROOM' ? job.cleanRoomCost : 0;
+    // Both software tool license and clean room lab have real operating fees
+    const cost =
+      mode === 'CLEAN_ROOM' ? job.cleanRoomCost : job.softwareCost || 850;
     if (shop.cash < cost) {
       soundFX.playScanDefect();
       pushFeedback(
         bi(
-          `Temiz Oda için ${formatTRY(cost)} gerekli!`,
-          `Need ${formatTRY(cost)} for Clean Room Lab!`
+          mode === 'CLEAN_ROOM'
+            ? `Temiz Oda için ${formatTRY(cost)} gerekli!`
+            : `Kurtarma yazılımı için ${formatTRY(cost)} gerekli!`,
+          mode === 'CLEAN_ROOM'
+            ? `Need ${formatTRY(cost)} for Clean Room Lab!`
+            : `Need ${formatTRY(cost)} for Software Recovery tool!`
         ),
         'negative'
       );
@@ -1036,7 +1284,11 @@ export default function App() {
     }
 
     const succeeded =
-      mode === 'CLEAN_ROOM' ? true : Math.random() < job.softwareSuccessRate;
+      mode === 'CLEAN_ROOM'
+        ? true
+        : typeof forcedSuccess === 'boolean'
+        ? forcedSuccess
+        : Math.random() < job.softwareSuccessRate;
     const grossPayout = succeeded
       ? mode === 'CLEAN_ROOM'
         ? job.cleanRoomPayout
@@ -1051,19 +1303,17 @@ export default function App() {
     if (succeeded) {
       soundFX.playCashRegister();
       pushFeedback(
-        `+${formatTRY(netProfit)} · Veriler Kurtarıldı (-${formatTRY(saleTax)} vergi)!`,
+        `+${formatTRY(netProfit)} · Veriler Kurtarıldı (-${formatTRY(cost)} işlem, -${formatTRY(saleTax)} vergi)!`,
         'positive'
       );
     } else {
       soundFX.playScanDefect();
       setShakeTrigger((n) => n + 1);
       pushFeedback(
-        cost > 0
-          ? `Yazılım Yetmedi (-${formatTRY(cost)} Maliyet)`
-          : bi(
-              'Yazılım Yetmedi — Ücretsiz deneme başarısız',
-              'Software Failed — Free attempt unsuccessful'
-            ),
+        bi(
+          `Yazılım Yetmedi (-${formatTRY(cost)} Lisans Maliyeti)`,
+          `Software Failed (-${formatTRY(cost)} Tool Fee)`
+        ),
         'negative'
       );
     }
@@ -1186,6 +1436,7 @@ export default function App() {
         const boughtPhone: PhoneDevice = {
           ...postSurprisePhone,
           purchasePrice: finalPrice,
+          dayAcquired: prev.day,
           inspected: { screen: true, battery: true, imei: true, hardware: true },
           listedForSale: false,
           askingPrice: roundPrice(fairVal * 1.15),
@@ -1269,6 +1520,7 @@ export default function App() {
           tradeInPhone = {
             ...postTradeDev,
             purchasePrice: tradeInBookValue,
+            dayAcquired: prev.day,
             inspected: { screen: true, battery: true, imei: true, hardware: true },
             listedForSale: false,
             askingPrice: roundPrice(tradeInEstimatedVal * 1.15),
@@ -1339,6 +1591,31 @@ export default function App() {
             ? 0.04
             : 0;
         const finalRepWithStaff = Math.max(1, Math.min(5, nextRep + salesRepHighRepBonus));
+        const soldRepairedDefects = updatedEncounter.device.repairedDefects ?? [];
+        const soldQuality = updatedEncounter.device.lastRepairQuality;
+        const soldOverseas = updatedEncounter.device.defects.includes('imei_unregistered');
+        const soldDisclosed = Boolean(updatedEncounter.buyerDisclosed);
+        const soldOtherDefects = updatedEncounter.device.defects.some(
+          (d) => d !== 'imei_unregistered'
+        );
+        // Schedule realistic 3-5 day customer comeback for rough/standard repairs or undisclosed overseas/defects!
+        let scheduledComebackDay: number | undefined;
+        const delayDays = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5 days later
+        if (soldQuality === 'ROUGH' && Math.random() < 0.7) {
+          scheduledComebackDay = prev.day + delayDays;
+        } else if (soldOverseas && !soldDisclosed && Math.random() < 0.58) {
+          scheduledComebackDay = prev.day + delayDays;
+        } else if (soldOtherDefects && !soldDisclosed && Math.random() < 0.45) {
+          scheduledComebackDay = prev.day + delayDays;
+        } else if (
+          soldRepairedDefects.length > 0 &&
+          soldQuality !== 'MASTER' &&
+          Math.random() < (soldDisclosed ? 0.14 : 0.34)
+        ) {
+          scheduledComebackDay = prev.day + delayDays;
+        }
+
+        const wittyMeta = buildWittyEsnafReportNote(updatedEncounter.device);
         const soldRecord: SoldPhoneRecord = {
           id: `sold_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
           daySold: prev.day,
@@ -1349,7 +1626,30 @@ export default function App() {
           hadDefects: updatedEncounter.device.defects.length > 0,
           wasHappy: updatedEncounter.moodScore >= 58,
           warrantyResolved: false,
+          repairedDefects: soldRepairedDefects,
+          repairQuality: soldQuality,
+          wasOverseas: soldOverseas,
+          wasDisclosed: soldDisclosed,
+          comebackDay: scheduledComebackDay,
+          certificateNo: generateCertificateNumber(prev.day),
+          imeiNumber: updatedEncounter.device.imeiNumber,
+          warrantyDays: wittyMeta.warrantyDays,
+          partBreakdown: buildDevicePartBreakdown(updatedEncounter.device),
+          craftsmanNote: wittyMeta.tr,
+          warrantyPresented: false,
         };
+
+        const cleanedQueueWithCert = cleanedQueue.map((q, idx) =>
+          idx === prev.currentQueueIndex
+            ? { ...q, deliveredCertificateId: soldRecord.id }
+            : q
+        );
+
+        if (soldRepairedDefects.length > 0) {
+          window.setTimeout(() => {
+            setActiveWarrantyModal({ record: soldRecord, mode: 'HANDOVER' });
+          }, 180);
+        }
 
         const finalDiscovered = tradeInPhone
           ? discoverSpec(nextDiscovered, tradeInPhone.specId)
@@ -1371,8 +1671,8 @@ export default function App() {
           discoveredSpecIds: finalDiscovered,
           accessories: nextAccessories,
           inventory: nextInv,
-          soldHistory: [soldRecord, ...(prev.soldHistory ?? [])].slice(0, 25),
-          dailyQueue: cleanedQueue,
+          soldHistory: [soldRecord, ...(prev.soldHistory ?? [])].slice(0, 35),
+          dailyQueue: cleanedQueueWithCert,
           reviews: nextReviews,
           totalProfitEarned: prev.totalProfitEarned + profit,
           totalPhonesSold: prev.totalPhonesSold + 1,
@@ -1572,9 +1872,30 @@ export default function App() {
     handleSubmitOffer(currentEncounter.customerPrice, 'friendly', 4, true);
   };
 
-  const completeExpressRepair = (bonusTip: number) => {
+  const completeExpressRepair = (
+    bonusTip: number,
+    extraExpressFee = 0,
+    quality: RepairQuality = 'STANDARD'
+  ) => {
     if (!currentEncounter || currentEncounter.type !== 'EXPRESS_REPAIR') return;
-    const partCost = currentEncounter.expressPartCost ?? 0;
+    const expDefects = currentEncounter.expressDefectId
+      ? [currentEncounter.expressDefectId]
+      : [];
+    const stockCalc = getRepairCostWithStock(
+      expDefects,
+      shop.spareParts,
+      shop.upgrades,
+      shop.dailyNews,
+      false,
+      shop.level,
+      shop.legacyPath,
+      shop.prestigePerks
+    );
+    const effectiveBasePartCost =
+      stockCalc.usedStockCount > 0
+        ? stockCalc.cashCost
+        : currentEncounter.expressPartCost ?? 0;
+    const partCost = effectiveBasePartCost + extraExpressFee;
     const totalPayout = currentEncounter.customerPrice + bonusTip;
     const { taxAmount: saleTax, netAmount: netPayout } = calculateSaleTax(
       totalPayout,
@@ -1585,8 +1906,14 @@ export default function App() {
 
     soundFX.playCashRegister();
     pushFeedback(
-      `+${formatTRY(netProfit)} · Acil Servis Tamam (-${formatTRY(saleTax)} vergi)!`,
-      'positive'
+      quality === 'ROUGH'
+        ? `+${formatTRY(netProfit)} · Onarım Tamam (Dikkat: Kaba İşçilik — Geri Dönüş Riski!)`
+        : stockCalc.usedStockCount > 0
+        ? `+${formatTRY(netProfit)} · Stok Parçasıyla Servis Tamam!`
+        : extraExpressFee > 0
+        ? `+${formatTRY(netProfit)} · Hızlı Onarım Tamam (-${formatTRY(extraExpressFee)} erken teslimat)!`
+        : `+${formatTRY(netProfit)} · Acil Servis Tamam (-${formatTRY(saleTax)} vergi)!`,
+      quality === 'ROUGH' ? 'amber' : 'positive'
     );
 
     setShop((prev) => {
@@ -1596,7 +1923,7 @@ export default function App() {
         outcome: 'DEAL_CLOSED',
         finalPrice: totalPayout,
         profitDelta: netProfit,
-        mood: 'happy',
+        mood: quality === 'ROUGH' ? 'calm' : 'happy',
         messages: [
           ...currentEncounter.messages,
           {
@@ -1611,7 +1938,74 @@ export default function App() {
         ],
       };
 
-      const repGain = bonusTip > 0 ? 0.22 : 0.12;
+      const nextParts = {
+        screen: Math.max(0, (prev.spareParts?.screen ?? 0) - (stockCalc.usedParts.screen ?? 0)),
+        battery: Math.max(0, (prev.spareParts?.battery ?? 0) - (stockCalc.usedParts.battery ?? 0)),
+        board_kit: Math.max(0, (prev.spareParts?.board_kit ?? 0) - (stockCalc.usedParts.board_kit ?? 0)),
+      };
+
+      // Schedule realistic 3-5 day customer repair comeback if express repair wasn't MASTER quality!
+      let comebackDay: number | undefined;
+      if (quality === 'ROUGH' && Math.random() < 0.72) {
+        comebackDay = prev.day + 3 + Math.floor(Math.random() * 3);
+      } else if (quality === 'STANDARD' && Math.random() < 0.28) {
+        comebackDay = prev.day + 4 + Math.floor(Math.random() * 2);
+      }
+
+      const expOrigins: Partial<Record<DefectId, 'OEM_STOCK' | 'SERVICE_PART'>> = {};
+      for (const d of expDefects) {
+        const neededPart = getSparePartForDefect(d);
+        expOrigins[d] =
+          neededPart && (stockCalc.usedParts[neededPart] ?? 0) > 0
+            ? 'OEM_STOCK'
+            : 'SERVICE_PART';
+      }
+      const repairedExpDevice: PhoneDevice = {
+        ...currentEncounter.device,
+        defects: currentEncounter.device.defects.filter((d) => !expDefects.includes(d)),
+        repairedDefects: [...(currentEncounter.device.repairedDefects ?? []), ...expDefects],
+        repairedPartOrigins: {
+          ...(currentEncounter.device.repairedPartOrigins ?? {}),
+          ...expOrigins,
+        },
+        lastRepairQuality: quality,
+        masterCrafted: quality === 'MASTER',
+      };
+      const expWitty = buildWittyEsnafReportNote(repairedExpDevice);
+
+      const expressRecord: SoldPhoneRecord = {
+        id: `exp_rec_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        daySold: prev.day,
+        customerName: currentEncounter.customerName,
+        archetypeId: currentEncounter.archetypeId,
+        deviceName: `${currentEncounter.device.brand} ${currentEncounter.device.model}`,
+        salePrice: totalPayout,
+        hadDefects: false,
+        wasHappy: quality !== 'ROUGH',
+        warrantyResolved: false,
+        repairedDefects: expDefects,
+        repairQuality: quality,
+        wasOverseas: currentEncounter.device.imeiStatus === 'UNREGISTERED_OVERSEAS',
+        comebackDay,
+        isExpressRepair: true,
+        certificateNo: generateCertificateNumber(prev.day),
+        imeiNumber: currentEncounter.device.imeiNumber,
+        warrantyDays: expWitty.warrantyDays,
+        partBreakdown: buildDevicePartBreakdown(repairedExpDevice),
+        craftsmanNote: expWitty.tr,
+        warrantyPresented: false,
+      };
+
+      nextQueue[prev.currentQueueIndex] = {
+        ...nextQueue[prev.currentQueueIndex],
+        deliveredCertificateId: expressRecord.id,
+      };
+
+      window.setTimeout(() => {
+        setActiveWarrantyModal({ record: expressRecord, mode: 'HANDOVER' });
+      }, 180);
+
+      const repGain = bonusTip > 0 ? 0.22 : quality === 'ROUGH' ? 0.04 : 0.12;
       const nextStreak = prev.dealStreak + 1;
       let nextState: ShopState = {
         ...prev,
@@ -1623,6 +2017,8 @@ export default function App() {
           prev.discoveredSpecIds,
           currentEncounter.device.specId
         ),
+        spareParts: nextParts,
+        soldHistory: [expressRecord, ...(prev.soldHistory ?? [])].slice(0, 35),
         dailyQueue: nextQueue,
         totalPhonesRepaired: prev.totalPhonesRepaired + 1,
         totalProfitEarned: prev.totalProfitEarned + netProfit,
@@ -1650,9 +2046,10 @@ export default function App() {
 
   const handleExpressRepairQuick = () => {
     if (!currentEncounter || currentEncounter.type !== 'EXPRESS_REPAIR') return;
-    const partCost = currentEncounter.expressPartCost ?? 0;
-    if (shop.cash < partCost) return;
-    completeExpressRepair(0);
+    const basePartCost = currentEncounter.expressPartCost ?? 0;
+    const expressFee = getQuickRepairExpressFee(basePartCost);
+    if (shop.cash < basePartCost + expressFee) return;
+    completeExpressRepair(0, expressFee, 'STANDARD');
   };
 
   const handleExpressRepairMini = () => {
@@ -2504,7 +2901,13 @@ export default function App() {
         activeStoreEvent: null,
         nextCustomerEventEffect: null,
         storeEventsTriggeredToday: 0,
-        dailyQuests: generateDailyQuests(nextDay, timers.upgrades, prev.level),
+        dailyQuests: generateDailyQuests(
+          nextDay,
+          timers.upgrades,
+          prev.level,
+          detectPlayerPlaystyle(prev),
+          prev.prestigeLevel ?? 0
+        ),
         currentQueueIndex: 0,
         todayStats: createEmptyDayStats(nextDay, timers.shopTier, prev.staff),
       };
@@ -2518,27 +2921,170 @@ export default function App() {
       nextBase.dailyAuctionLots = lots;
       nextBase.dailyAuctionLot = lots[0] ?? null;
 
+      if (getWeekdayInfo(nextDay).isSunday) {
+        nextBase.sundayKermes = generateSundayKermes(nextBase);
+        nextBase.morningNotifications = [
+          'Bugün PAZAR! Piyasa sekmesinde Esnaf Kermesi açıldı — stoktaki cihazları hızlıca elden çıkar veya yarı fiyatına nadir parça topla!',
+          ...nextBase.morningNotifications,
+        ];
+      } else {
+        nextBase.sundayKermes = null;
+      }
+
       return nextBase;
     });
     setActiveTab('COUNTER');
     setScreen('MORNING_NEWS');
   };
 
+  const handleKermesSellPhone = (phoneUid: string) => {
+    if (!getWeekdayInfo(shop.day).isSunday || !shop.sundayKermes) return;
+    const phone = shop.inventory.find((p) => p.uid === phoneUid && !p.assignedToStaff);
+    if (!phone) return;
+    const fairVal = calculateMarketValue(
+      phone,
+      false,
+      shop.dailyNews,
+      shop.upgrades,
+      shop.day
+    );
+    const salePrice = Math.max(
+      1000,
+      roundPrice(fairVal * shop.sundayKermes.clearanceMultiplier)
+    );
+    const netProfit = salePrice - (phone.purchasePrice + phone.repairSpend);
+
+    soundFX.playCashRegister();
+    triggerHaptic(shop.hapticsEnabled, 'success');
+    pushFeedback(
+      `Kermeste Elden Çıkarıldı: +${formatTRY(salePrice)} (${netProfit >= 0 ? '+' : ''}${formatTRY(netProfit)})`,
+      'positive'
+    );
+
+    setShop((prev) => {
+      if (!prev.sundayKermes) return prev;
+      let nextState: ShopState = {
+        ...prev,
+        cash: prev.cash + salePrice,
+        inventory: prev.inventory.filter((p) => p.uid !== phoneUid),
+        totalPhonesSold: prev.totalPhonesSold + 1,
+        totalProfitEarned: prev.totalProfitEarned + Math.max(0, netProfit),
+        bestSingleDealProfit: Math.max(prev.bestSingleDealProfit, netProfit),
+        sundayKermes: {
+          ...prev.sundayKermes,
+          clearanceSoldCount: prev.sundayKermes.clearanceSoldCount + 1,
+        },
+        todayStats: {
+          ...prev.todayStats,
+          phonesSold: prev.todayStats.phonesSold + 1,
+          salesRevenue: prev.todayStats.salesRevenue + salePrice,
+        },
+      };
+      nextState = applyXpGain(nextState, 25);
+      return applyQuestProgress(nextState, 'SELL_PHONE', 1);
+    });
+  };
+
+  const handleBuyKermesDeal = (dealId: string) => {
+    if (!getWeekdayInfo(shop.day).isSunday || !shop.sundayKermes) return;
+    const deal = shop.sundayKermes.deals.find((d) => d.id === dealId && !d.bought);
+    if (!deal || shop.cash < deal.kermesPrice) return;
+
+    soundFX.playCashRegister();
+    triggerHaptic(shop.hapticsEnabled, 'success');
+    pushFeedback(
+      `Kermes Fırsatı Kapıldı! ${deal.title} (-${formatTRY(deal.kermesPrice)})`,
+      'positive'
+    );
+
+    setShop((prev) => {
+      if (!prev.sundayKermes) return prev;
+      const target = prev.sundayKermes.deals.find((d) => d.id === dealId && !d.bought);
+      if (!target || prev.cash < target.kermesPrice) return prev;
+
+      let nextSpareParts = {
+        screen: prev.spareParts?.screen ?? 0,
+        battery: prev.spareParts?.battery ?? 0,
+        board_kit: prev.spareParts?.board_kit ?? 0,
+      };
+      let nextAccessories = { ...prev.accessories };
+      let nextInventory = prev.inventory;
+      let nextDiscovered = prev.discoveredSpecIds;
+
+      if (target.kind === 'SPARE_PART_BUNDLE' && target.partId && target.partQty) {
+        nextSpareParts = {
+          ...nextSpareParts,
+          [target.partId]: nextSpareParts[target.partId] + target.partQty,
+        };
+      } else if (
+        target.kind === 'ACCESSORY_BUNDLE' &&
+        target.accessoryId &&
+        target.accessoryQty
+      ) {
+        const curAcc = nextAccessories[target.accessoryId];
+        if (curAcc) {
+          nextAccessories = {
+            ...nextAccessories,
+            [target.accessoryId]: {
+              ...curAcc,
+              quantity: curAcc.quantity + target.accessoryQty,
+            },
+          };
+        }
+      } else if (target.kind === 'BARGAIN_PHONE' && target.phone) {
+        const acquiredPhone = {
+          ...target.phone,
+          dayAcquired: prev.day,
+          purchasePrice: target.kermesPrice,
+        };
+        nextInventory = [acquiredPhone, ...prev.inventory];
+        nextDiscovered = discoverSpec(nextDiscovered, acquiredPhone.specId);
+      }
+
+      const nextDeals = prev.sundayKermes.deals.map((d) =>
+        d.id === dealId ? { ...d, bought: true } : d
+      );
+
+      let nextState: ShopState = {
+        ...prev,
+        cash: prev.cash - target.kermesPrice,
+        spareParts: nextSpareParts,
+        accessories: nextAccessories,
+        inventory: nextInventory,
+        discoveredSpecIds: nextDiscovered,
+        sundayKermes: {
+          ...prev.sundayKermes,
+          deals: nextDeals,
+        },
+        todayStats: {
+          ...prev.todayStats,
+          wholesaleSpend: prev.todayStats.wholesaleSpend + target.kermesPrice,
+        },
+      };
+      nextState = applyXpGain(nextState, 20);
+      return nextState;
+    });
+  };
+
   const applyInventoryRepair = (
     phoneUid: string,
     defectIds: DefectId[],
     cost: number,
-    masterCrafted: boolean
+    masterCrafted: boolean,
+    quality: RepairQuality = masterCrafted ? 'MASTER' : 'STANDARD',
+    usedParts?: Partial<Record<SparePartId, number>>
   ) => {
     if (defectIds.length === 0) return;
-    const effectiveMaster = masterCrafted || shop.upgrades.includes('clean_room_lab');
+    const effectiveMaster = masterCrafted;
     const craftPct = getMasterCraftBonusPercent(shop.upgrades);
     soundFX.playRepair();
     pushFeedback(
       effectiveMaster
-        ? `-${formatTRY(cost)} · ${defectIds.length} Arıza Usta İşi (+%${craftPct} Değer)!`
-        : `-${formatTRY(cost)} · ${defectIds.length} Arıza Tek Seferde Onarıldı`,
-      'positive'
+        ? `${cost === 0 ? 'Stoktan' : `-${formatTRY(cost)}`} · ${defectIds.length} Arıza Usta İşi (+%${craftPct} Değer)!`
+        : quality === 'ROUGH'
+        ? `${cost === 0 ? 'Stoktan' : `-${formatTRY(cost)}`} · Onarıldı (Kaba İşçilik · Geri Dönüş Riski!)`
+        : `${cost === 0 ? 'Stoktan' : `-${formatTRY(cost)}`} · ${defectIds.length} Arıza Onarıldı`,
+      quality === 'ROUGH' ? 'amber' : 'positive'
     );
 
     setShop((prev) => {
@@ -2548,12 +3094,29 @@ export default function App() {
       const nextInv = prev.inventory.map((phone) => {
         if (phone.uid !== phoneUid) return phone;
         const nextDefects = phone.defects.filter((d) => !defectIds.includes(d));
+        const nextOrigins = { ...(phone.repairedPartOrigins ?? {}) };
+        const usedQuota: Record<SparePartId, number> = {
+          screen: usedParts?.screen ?? 0,
+          battery: usedParts?.battery ?? 0,
+          board_kit: usedParts?.board_kit ?? 0,
+        };
+        for (const d of defectIds) {
+          const partType = getSparePartForDefect(d);
+          if (partType && usedQuota[partType] > 0) {
+            usedQuota[partType] -= 1;
+            nextOrigins[d] = 'OEM_STOCK';
+          } else {
+            nextOrigins[d] = 'SERVICE_PART';
+          }
+        }
         const updatedPhone: PhoneDevice = {
           ...phone,
           defects: nextDefects,
           repairedDefects: [...phone.repairedDefects, ...defectIds],
+          repairedPartOrigins: nextOrigins,
           repairSpend: phone.repairSpend + cost,
           masterCrafted: phone.masterCrafted || effectiveMaster,
+          lastRepairQuality: quality,
           batteryHealth: fixedBattery ? 100 : phone.batteryHealth,
           reportedBatteryHealth: fixedBattery ? 100 : phone.reportedBatteryHealth,
           batteryCycles: fixedBattery ? 1 : phone.batteryCycles,
@@ -2562,7 +3125,8 @@ export default function App() {
           updatedPhone,
           false,
           prev.dailyNews,
-          prev.upgrades
+          prev.upgrades,
+          prev.day
         );
         return {
           ...updatedPhone,
@@ -2570,10 +3134,19 @@ export default function App() {
         };
       });
 
+      const nextSpareParts = usedParts
+        ? {
+            screen: Math.max(0, (prev.spareParts?.screen ?? 0) - (usedParts.screen ?? 0)),
+            battery: Math.max(0, (prev.spareParts?.battery ?? 0) - (usedParts.battery ?? 0)),
+            board_kit: Math.max(0, (prev.spareParts?.board_kit ?? 0) - (usedParts.board_kit ?? 0)),
+          }
+        : prev.spareParts;
+
       let nextState: ShopState = {
         ...prev,
         cash: prev.cash - cost,
         inventory: nextInv,
+        spareParts: nextSpareParts,
         totalPhonesRepaired: prev.totalPhonesRepaired + 1,
         todayStats: {
           ...prev.todayStats,
@@ -2593,16 +3166,46 @@ export default function App() {
     defectIds: DefectId[],
     external: boolean
   ) => {
-    const cost = getMultiRepairCost(
+    const stockCalc = external
+      ? {
+          cashCost: getMultiRepairCost(
+            defectIds,
+            shop.upgrades,
+            shop.dailyNews,
+            true,
+            shop.level,
+            shop.legacyPath,
+            shop.prestigePerks
+          ),
+          baseCost: 0,
+          usedParts: {} as Partial<Record<SparePartId, number>>,
+          usedStockCount: 0,
+        }
+      : getRepairCostWithStock(
+          defectIds,
+          shop.spareParts,
+          shop.upgrades,
+          shop.dailyNews,
+          false,
+          shop.level,
+          shop.legacyPath,
+          shop.prestigePerks
+        );
+    const expressFee = external
+      ? 0
+      : getQuickRepairExpressFee(
+          stockCalc.cashCost > 0 ? stockCalc.cashCost : stockCalc.baseCost
+        );
+    const totalCost = stockCalc.cashCost + expressFee;
+    if (shop.cash < totalCost) return;
+    applyInventoryRepair(
+      phoneUid,
       defectIds,
-      shop.upgrades,
-      shop.dailyNews,
-      external,
-      shop.level,
-      shop.legacyPath
+      totalCost,
+      false,
+      'STANDARD',
+      stockCalc.usedParts
     );
-    if (shop.cash < cost) return;
-    applyInventoryRepair(phoneUid, defectIds, cost, !external && shop.upgrades.includes('clean_room_lab'));
   };
 
   const handleStartMiniRepair = (
@@ -2669,16 +3272,94 @@ export default function App() {
     }));
   };
 
-  const handleMiniRepairSuccess = (masterCrafted: boolean) => {
+  const handleMiniRepairSuccess = (
+    masterCrafted: boolean,
+    quality?: RepairQuality
+  ) => {
     if (!miniRepairJob) return;
     const job = miniRepairJob;
+    const resolvedQuality: RepairQuality =
+      quality ?? (masterCrafted ? 'MASTER' : 'STANDARD');
     setMiniRepairJob(null);
 
     if (job.mode === 'INVENTORY') {
-      applyInventoryRepair(job.phone.uid, job.defectIds, job.cost, masterCrafted);
+      const stockCalc = getRepairCostWithStock(
+        job.defectIds,
+        shop.spareParts,
+        shop.upgrades,
+        shop.dailyNews,
+        false,
+        shop.level,
+        shop.legacyPath,
+        shop.prestigePerks
+      );
+      applyInventoryRepair(
+        job.phone.uid,
+        job.defectIds,
+        stockCalc.cashCost,
+        resolvedQuality === 'MASTER',
+        resolvedQuality,
+        stockCalc.usedParts
+      );
     } else {
-      completeExpressRepair(masterCrafted ? 1000 : 350);
+      const tip =
+        resolvedQuality === 'MASTER'
+          ? 1000
+          : resolvedQuality === 'STANDARD'
+          ? 350
+          : 0;
+      completeExpressRepair(tip, 0, resolvedQuality);
     }
+  };
+
+  const handleTriggerPrestige = () => {
+    const earned = getPrestigePointsEarned(shop);
+    if (earned <= 0) return;
+    soundFX.playDayComplete();
+    const nextState = executePrestigeReset(shop);
+    setShop(nextState);
+    setActiveTab('COUNTER');
+    setScreen('MORNING_NEWS');
+    pushFeedback(
+      `PRESTİJ DÖNEMİ #${nextState.prestigeLevel}! +${earned} Prestij Puanı Kazanıldı!`,
+      'positive'
+    );
+    pushBadgeNotification({
+      kicker: `PRESTİJ DÖNEMİ #${nextState.prestigeLevel}`,
+      title: `+${earned} Prestij Puanı!`,
+      subtitle: 'Müze, seviye ve kalıcı avantajlarınla yeni döneme geçtin!',
+      accent: 'gold',
+      icon: 'trophy',
+    });
+  };
+
+  const handleBuyPrestigePerk = (perkId: PrestigePerkId) => {
+    const perk = PRESTIGE_PERKS.find((p) => p.id === perkId);
+    if (!perk) return;
+    const owned = shop.prestigePerks ?? [];
+    if (owned.includes(perkId)) return;
+    if ((shop.prestigePoints ?? 0) < perk.cost) return;
+
+    soundFX.playDayComplete();
+    pushFeedback(`Kalıcı Prestij Avantajı Açıldı: ${perk.trName}!`, 'positive');
+    setShop((prev) => {
+      const nextUpgrades = [...prev.upgrades];
+      if (perkId === 'golden_pliers' && !nextUpgrades.includes('repair_bench')) {
+        nextUpgrades.push('repair_bench');
+      }
+      if (perkId === 'seed_capital' && !nextUpgrades.includes('accessory_license')) {
+        nextUpgrades.push('accessory_license');
+      }
+      if (perkId === 'vip_network' && !nextUpgrades.includes('classifieds_license')) {
+        nextUpgrades.push('classifieds_license');
+      }
+      return {
+        ...prev,
+        prestigePoints: (prev.prestigePoints ?? 0) - perk.cost,
+        prestigePerks: [...(prev.prestigePerks ?? []), perkId],
+        upgrades: nextUpgrades,
+      };
+    });
   };
 
   const handleClaimDailyQuest = (questId: string) => {
@@ -3066,6 +3747,60 @@ export default function App() {
     });
   };
 
+  const handleDetachAccessoryBundle = (
+    phoneUid: string,
+    accessoryId: AccessoryId
+  ) => {
+    const target = shop.inventory.find((p) => p.uid === phoneUid);
+    if (!target || !(target.bundledAccessories ?? []).includes(accessoryId)) return;
+    const spec = getAccessorySpec(accessoryId);
+    const stock = shop.accessories[accessoryId];
+
+    soundFX.playClick();
+    pushFeedback(
+      `${spec.name} Paketten Çıkarıldı (+1 Stoğa İade)`,
+      'amber'
+    );
+    setShop((prev) => {
+      const nextAccessories = {
+        ...prev.accessories,
+        [accessoryId]: {
+          ...prev.accessories[accessoryId],
+          quantity: (prev.accessories[accessoryId]?.quantity ?? 0) + 1,
+        },
+      };
+      const nextInv = prev.inventory.map((phone) => {
+        if (phone.uid !== phoneUid) return phone;
+        const nextBundles = (phone.bundledAccessories ?? []).filter(
+          (id) => id !== accessoryId
+        );
+        const updated: PhoneDevice = {
+          ...phone,
+          bundledAccessories: nextBundles,
+        };
+        const fairVal = calculateMarketValue(
+          updated,
+          false,
+          prev.dailyNews,
+          prev.upgrades
+        );
+        const reducedAsk = Math.max(
+          roundPrice(fairVal * 0.9),
+          phone.askingPrice - (stock?.retailPrice ?? spec.recommendedPrice)
+        );
+        return {
+          ...updated,
+          askingPrice: roundPrice(Math.min(reducedAsk, fairVal * 1.2)),
+        };
+      });
+      return {
+        ...prev,
+        accessories: nextAccessories,
+        inventory: nextInv,
+      };
+    });
+  };
+
   const handleBuyOutfit = (outfitId: OutfitId) => {
     const outfit = PLAYER_OUTFITS.find((o) => o.id === outfitId);
     if (
@@ -3376,10 +4111,6 @@ export default function App() {
 
     if (shop.cash < finalBid) return;
     soundFX.playDayComplete();
-    pushFeedback(
-      `İHALE SENİN! ${lot.devices.length} Cihaz + Aksesuar Atölyede!`,
-      'positive'
-    );
 
     const perPhoneCost = Math.round(finalBid / Math.max(1, lot.devices.length));
     const wonDevices: PhoneDevice[] = lot.devices.map((d) => ({
@@ -3392,9 +4123,42 @@ export default function App() {
       ),
     }));
 
+    // Unpack Mystery Box rewards included in the won lot
+    const mysteryRewards = lot.mysteryRewards ?? [];
+    const mysteryPhones: PhoneDevice[] = [];
+    let mysteryCashBonus = 0;
+    const mysteryAccs: { id: AccessoryId; quantity: number }[] = [];
+    for (const rew of mysteryRewards) {
+      if (rew.extraDevice) {
+        mysteryPhones.push({
+          ...rew.extraDevice,
+          purchasePrice: 0,
+          inspected: { screen: true, battery: true, imei: true, hardware: true },
+          listedForSale: false,
+          askingPrice: roundPrice(
+            calculateMarketValue(rew.extraDevice, false, shop.dailyNews, shop.upgrades) * 1.15
+          ),
+        });
+      }
+      if (rew.cashBonus && rew.cashBonus > 0) {
+        mysteryCashBonus += rew.cashBonus;
+      }
+      if (rew.bonusAccessory) {
+        mysteryAccs.push(rew.bonusAccessory);
+      }
+    }
+
+    const totalAddedPhones = wonDevices.length + mysteryPhones.length;
+    pushFeedback(
+      mysteryRewards.length > 0
+        ? `İHALE SENİN! ${totalAddedPhones} Cihaz + ${mysteryRewards.length} Gizemli Kutu Açıldı!`
+        : `İHALE SENİN! ${wonDevices.length} Cihaz + Aksesuar Atölyede!`,
+      'positive'
+    );
+
     setShop((prev) => {
       const nextAccessories = { ...prev.accessories };
-      for (const acc of lot.bonusAccessories) {
+      for (const acc of [...lot.bonusAccessories, ...mysteryAccs]) {
         const cur = nextAccessories[acc.id];
         if (cur) {
           nextAccessories[acc.id] = {
@@ -3403,8 +4167,9 @@ export default function App() {
           };
         }
       }
+      const allWonPhones = [...mysteryPhones, ...wonDevices];
       let nextDisc = prev.discoveredSpecIds;
-      for (const p of wonDevices) {
+      for (const p of allWonPhones) {
         nextDisc = discoverSpec(nextDisc, p.specId);
       }
       const updatedLots = (prev.dailyAuctionLots ?? []).map((l) =>
@@ -3414,8 +4179,8 @@ export default function App() {
       );
       const nextState: ShopState = {
         ...prev,
-        cash: prev.cash - finalBid,
-        inventory: [...wonDevices, ...prev.inventory],
+        cash: prev.cash - finalBid + mysteryCashBonus,
+        inventory: [...allWonPhones, ...prev.inventory],
         accessories: nextAccessories,
         discoveredSpecIds: nextDisc,
         totalAuctionsWon: (prev.totalAuctionsWon ?? 0) + 1,
@@ -3423,11 +4188,12 @@ export default function App() {
         dailyAuctionLot: updatedLots[0] ?? prev.dailyAuctionLot,
         todayStats: {
           ...prev.todayStats,
-          phonesBought: prev.todayStats.phonesBought + wonDevices.length,
+          phonesBought: prev.todayStats.phonesBought + allWonPhones.length,
           buySpend: prev.todayStats.buySpend + finalBid,
+          questRewards: prev.todayStats.questRewards + mysteryCashBonus,
         },
       };
-      return applyXpGain(nextState, 65);
+      return applyXpGain(nextState, 75);
     });
   };
 
@@ -3814,6 +4580,11 @@ export default function App() {
             >
               <Building2 className="w-[14px] h-[14px] shrink-0" />
               <span className="truncate">{bi('Piyasa', 'Market')}</span>
+              {getWeekdayInfo(shop.day).isSunday && (
+                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                  {bi('Kermes', 'Fair')}
+                </span>
+              )}
               {shop.weeklyTaxDue > 0 && (
                 <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-rose-500 text-white">
                   !
@@ -3861,7 +4632,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Compact Tabular HUD Readouts — Day + Shop Tier (No Level/XP clutter) */}
+        {/* Compact Tabular HUD Readouts — Day, Infinite Level & Shop Tier */}
         <div className="flex items-center justify-between sm:justify-end gap-[6px] sm:gap-2 lg:gap-3 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
           <button
             type="button"
@@ -3870,16 +4641,35 @@ export default function App() {
               setActiveTab('UPGRADES');
             }}
             title={bi(
-              `Gün ${shop.day} · Dükkan Kademesi ${shop.shopTier}/6 · Büyütme seçeneklerini gör`,
-              `Day ${shop.day} · Shop Tier ${shop.shopTier}/6 · View expansion options`
+              `Gün ${shop.day} · Sv.${shop.level} · Dükkan Kademesi ${shop.shopTier}/6`,
+              `Day ${shop.day} · Lv.${shop.level} · Shop Tier ${shop.shopTier}/6`
             )}
             className="inline-flex items-center gap-1.5 min-h-[32px] rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
           >
-            <span className="font-mono text-[11px] font-extrabold text-amber-300 whitespace-nowrap">
-              {bi(`Gün ${shop.day}`, `Day ${shop.day}`)}
+            <span
+              className={`font-mono text-[11px] font-extrabold whitespace-nowrap ${
+                getWeekdayInfo(shop.day).isSunday ? 'text-emerald-300' : 'text-amber-300'
+              }`}
+            >
+              {bi(
+                `Gün ${shop.day} · ${getWeekdayInfo(shop.day).shortTr}`,
+                `Day ${shop.day} · ${getWeekdayInfo(shop.day).shortEn}`
+              )}
             </span>
             <span aria-hidden="true" className="text-amber-300/40">·</span>
-            <span className="font-mono text-[10.5px] font-bold text-slate-200 whitespace-nowrap">
+            <span className="font-mono text-[10.5px] font-extrabold text-emerald-300 whitespace-nowrap">
+              {bi(`Sv.${shop.level}`, `Lv.${shop.level}`)}
+            </span>
+            {(shop.prestigeLevel ?? 0) > 0 && (
+              <>
+                <span aria-hidden="true" className="text-amber-300/40">·</span>
+                <span className="font-mono text-[10.5px] font-extrabold text-purple-300 whitespace-nowrap">
+                  P{shop.prestigeLevel}
+                </span>
+              </>
+            )}
+            <span aria-hidden="true" className="hidden md:inline text-amber-300/40">·</span>
+            <span className="hidden md:inline font-mono text-[10.5px] font-bold text-slate-200 whitespace-nowrap">
               {bi(`Dük.${shop.shopTier}/6`, `T${shop.shopTier}/6`)}
             </span>
           </button>
@@ -4034,6 +4824,8 @@ export default function App() {
             cash={shop.cash}
             shopTier={shop.shopTier}
             shopLevel={shop.level}
+            prestigeLevel={shop.prestigeLevel ?? 0}
+            radioStation={shop.radioStation ?? 'OFF'}
             legacyPath={shop.legacyPath}
             dealStreak={shop.dealStreak}
             upgrades={shop.upgrades}
@@ -4053,6 +4845,29 @@ export default function App() {
             staffLevels={shop.staffLevels}
             staffRepairQueue={shop.staffRepairQueue ?? []}
             textSpeed={shop.textSpeed}
+            onCycleRadio={handleCycleRadio}
+            onTeaBoilerFresh={handleTeaBoilerFreshMotivation}
+            onDiscloseBuyer={handleDiscloseBuyer}
+            complaintCount={(shop.complaintHistory ?? []).length}
+            openComplaintCount={
+              currentEncounter?.type === 'WARRANTY_CLAIM' &&
+              currentEncounter.outcome === 'ACTIVE'
+                ? 1
+                : 0
+            }
+            onOpenComplaintArchive={() => setShowComplaintArchive(true)}
+            onOpenWarrantyCertificate={(rec) =>
+              setActiveWarrantyModal({ record: rec, mode: 'INSPECT' })
+            }
+            onOpenCertificateById={(recId) => {
+              const found = (shop.soldHistory ?? []).find((r) => r.id === recId);
+              if (found) {
+                setActiveWarrantyModal({
+                  record: found,
+                  mode: found.warrantyPresented ? 'INSPECT' : 'HANDOVER',
+                });
+              }
+            }}
             onOpenNewspaper={() => {
               soundFX.playClick();
               setShowNewspaperReview(true);
@@ -4114,13 +4929,22 @@ export default function App() {
             staffLevels={shop.staffLevels}
             staffRepairQueue={shop.staffRepairQueue ?? []}
             dailyNews={shop.dailyNews}
+            spareParts={shop.spareParts}
+            prestigePerks={shop.prestigePerks}
+            onBuySparePart={handleBuySparePart}
             onQuickRepairDefects={handleQuickRepairDefects}
             onStartMiniRepair={handleStartMiniRepair}
             onDelegateRepairToMaster={handleDelegateRepairToMaster}
             onAddBoxKit={handleAddBoxKit}
             onAttachAccessoryBundle={handleAttachAccessoryBundle}
+            onDetachAccessoryBundle={handleDetachAccessoryBundle}
             onUpdateListing={handleUpdateListing}
             onScrapSellPhone={handleScrapSellPhone}
+            complaintCount={(shop.complaintHistory ?? []).length}
+            onOpenComplaintArchive={() => {
+              soundFX.playClick();
+              setShowComplaintArchive(true);
+            }}
             onBackToCounter={() => {
               soundFX.playClick();
               setActiveTab('COUNTER');
@@ -4138,6 +4962,7 @@ export default function App() {
             onBuyAccessoryStock={handleBuyAccessoryStock}
             onUpdateAccessoryPrice={handleUpdateAccessoryPrice}
             onOrderBrandNewPhone={handleOrderBrandNewPhone}
+            onBuySparePart={handleBuySparePart}
             onBuyUpgrade={handleBuyUpgrade}
             onBackToCounter={() => {
               soundFX.playClick();
@@ -4164,6 +4989,8 @@ export default function App() {
             onPayWeeklyTax={handlePayWeeklyTax}
             onBuyMuseumItem={handleBuyMuseumItem}
             onBuyUpgrade={handleBuyUpgrade}
+            onKermesSellPhone={handleKermesSellPhone}
+            onBuyKermesDeal={handleBuyKermesDeal}
             onGoToStaff={() => {
               soundFX.playClick();
               setActiveTab('UPGRADES');
@@ -4182,6 +5009,8 @@ export default function App() {
             onClaimMilestone={handleClaimMilestone}
             onClaimStoryChapter={handleClaimStoryChapter}
             onClaimDailyStreak={handleClaimDailyStreak}
+            onTriggerPrestige={handleTriggerPrestige}
+            onBuyPrestigePerk={handleBuyPrestigePerk}
             onBackToCounter={() => {
               soundFX.playClick();
               setActiveTab('COUNTER');
@@ -4206,6 +5035,9 @@ export default function App() {
             pendingProjects={shop.pendingProjects ?? []}
             ownedOutfits={shop.ownedOutfits ?? ['casual_hoodie']}
             equippedOutfit={shop.equippedOutfit ?? 'casual_hoodie'}
+            prestigeLevel={shop.prestigeLevel ?? 0}
+            radioStation={shop.radioStation ?? 'OFF'}
+            onCycleRadio={handleCycleRadio}
             onBuyUpgrade={handleBuyUpgrade}
             onBuyShowcaseUpgrade={handleBuyShowcaseUpgrade}
             onUpgradeShopTier={handleUpgradeShopTier}
@@ -4255,6 +5087,9 @@ export default function App() {
           cost={miniRepairJob.cost}
           isExpressJob={miniRepairJob.mode === 'EXPRESS'}
           legacyPath={shop.legacyPath}
+          shopLevel={shop.level}
+          prestigeLevel={shop.prestigeLevel ?? 0}
+          hasCleanRoomLab={shop.upgrades.includes('clean_room_lab')}
           onSuccess={handleMiniRepairSuccess}
           onCancel={() => setMiniRepairJob(null)}
         />
@@ -4381,6 +5216,9 @@ export default function App() {
           mode={screen}
           state={shop}
           onRestart={handleStartNew}
+          onTriggerPrestige={
+            screen === 'VICTORY' ? handleTriggerPrestige : undefined
+          }
           onContinueEndless={
             screen === 'VICTORY'
               ? () => {
@@ -4392,6 +5230,34 @@ export default function App() {
           }
         />
       )}
+      {/* CUSTOMER COMPLAINT FILE & WARRANTY ARCHIVE PANEL */}
+      {showComplaintArchive && screen === 'PLAYING' && (
+        <ComplaintArchiveModal
+          complaintHistory={shop.complaintHistory ?? []}
+          soldHistory={shop.soldHistory ?? []}
+          activeWarrantyEncounter={
+            currentEncounter?.type === 'WARRANTY_CLAIM' ? currentEncounter : null
+          }
+          currentDay={shop.day}
+          onInspectCertificate={(rec) => {
+            soundFX.playClick();
+            setActiveWarrantyModal({ record: rec, mode: 'INSPECT' });
+          }}
+          onClose={() => setShowComplaintArchive(false)}
+        />
+      )}
+
+      {/* OFFICIAL PASAJ GSM WARRANTY CERTIFICATE MODAL */}
+      {activeWarrantyModal && screen === 'PLAYING' && (
+        <WarrantyCertificateModal
+          record={activeWarrantyModal.record}
+          shopName={SHOP_TIERS[shop.shopTier]?.name.toUpperCase() ?? 'PASAJ GSM TEKNİK SERVİS'}
+          mode={activeWarrantyModal.mode}
+          onStampAndDeliver={handleStampWarrantyCertificate}
+          onClose={() => setActiveWarrantyModal(null)}
+        />
+      )}
+
       <AchievementBadgeToast
         badge={badgeQueue[0] ?? null}
         onDismiss={dismissCurrentBadge}

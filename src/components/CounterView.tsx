@@ -7,16 +7,20 @@ import {
   Award,
   BatteryCharging,
   Check,
+  ClipboardCheck,
   Coffee,
   Cpu,
   CreditCard,
   Database,
   DoorOpen,
+  FileCheck2,
   Flame,
+  FolderOpen,
   Gavel,
   Handshake,
   Newspaper,
   Package,
+  Radio,
   Scale,
   ScanLine,
   Search,
@@ -35,6 +39,7 @@ import {
   ACCESSORY_CATALOG,
   DEFECT_CATALOG,
   LEGACY_PATHS,
+  RADIO_STATIONS_META,
 } from '../game/catalog';
 import {
   calculateDeviceValuationBreakdown,
@@ -45,6 +50,7 @@ import {
   getMoodDisplay,
   getNegotiationResistance,
   getPatienceLabel,
+  getQuickRepairExpressFee,
   hasAccessoryLicense,
   isAccessoryUnlocked,
   roundPrice,
@@ -75,17 +81,22 @@ import {
   NextCustomerEventEffect,
   OutfitId,
   PhoneDevice,
+  RadioStationId,
   RandomStoreEvent,
   ShopTier,
+  SoldPhoneRecord,
   StaffId,
   StaffRepairJob,
   UpgradeId,
 } from '../game/types';
 import { CustomerAvatar } from './CustomerAvatar';
+import { EsnafReportModal } from './EsnafReportModal';
 import { PhoneInspectSVG, PhoneModelThumb } from './PhoneInspectSVG';
 import { PhysicalInspectModal } from './PhysicalInspectModal';
-import { ShopDecorLayer } from './ShopDecorLayer';
+import { ShopDecorLayer, WaitingCustomerPreview } from './ShopDecorLayer';
+import { SoftwareRecoveryModal } from './SoftwareRecoveryModal';
 import { AccessoryProductArt } from './VisualShowcaseArt';
+import { CUSTOMER_ARCHETYPES } from '../game/catalog';
 
 interface CounterViewProps {
   encounter: CustomerEncounter | null;
@@ -93,6 +104,8 @@ interface CounterViewProps {
   cash: number;
   shopTier: ShopTier;
   shopLevel: number;
+  prestigeLevel?: number;
+  radioStation?: RadioStationId;
   legacyPath: LegacyPathId;
   dealStreak: number;
   upgrades: UpgradeId[];
@@ -112,6 +125,14 @@ interface CounterViewProps {
   staffLevels: Record<StaffId, number>;
   staffRepairQueue: StaffRepairJob[];
   textSpeed?: 'normal' | 'fast' | 'instant';
+  onCycleRadio?: () => void;
+  onTeaBoilerFresh?: () => void;
+  onDiscloseBuyer?: () => void;
+  complaintCount?: number;
+  openComplaintCount?: number;
+  onOpenComplaintArchive?: () => void;
+  onOpenWarrantyCertificate?: (record: SoldPhoneRecord) => void;
+  onOpenCertificateById?: (recordId: string) => void;
   onOpenNewspaper: () => void;
   onOpenMissions: () => void;
   onOpenWardrobe?: () => void;
@@ -145,7 +166,7 @@ interface CounterViewProps {
   onDelegateExpressRepair: () => void;
   onAcceptBulkAuction: () => void;
   onResolveWarranty: (choice: 'REPAIR' | 'REFUND' | 'REJECT') => void;
-  onResolveDataRecovery: (mode: 'SOFTWARE' | 'CLEAN_ROOM') => void;
+  onResolveDataRecovery: (mode: 'SOFTWARE' | 'CLEAN_ROOM', forcedSuccess?: boolean) => void;
   shakeTrigger: number;
 }
 
@@ -158,6 +179,120 @@ const INSPECTION_ZONES: {
   { id: 'imei', icon: <ScanLine className="w-3.5 h-3.5" /> },
   { id: 'hardware', icon: <Cpu className="w-3.5 h-3.5" /> },
 ];
+
+const ESNAF_PROVERBS_BY_TONE: Record<
+  NegotiationTone,
+  { tr: string[]; en: string[] }
+> = {
+  friendly: {
+    tr: [
+      'Pazarlık sünnettir, gönüller bir olsun!',
+      'Çaylar bizden, kâr Allah’tan!',
+      'Gülen yüz pasajın yarısını satar!',
+      'Müşteri velinimetimizdir, yeter ki kasa boş kalmasın!',
+      'Komşuda pişer, bize de düşer!',
+      'Tatlı dil pasajda kilit açar!',
+    ],
+    en: [
+      'A fair haggle warms the heart!',
+      'Tea is on the house, profit is in fate!',
+      'A warm smile sells half the arcade!',
+      'Sweet words unlock every deal!',
+    ],
+  },
+  analytical: {
+    tr: [
+      'Hesabını bilmeyen kasap, ne satır bırakır ne masat!',
+      'Rakam konuşunca pazarlık susar!',
+      'Ucuz etin yahnisi yavan, yan sanayi ekranı soluk olur!',
+      'Esnafın terazisi milim şaşmaz!',
+      'İyi mal kendini satar, temiz IMEI baş tacıdır!',
+      'Ekranı sağlam olanın piyasası sağlam olur!',
+    ],
+    en: [
+      'When numbers speak, haggling listens!',
+      'A true appraiser’s scale never misses a lira!',
+      'Clean IMEI and original OLED speak for themselves!',
+      'Cheap parts cost twice in the long run!',
+    ],
+  },
+  firm: {
+    tr: [
+      'Gelen gideni aratır, bu fiyatı bir daha bulamazsın!',
+      'Kurt esnaf malını ölü fiyata bırakmaz!',
+      'Tezgâhta şaka olmaz, rakam son sözdür!',
+      'Beleş peynir ancak fare kapanında olur!',
+      'Son fiyatım budur; üstü zarar, altı ayıp!',
+      'Pasajda herkes satıcı ama malın kıymetini bilen az!',
+    ],
+    en: [
+      'Walk out and you’ll miss this price!',
+      'A seasoned merchant never sells at a loss!',
+      'Free cheese only exists in a mousetrap!',
+      'Final figure — no jokes at this counter!',
+    ],
+  },
+};
+
+const TEA_PROVERBS = {
+  tr: [
+    'Bir fincan çayın kırk yıl hatırı, pazarlıkta %5 indirimi vardır!',
+    'İnce bellide çay geldi mi buzlar erir!',
+    'Çay taze, muhabbet koyu, fiyat tatlı!',
+  ],
+  en: [
+    'A fresh tulip glass of tea melts any hard bargain!',
+    'Hot tea poured — counter mood warmed!',
+  ],
+};
+
+const SHOP_SPIRIT_META: Record<
+  NegotiationTone,
+  {
+    btnTr: string;
+    btnEn: string;
+    spiritTr: string;
+    spiritEn: string;
+    activeCls: string;
+    bubbleCls: string;
+    textCls: string;
+  }
+> = {
+  friendly: {
+    btnTr: 'Dostane',
+    btnEn: 'Friendly',
+    spiritTr: 'Sıcak Pasaj Ruhu',
+    spiritEn: 'Warm Hospitality',
+    activeCls: 'border-emerald-400/60 bg-emerald-500/20 text-emerald-200',
+    bubbleCls: 'border-emerald-400/50 bg-[#12241E]/95 text-emerald-100',
+    textCls: 'text-emerald-300',
+  },
+  analytical: {
+    btnTr: 'Profesyonel',
+    btnEn: 'Professional',
+    spiritTr: 'Bilirkişi Ruhu',
+    spiritEn: 'Pro Appraiser',
+    activeCls: 'border-sky-400/60 bg-sky-500/20 text-sky-200',
+    bubbleCls: 'border-sky-400/50 bg-[#111E2D]/95 text-sky-100',
+    textCls: 'text-sky-300',
+  },
+  firm: {
+    btnTr: 'Sert',
+    btnEn: 'Firm',
+    spiritTr: 'Kurt Esnaf Ruhu',
+    spiritEn: 'Hardball Boss',
+    activeCls: 'border-rose-400/60 bg-rose-500/20 text-rose-200',
+    bubbleCls: 'border-rose-400/50 bg-[#28131A]/95 text-rose-100',
+    textCls: 'text-rose-300',
+  },
+};
+
+interface ProverbBubble {
+  id: string;
+  text: string;
+  tone: NegotiationTone;
+  spiritLabel: string;
+}
 
 const isEncounterOnDesk = (enc: CustomerEncounter | null): boolean => {
   if (!enc) return false;
@@ -179,6 +314,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
   cash,
   shopTier,
   shopLevel,
+  prestigeLevel = 0,
+  radioStation = 'OFF',
   legacyPath,
   dealStreak,
   upgrades,
@@ -192,6 +329,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
   queueTotal,
   activeStoreEvent,
   hiredStaff,
+  onCycleRadio,
+  onTeaBoilerFresh,
+  onDiscloseBuyer,
+  complaintCount = 0,
+  openComplaintCount = 0,
+  onOpenComplaintArchive,
+  onOpenWarrantyCertificate,
+  onOpenCertificateById,
   onOpenNewspaper,
   onOpenMissions,
   onClaimDailyQuest,
@@ -228,8 +373,109 @@ export const CounterView: React.FC<CounterViewProps> = ({
   const [offerPrice, setOfferPrice] = useState(0);
   const [portraitFailed, setPortraitFailed] = useState(false);
   const [showLoupeModal, setShowLoupeModal] = useState(false);
+  const [loupeInitialCategory, setLoupeInitialCategory] = useState<
+    InspectionCategory | undefined
+  >(undefined);
+  const [showSoftwareRecoveryModal, setShowSoftwareRecoveryModal] = useState(false);
+  const [showEsnafReportModal, setShowEsnafReportModal] = useState(false);
+  const [selectedTone, setSelectedTone] = useState<NegotiationTone>('friendly');
+  const [proverbBubbles, setProverbBubbles] = useState<ProverbBubble[]>([]);
+  const [teaBoilerFreshActive, setTeaBoilerFreshActive] = useState(false);
+  const [teaBoilerCooldownSec, setTeaBoilerCooldownSec] = useState(0);
   const turnStartRef = useRef<number>(Date.now());
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const teaBurstTimeoutRef = useRef<number | null>(null);
+  const hasTeaBoilerActive = activeDecorations.includes('tea_boiler');
+
+  const triggerEsnafProverb = (
+    tone: NegotiationTone,
+    customPool?: { tr: string[]; en: string[] }
+  ) => {
+    const pool = customPool
+      ? lang === 'en'
+        ? customPool.en
+        : customPool.tr
+      : lang === 'en'
+      ? ESNAF_PROVERBS_BY_TONE[tone].en
+      : ESNAF_PROVERBS_BY_TONE[tone].tr;
+    const text = pool[Math.floor(Math.random() * pool.length)];
+    const meta = SHOP_SPIRIT_META[tone];
+    const id = `prv_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+    const bubble: ProverbBubble = {
+      id,
+      text,
+      tone,
+      spiritLabel: lang === 'en' ? meta.spiritEn : meta.spiritTr,
+    };
+    setProverbBubbles((prev) => [...prev.slice(-1), bubble]);
+    window.setTimeout(() => {
+      setProverbBubbles((prev) => prev.filter((b) => b.id !== id));
+    }, 3600);
+  };
+
+  const triggerTeaBoilerFreshBrew = () => {
+    if (!hasTeaBoilerActive) return;
+    setTeaBoilerFreshActive(true);
+    setTeaBoilerCooldownSec(18);
+    soundFX.playTea();
+    triggerEsnafProverb('friendly', {
+      tr: [
+        'Taze çay doldu! Tavşan kanı dem kokusu pasajı sardı (+4 Moral · +5 Sabır)',
+        'Çay kazanı fokurdadı — taze dem hazır! Esnafın morali tavan (+4 Moral · +5 Sabır)',
+        'Taze çay doldu! İnce belliler şıngırdadı, muhabbet ısındı (+4 Moral · +5 Sabır)',
+      ],
+      en: [
+        'Fresh tea brewed! Warm aroma lifts the whole arcade (+4 Mood · +5 Patience)',
+        'The copper boiler is steaming — fresh tea ready! (+4 Mood · +5 Patience)',
+      ],
+    });
+    onTeaBoilerFresh?.();
+    if (teaBurstTimeoutRef.current) {
+      window.clearTimeout(teaBurstTimeoutRef.current);
+    }
+    teaBurstTimeoutRef.current = window.setTimeout(() => {
+      setTeaBoilerFreshActive(false);
+    }, 3800);
+  };
+
+  // Periodic automatic "Taze çay doldu!" brew cycle every 34s while Tea Boiler is active
+  useEffect(() => {
+    if (!hasTeaBoilerActive) return;
+    const intervalId = window.setInterval(() => {
+      triggerTeaBoilerFreshBrew();
+    }, 34000);
+    return () => {
+      window.clearInterval(intervalId);
+      if (teaBurstTimeoutRef.current) {
+        window.clearTimeout(teaBurstTimeoutRef.current);
+      }
+    };
+  }, [hasTeaBoilerActive, lang]);
+
+  // Countdown tick for manual "Demle" button cooldown
+  useEffect(() => {
+    if (teaBoilerCooldownSec <= 0) return;
+    const tick = window.setInterval(() => {
+      setTeaBoilerCooldownSec((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [teaBoilerCooldownSec > 0]);
+
+  const waitingCustomers: WaitingCustomerPreview[] = useMemo(() => {
+    return queue.slice(queueIndex + 1, queueIndex + 3).map((q) => ({
+      id: q.id,
+      name: q.customerName,
+      archetypeId: q.archetypeId,
+      portraitPath: q.portraitPath,
+      fallbackColor: CUSTOMER_ARCHETYPES[q.archetypeId]?.fallbackColor ?? '#475569',
+    }));
+  }, [queue, queueIndex]);
+
+  const openHandsOnInspect = (category?: InspectionCategory) => {
+    soundFX.playClick();
+    setLoupeInitialCategory(category);
+    setShowLoupeModal(true);
+  };
 
   const activeEventVisual = activeStoreEvent?.visualKind ?? null;
   const locNews = getLocalizedNews(dailyNews, lang);
@@ -240,6 +486,9 @@ export const CounterView: React.FC<CounterViewProps> = ({
     setStage(alreadyOnDesk ? 'ON_DESK' : 'ARRIVED');
     setPortraitFailed(false);
     setShowLoupeModal(false);
+    setLoupeInitialCategory(undefined);
+    setShowSoftwareRecoveryModal(false);
+    setShowEsnafReportModal(false);
     turnStartRef.current = Date.now();
     if (!alreadyOnDesk) {
       soundFX.playDoorBell();
@@ -288,8 +537,15 @@ export const CounterView: React.FC<CounterViewProps> = ({
     }
     if (encounter.type === 'TRADE_IN') {
       const min = encounter.customerPrice;
-      const max = roundPrice(Math.max(min + 1000, encounter.customerPrice * 1.8));
-      return { min, max, step: 250 };
+      const maxCap = Math.max(
+        min + 500,
+        roundPrice(encounter.device.askingPrice - 500)
+      );
+      const max = Math.min(
+        maxCap,
+        roundPrice(Math.max(min + 1000, encounter.secretLimit * 1.35))
+      );
+      return { min, max: Math.max(min + 250, max), step: 250 };
     }
     const min = encounter.customerPrice;
     const max = Math.max(min + 250, encounter.device.askingPrice);
@@ -322,6 +578,12 @@ export const CounterView: React.FC<CounterViewProps> = ({
           activeDecorations={activeDecorations}
           activeEventVisual={activeEventVisual}
           listedPhones={listedPhones}
+          prestigeLevel={prestigeLevel}
+          radioStation={radioStation}
+          waitingCustomers={[]}
+          teaServedOnCounter={false}
+          teaBoilerFreshActive={teaBoilerFreshActive}
+          shopSpirit={selectedTone}
         />
         <div className="relative z-10 rounded-2xl border border-white/12 bg-[#141C27]/95 p-5 max-w-md shadow-2xl">
           <h2 className="font-display text-lg font-extrabold text-slate-100">
@@ -388,7 +650,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
     day
   );
   const resistance = isNegotiable
-    ? getNegotiationResistance(encounter, offerPrice, 'friendly')
+    ? getNegotiationResistance(encounter, offerPrice, selectedTone)
     : null;
 
   const roleText = getLocalizedRoleText(encounter.type, lang, {
@@ -425,7 +687,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
     if (encounter.type === 'SELLER' && offerPrice > cash) return;
     const elapsedSec = (Date.now() - turnStartRef.current) / 1000;
     turnStartRef.current = Date.now();
-    onSubmitOffer(offerPrice, 'friendly', elapsedSec);
+    triggerEsnafProverb(selectedTone);
+    onSubmitOffer(offerPrice, selectedTone, elapsedSec);
+  };
+
+  const handleSelectTone = (tone: NegotiationTone) => {
+    soundFX.playClick();
+    setSelectedTone(tone);
+    triggerEsnafProverb(tone);
   };
 
   const adjustOffer = (delta: number) => {
@@ -454,9 +723,48 @@ export const CounterView: React.FC<CounterViewProps> = ({
         activeDecorations={activeDecorations}
         activeEventVisual={activeEventVisual}
         listedPhones={listedPhones}
+        prestigeLevel={prestigeLevel}
+        radioStation={radioStation}
+        waitingCustomers={waitingCustomers}
+        teaServedOnCounter={encounter.teaServed}
+        teaBoilerFreshActive={teaBoilerFreshActive}
+        shopSpirit={selectedTone}
       />
 
-      {/* SLIM SINGLE-LINE TOP BAR: NEWS + QUEUE + ACTIVE QUEST */}
+      {/* FLOATING ESNAF VECİZELERİ SPEECH BUBBLES (NON-BLOCKING) */}
+      <div
+        aria-live="polite"
+        className="pointer-events-none fixed top-14 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5 w-full max-w-md px-3"
+      >
+        <AnimatePresence>
+          {proverbBubbles.map((bubble) => {
+            const meta = SHOP_SPIRIT_META[bubble.tone];
+            return (
+              <motion.div
+                key={bubble.id}
+                initial={{ opacity: 0, y: 14, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -12, scale: 0.94 }}
+                transition={{ duration: 0.22 }}
+                className={`relative rounded-2xl border px-3.5 py-2 shadow-2xl backdrop-blur-md text-center ${meta.bubbleCls}`}
+              >
+                <div className={`text-[9px] font-extrabold tracking-wide uppercase ${meta.textCls}`}>
+                  {bubble.spiritLabel}
+                </div>
+                <div className="text-xs font-bold leading-snug mt-0.5 italic">
+                  “{bubble.text}”
+                </div>
+                {/* Small Speech Bubble Tail */}
+                <div
+                  className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 border-r border-b ${meta.bubbleCls}`}
+                />
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* SLIM SINGLE-LINE TOP BAR: NEWS + RADIO + QUEUE + ACTIVE QUEST */}
       <div className="relative z-10 shrink-0 flex items-center justify-between gap-2 border-b border-white/10 bg-[#131A24]/95 px-2.5 py-1 text-[10.5px]">
         <button
           type="button"
@@ -467,7 +775,107 @@ export const CounterView: React.FC<CounterViewProps> = ({
           <span className="truncate font-semibold">{locNews.headline}</span>
         </button>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Interactive Eski Pasaj Radyosu Switcher */}
+          {onCycleRadio && activeDecorations.includes('vintage_radio') && (() => {
+            const stMeta = RADIO_STATIONS_META[radioStation];
+            const trackIdx = (day + queueIndex) % Math.max(1, stMeta.tracks.length);
+            const trackTitle = stMeta.tracks[trackIdx];
+            return (
+              <button
+                type="button"
+                onClick={onCycleRadio}
+                title={
+                  trackTitle
+                    ? `${stMeta.freq} · ${trackTitle}`
+                    : bi('Eski Pasaj Radyosunu Aç (Arabesk / 90lar Pop)', 'Turn on Vintage Radio (Arabesk / 90s Pop)')
+                }
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9.5px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                  radioStation === 'ARABESK'
+                    ? 'border-amber-400/50 bg-amber-500/18 text-amber-200 hover:bg-amber-500/25'
+                    : radioStation === 'POP90'
+                    ? 'border-fuchsia-400/50 bg-fuchsia-500/18 text-fuchsia-200 hover:bg-fuchsia-500/25'
+                    : 'border-white/12 bg-[#1B2432] text-slate-300 hover:text-white'
+                }`}
+              >
+                <Radio className={`w-3 h-3 shrink-0 ${radioStation !== 'OFF' ? 'animate-pulse' : ''}`} />
+                <span className="hidden md:inline max-w-[140px] truncate">
+                  {radioStation === 'OFF'
+                    ? bi('Eski Radyo', 'Old Radio')
+                    : `${stMeta.freq} · ${trackTitle}`}
+                </span>
+                <span className="md:hidden">
+                  {radioStation === 'ARABESK'
+                    ? '94.2'
+                    : radioStation === 'POP90'
+                    ? '98.8'
+                    : bi('Radyo', 'Radio')}
+                </span>
+              </button>
+            );
+          })()}
+
+          {/* Interactive Çay Kazanı Fresh Brew Trigger */}
+          {hasTeaBoilerActive && (
+            <button
+              type="button"
+              disabled={teaBoilerCooldownSec > 0}
+              onClick={triggerTeaBoilerFreshBrew}
+              title={bi(
+                'Bakır Çay Kazanı: Periyodik olarak taze çay dolar ve +4 Moral / +5 Sabır verir. Hazırken tıklayıp hemen taze dem çek!',
+                'Copper Tea Boiler: Periodically brews fresh tea (+4 Mood / +5 Patience). Tap when ready to pour immediately!'
+              )}
+              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9.5px] font-bold transition-colors whitespace-nowrap ${
+                teaBoilerFreshActive
+                  ? 'border-amber-300/75 bg-amber-500/25 text-amber-100'
+                  : teaBoilerCooldownSec > 0
+                  ? 'border-white/10 bg-[#171F2B] text-slate-400 cursor-default'
+                  : 'border-amber-400/45 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25 cursor-pointer'
+              }`}
+            >
+              <Coffee className={`w-3 h-3 shrink-0 ${teaBoilerFreshActive ? 'animate-bounce text-amber-300' : 'text-amber-400'}`} />
+              <span className="hidden lg:inline">
+                {teaBoilerFreshActive
+                  ? bi('Taze Çay Doldu!', 'Fresh Brew!')
+                  : teaBoilerCooldownSec > 0
+                  ? bi(`Dem (${teaBoilerCooldownSec}s)`, `Brew (${teaBoilerCooldownSec}s)`)
+                  : bi('Taze Dem Çek', 'Pour Fresh Tea')}
+              </span>
+              <span className="lg:hidden font-mono">
+                {teaBoilerCooldownSec > 0 ? `${teaBoilerCooldownSec}s` : bi('Dem', 'Tea')}
+              </span>
+            </button>
+          )}
+
+          {onOpenComplaintArchive && (
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                onOpenComplaintArchive();
+              }}
+              title={bi('Müşteri Şikayet Dosyası & Garanti Belgeleri', 'Customer Complaint File & Warranties')}
+              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9.5px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                openComplaintCount > 0
+                  ? 'border-rose-400/55 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30'
+                  : 'border-white/12 bg-[#1B2432] text-slate-300 hover:text-white'
+              }`}
+            >
+              <FolderOpen className="w-3 h-3 shrink-0" />
+              <span className="hidden lg:inline">
+                {bi('Şikayet Dosyası', 'Complaints')}
+              </span>
+              <span className="lg:hidden">
+                {bi('Dosya', 'File')}
+              </span>
+              {(complaintCount > 0 || openComplaintCount > 0) && (
+                <span className="font-mono text-[9px] font-extrabold text-amber-300">
+                  {openComplaintCount > 0 ? `${openComplaintCount}!` : complaintCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {dealStreak >= 2 && (
             <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-extrabold text-amber-300">
               <Flame className="w-3 h-3 text-amber-400" />
@@ -637,6 +1045,18 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       </strong>
                     </span>
                   </div>
+
+                  {waitingCustomers.length > 0 && (
+                    <div className="flex items-center gap-2 pt-0.5 text-[10px] text-amber-200/85">
+                      <Coffee className="w-3 h-3 text-amber-400 shrink-0" />
+                      <span className="truncate">
+                        {bi('Bekleme koltuğunda çay yudumlayanlar:', 'Sipping tea in waiting seats:')}{' '}
+                        <strong className="text-slate-100">
+                          {waitingCustomers.map((w) => w.name.split(' ')[0]).join(' · ')}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Visual Preview of Incoming Phone / Accessory */}
@@ -920,14 +1340,46 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       <ShieldAlert className="w-4 h-4" />
                       {bi('Garanti & İade Talebi', 'Warranty Claim')}
                     </span>
-                    <span className="font-mono text-xs font-extrabold text-amber-300">
-                      {formatTRY(encounter.warrantyRecord.salePrice)}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {onOpenWarrantyCertificate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundFX.playClick();
+                            onOpenWarrantyCertificate(encounter.warrantyRecord!);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[9.5px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap"
+                        >
+                          <FileCheck2 className="w-3 h-3" />
+                          {bi('Garanti Belgesi', 'Certificate')}
+                        </button>
+                      )}
+                      <span className="font-mono text-xs font-extrabold text-amber-300 tabular-nums">
+                        {formatTRY(encounter.warrantyRecord.salePrice)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 rounded-lg border border-rose-400/40 bg-rose-500/12 px-2.5 py-1.5 space-y-0.5">
+                    <div className="flex items-center justify-between gap-1 text-[10px]">
+                      <span className="font-bold uppercase tracking-wide text-rose-300">
+                        {bi('Bildirilen Arıza', 'Reported Fault')}
+                      </span>
+                      <span className="font-extrabold text-rose-100 truncate">
+                        {encounter.warrantyDefectId
+                          ? getLocalizedDefect(encounter.warrantyDefectId, lang).name
+                          : bi('Donanım Arızası', 'Hardware Fault')}
+                      </span>
+                    </div>
+                    {encounter.warrantyFaultDetail && (
+                      <p className="text-[10px] text-slate-200 leading-snug line-clamp-2">
+                        {encounter.warrantyFaultDetail}
+                      </p>
+                    )}
                   </div>
                   <div className="flex-1 min-h-0">
                     <PhoneInspectSVG device={encounter.device} revealAll fluid />
                   </div>
-                  <div className="shrink-0 rounded-lg border border-rose-400/25 bg-rose-500/10 px-2.5 py-1.5 text-[10px] text-slate-200 text-center">
+                  <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2.5 py-1 text-[10px] text-slate-300 text-center">
                     {bi(
                       'Ücretsiz onarım itibar kazandırır; reddetmek puan düşürür.',
                       'Free repair boosts reputation; rejecting harms shop rating.'
@@ -941,7 +1393,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       <Database className="w-4 h-4 shrink-0" />
                       <span className="truncate">{encounter.dataRecoveryJob.title}</span>
                     </span>
-                    <span className="font-mono text-xs font-extrabold text-emerald-400 shrink-0">
+                    <span className="font-mono text-xs font-extrabold text-emerald-400 shrink-0 tabular-nums">
                       +{formatTRY(encounter.customerPrice)}
                     </span>
                   </div>
@@ -950,8 +1402,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </div>
                   <div className="shrink-0 rounded-lg border border-sky-400/25 bg-sky-500/10 px-2.5 py-1.5 text-[10px] text-slate-200 text-center">
                     {bi(
-                      'Yazılım kurtarma ücretsiz ama risklidir; laboratuvar garantilidir.',
-                      'Software recovery is free but risky; lab recovery guarantees success.'
+                      'Yazılım lisansı daha ekonomiktir ama risk taşır; Temiz Oda %100 garantilidir.',
+                      'Software tool is cheaper but risky; Clean Room Lab guarantees 100% recovery.'
                     )}
                   </div>
                 </div>
@@ -986,6 +1438,29 @@ export const CounterView: React.FC<CounterViewProps> = ({
                         {encounter.device.model}
                       </div>
                     )}
+
+                    {/* Customer Fault Report ("Arıza Bildirim") Note */}
+                    {encounter.customerFaultReport && (
+                      <div
+                        className={`rounded-md border px-2 py-1 text-[9.5px] leading-snug ${
+                          encounter.customerFaultReport.honesty === 'HIDING'
+                            ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
+                            : 'border-rose-400/35 bg-rose-500/10 text-rose-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 font-extrabold">
+                          <span className="inline-flex items-center gap-1 truncate">
+                            <AlertTriangle className="w-3 h-3 shrink-0 text-amber-300" />
+                            <span className="truncate">
+                              {bi('Arıza Bildirimi:', 'Fault Report:')} {encounter.customerFaultReport.headline}
+                            </span>
+                          </span>
+                        </div>
+                        <p className="text-[9.5px] text-slate-200/95 line-clamp-2 mt-0.5 italic">
+                          {encounter.customerFaultReport.symptomText}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* LIVE INTERACTIVE SMARTPHONE VISUAL MODEL (FRONT / BACK + DEFECTS) */}
@@ -999,36 +1474,22 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       fluid
                     />
 
-                    {/* Floating Optical Loupe & Quick Scan Buttons right on the ESD Mat */}
+                    {/* Floating Hands-On Inspection Workbench Trigger on the ESD Mat */}
                     {(encounter.type === 'SELLER' ||
                       (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            soundFX.playClick();
-                            setShowLoupeModal(true);
-                          }}
-                          className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg border border-amber-400/55 bg-[#1B160E]/92 px-2 py-1 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap shadow-md"
-                          title={bi('Büyüteçle Fiziksel İncele', 'Optical Loupe Inspect')}
-                        >
-                          <Search className="w-3 h-3 text-amber-400" />
-                          {bi('Büyüteç', 'Loupe')}
-                        </button>
-                        {!all4Inspected && (
-                          <button
-                            type="button"
-                            onClick={onInspectAll}
-                            className="absolute top-2 right-2 rounded-lg border border-white/15 bg-[#1B2534]/95 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-[#27354A] cursor-pointer whitespace-nowrap shadow-md"
-                          >
-                            {bi('Hızlı Tara', 'Scan All')}
-                          </button>
-                        )}
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => openHandsOnInspect(undefined)}
+                        className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg border border-amber-400/55 bg-[#1B160E]/92 px-2.5 py-1 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap shadow-md"
+                        title={bi('Elle Ekspertiz Masasını Aç', 'Open Hands-On Inspection Bench')}
+                      >
+                        <Search className="w-3 h-3 text-amber-400" />
+                        {bi('Elle Ekspertiz', 'Hands-On Bench')}
+                      </button>
                     )}
                   </div>
 
-                  {/* SELLER / TRADE-IN: 2x2 INSPECTION CONTROLS + LEVERAGE BAR */}
+                  {/* SELLER / TRADE-IN: 2x2 HANDS-ON INSPECTION SLOTS + LEVERAGE BAR */}
                   {(encounter.type === 'SELLER' ||
                     (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (
                     <div className="shrink-0 space-y-1.5">
@@ -1038,21 +1499,23 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           const foundDefect = inspectedTarget.defects.find(
                             (d) => DEFECT_CATALOG[d].category === z.id
                           );
+                          const defectShort = foundDefect
+                            ? getLocalizedDefect(foundDefect, lang).shortLabel
+                            : null;
                           return (
                             <button
                               key={z.id}
                               type="button"
-                              disabled={done}
-                              onClick={() => onInspect(z.id)}
-                              className={`rounded-lg border px-2 py-1 flex items-center justify-between gap-1 text-[10px] font-bold transition-colors ${
+                              onClick={() => openHandsOnInspect(z.id)}
+                              className={`rounded-lg border px-2 py-1 flex items-center justify-between gap-1 text-[10px] font-bold transition-colors cursor-pointer ${
                                 !done
-                                  ? 'border-white/12 bg-[#1B2534] text-slate-100 hover:border-amber-400/50 cursor-pointer'
+                                  ? 'border-white/12 bg-[#1B2534] text-slate-100 hover:border-amber-400/55 hover:bg-[#223044]'
                                   : foundDefect
-                                  ? 'border-rose-500/45 bg-rose-500/12 text-rose-200'
-                                  : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+                                  ? 'border-rose-500/45 bg-rose-500/12 text-rose-200 hover:bg-rose-500/20'
+                                  : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/18'
                               }`}
                             >
-                              <span className="inline-flex items-center gap-1 truncate">
+                              <span className="inline-flex items-center gap-1 min-w-0 truncate">
                                 {z.icon}
                                 <span className="truncate">
                                   {getLocalizedCategoryLabel(z.id, lang)}
@@ -1060,13 +1523,19 @@ export const CounterView: React.FC<CounterViewProps> = ({
                               </span>
                               {done ? (
                                 foundDefect ? (
-                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-rose-300 truncate max-w-[78px] shrink-0">
+                                    <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                    <span className="truncate">{defectShort}</span>
+                                  </span>
                                 ) : (
-                                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-emerald-300 shrink-0">
+                                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    {bi('Temiz', 'Clean')}
+                                  </span>
                                 )
                               ) : (
-                                <span className="text-[9px] text-amber-300 shrink-0">
-                                  {bi('Test', 'Scan')}
+                                <span className="text-[9px] font-semibold text-amber-300/90 shrink-0">
+                                  {bi('İncele →', 'Check →')}
                                 </span>
                               )}
                             </button>
@@ -1105,17 +1574,104 @@ export const CounterView: React.FC<CounterViewProps> = ({
                         <div className="rounded-lg border border-white/6 bg-[#0E141D] px-2 py-1 text-[10px] text-slate-400 text-center truncate">
                           {all4Inspected
                             ? bi(
-                                '✓ 4 test tamamlandı — gizli kusur tespit edilmedi.',
-                                '✓ All 4 checks clean — no hidden defects found.'
+                                '✓ 4 fiziksel kontrol temiz — gizli kusur bulunmadı.',
+                                '✓ All 4 physical checks clean — no hidden defects found.'
                               )
                             : bi(
-                                'Gizli kusurları bulup fiyat kırmak için test et!',
-                                'Scan the device to expose hidden defects for leverage!'
+                                'Alttaki bölmelere dokunup cihazı elle kontrol et!',
+                                'Tap any slot above to physically inspect the device!'
                               )}
                         </div>
                       )}
                     </div>
                   )}
+
+                  {/* BUYER / TRADE-IN: TRANSPARENT DEVICE HISTORY & HONEST DISCLOSURE */}
+                  {(encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') && (() => {
+                    const outDevice = encounter.device;
+                    const repairedList = outDevice.repairedDefects ?? [];
+                    const isOverseas = outDevice.defects.includes('imei_unregistered');
+                    const otherDefects = outDevice.defects.filter(
+                      (d) => d !== 'imei_unregistered'
+                    );
+                    const needsDisclosure =
+                      repairedList.length > 0 || isOverseas || otherDefects.length > 0;
+
+                    return (
+                      <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2 py-1.5 space-y-1 text-[9.5px]">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-slate-200 truncate">
+                            {bi('Satılan Cihaz Geçmişi', 'Outgoing Device History')}
+                          </span>
+                          <span
+                            className={`rounded px-1.5 py-0.2 font-mono text-[8.5px] font-extrabold shrink-0 ${
+                              isOverseas
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-400/35'
+                                : 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/30'
+                            }`}
+                          >
+                            {isOverseas
+                              ? bi('YURTDIŞI (KAYITSIZ)', 'OVERSEAS (UNREG)')
+                              : bi('TR KAYITLI IMEI', 'TR REGISTERED')}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1">
+                          {repairedList.length > 0 ? (
+                            <span className="rounded bg-amber-500/15 border border-amber-400/30 px-1.5 py-0.2 text-amber-200 font-semibold truncate max-w-full">
+                              {bi('Değişen:', 'Replaced:')}{' '}
+                              {repairedList
+                                .map((d) => getLocalizedDefect(d, lang).shortLabel)
+                                .join(', ')}
+                            </span>
+                          ) : (
+                            <span className="rounded bg-emerald-500/12 px-1.5 py-0.2 text-emerald-300 font-semibold">
+                              {bi('Tamirsiz / Orijinal', 'Untouched / Original')}
+                            </span>
+                          )}
+                          {outDevice.lastRepairQuality === 'ROUGH' && (
+                            <span className="rounded bg-rose-500/20 px-1.5 py-0.2 text-rose-300 font-bold">
+                              {bi('⚠ Kaba İşçilik', '⚠ Rough Repair')}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              soundFX.playClick();
+                              setShowEsnafReportModal(true);
+                            }}
+                            className="flex-1 rounded-md border border-amber-400/45 bg-amber-500/15 px-2 py-1 text-[9.5px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
+                          >
+                            <ClipboardCheck className="w-3 h-3 shrink-0" />
+                            {bi('Esnaf Onarım Raporu', 'Merchant Report')}
+                          </button>
+
+                          {needsDisclosure && encounter.outcome === 'ACTIVE' && onDiscloseBuyer && (
+                            encounter.buyerDisclosed ? (
+                              <div className="flex items-center gap-1 text-emerald-300 font-bold shrink-0 px-1">
+                                <ShieldCheck className="w-3 h-3 shrink-0" />
+                                <span className="text-[9px] whitespace-nowrap">
+                                  {bi('Beyan ✓', 'Disclosed ✓')}
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={onDiscloseBuyer}
+                                className="flex-1 rounded-md border border-sky-400/45 bg-sky-500/15 px-2 py-1 text-[9.5px] font-extrabold text-sky-200 hover:bg-sky-500/25 cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
+                              >
+                                <ShieldCheck className="w-3 h-3 shrink-0" />
+                                {bi('Dürüst Beyan Et', 'Disclose')}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* BUYER: COMPACT CROSS-SELL ACCESSORY BAR */}
                   {encounter.type === 'BUYER' && encounter.outcome === 'ACTIVE' && (
@@ -1252,6 +1808,21 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </p>
 
                   <div className="w-full flex items-center gap-1.5 mt-1">
+                    {encounter.outcome === 'DEAL_CLOSED' &&
+                      encounter.deliveredCertificateId &&
+                      onOpenCertificateById && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundFX.playClick();
+                            onOpenCertificateById(encounter.deliveredCertificateId!);
+                          }}
+                          className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-amber-400/45 bg-amber-500/15 py-2 px-2 text-xs font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap"
+                        >
+                          <FileCheck2 className="w-3.5 h-3.5 shrink-0" />
+                          {bi('Garanti Belgesi', 'Warranty')}
+                        </button>
+                      )}
                     {(encounter.type === 'SELLER' ||
                       encounter.type === 'TRADE_IN' ||
                       encounter.type === 'BULK_AUCTION') &&
@@ -1319,16 +1890,19 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     )}
                   </div>
 
-                  {/* Middle Balanced Stack (Tactics + Slider + Valuation) */}
-                  <div className="flex-1 min-h-0 flex flex-col justify-center gap-2 overflow-hidden">
-                    {/* Block 2: Esnaf Tactics */}
-                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 sm:p-2">
+                  {/* Middle Balanced Stack (Tactics + Tone Spirit + Slider + Valuation) */}
+                  <div className="flex-1 min-h-0 flex flex-col justify-center gap-1.5 overflow-hidden">
+                    {/* Block 2: Esnaf Tactics + Tone & Esnaflık Ruhu Selector */}
+                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 space-y-1.5">
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
                           type="button"
                           disabled={encounter.teaServed || cash < teaCost}
-                          onClick={onServeTea}
-                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/30 bg-amber-500/12 py-1.5 text-[10px] font-bold text-amber-200 hover:bg-amber-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                          onClick={() => {
+                            triggerEsnafProverb('friendly', TEA_PROVERBS);
+                            onServeTea();
+                          }}
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/30 bg-amber-500/12 py-1 text-[10px] font-bold text-amber-200 hover:bg-amber-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                         >
                           <Coffee className="w-3 h-3 shrink-0" />
                           {encounter.teaServed
@@ -1343,8 +1917,13 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           disabled={
                             encounter.bluffUsed || encounter.honestPitchUsed
                           }
-                          onClick={onBluffOrPitch}
-                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/30 bg-sky-500/12 py-1.5 text-[10px] font-bold text-sky-200 hover:bg-sky-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                          onClick={() => {
+                            triggerEsnafProverb(
+                              encounter.type === 'SELLER' ? 'firm' : 'friendly'
+                            );
+                            onBluffOrPitch();
+                          }}
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/30 bg-sky-500/12 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                         >
                           <Scale className="w-3 h-3 shrink-0" />
                           {encounter.type === 'SELLER'
@@ -1356,7 +1935,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           <button
                             type="button"
                             onClick={onAcceptPosInstallment}
-                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-400/35 bg-emerald-500/15 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-400/35 bg-emerald-500/15 py-1 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap"
                           >
                             <CreditCard className="w-3 h-3 shrink-0" />
                             {bi('0% POS', '0% POS')}
@@ -1365,14 +1944,53 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           <button
                             type="button"
                             disabled={encounter.legacyDialogueUsed}
-                            onClick={onUseLegacyDialogue}
-                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-purple-400/30 bg-purple-500/12 py-1.5 text-[10px] font-bold text-purple-200 hover:bg-purple-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                            onClick={() => {
+                              triggerEsnafProverb(selectedTone);
+                              onUseLegacyDialogue();
+                            }}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-purple-400/30 bg-purple-500/12 py-1 text-[10px] font-bold text-purple-200 hover:bg-purple-500/22 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                             title={legacyInfo.title}
                           >
                             <Award className="w-3 h-3 shrink-0" />
                             {bi('Esnaf Sözü', 'Perk Line')}
                           </button>
                         )}
+                      </div>
+
+                      {/* Negotiation Tone & Live Shop Spirit Selector */}
+                      <div className="pt-1 border-t border-white/8 space-y-1">
+                        <div className="flex items-center justify-between text-[9.5px]">
+                          <span className="text-slate-400 font-semibold">
+                            {bi('Esnaflık Ruhu', 'Shop Spirit')}
+                          </span>
+                          <span className={`font-extrabold ${SHOP_SPIRIT_META[selectedTone].textCls}`}>
+                            {lang === 'en'
+                              ? SHOP_SPIRIT_META[selectedTone].spiritEn
+                              : SHOP_SPIRIT_META[selectedTone].spiritTr}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(['friendly', 'analytical', 'firm'] as NegotiationTone[]).map(
+                            (toneId) => {
+                              const meta = SHOP_SPIRIT_META[toneId];
+                              const active = selectedTone === toneId;
+                              return (
+                                <button
+                                  key={toneId}
+                                  type="button"
+                                  onClick={() => handleSelectTone(toneId)}
+                                  className={`rounded-md border py-1 text-[9.5px] font-extrabold transition-colors cursor-pointer whitespace-nowrap ${
+                                    active
+                                      ? meta.activeCls
+                                      : 'border-white/8 bg-[#151D29] text-slate-400 hover:text-slate-200'
+                                  }`}
+                                >
+                                  {lang === 'en' ? meta.btnEn : meta.btnTr}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1454,6 +2072,28 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             );
                           })()}
                         </>
+                      ) : encounter.type === 'TRADE_IN' && encounter.tradeInDevice ? (
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">
+                              {bi('Verilen Cihaz / Takas Değeri', 'Your Phone / Trade-In Val')}
+                            </span>
+                            <span className="font-mono text-slate-200">
+                              {formatTRY(encounter.device.askingPrice)} /{' '}
+                              <strong className="text-sky-300">
+                                ~{formatTRY(valuation.asIsValue)}
+                              </strong>
+                            </span>
+                          </div>
+                          <div className="flex justify-between border-t border-white/6 pt-0.5">
+                            <span className="text-slate-400">
+                              {bi('Üste Nakit + Takas Toplam', 'Cash Diff + Trade Value')}
+                            </span>
+                            <span className="font-mono font-extrabold text-emerald-300">
+                              +{formatTRY(offerPrice)} ({formatTRY(offerPrice + Math.round(valuation.asIsValue * 0.85))})
+                            </span>
+                          </div>
+                        </div>
                       ) : (
                         <div className="flex justify-between">
                           <span className="text-slate-400">
@@ -1530,62 +2170,76 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     </>
                   )}
 
-                  {encounter.type === 'EXPRESS_REPAIR' && (
-                    <>
-                      <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center tabular-nums">
-                        <div className="text-[10.5px] text-amber-200">
-                          {bi('Acil Servis Ücreti', 'Express Payout')}
+                  {encounter.type === 'EXPRESS_REPAIR' && (() => {
+                    const partCost = encounter.expressPartCost ?? 0;
+                    const expressFee = getQuickRepairExpressFee(partCost);
+                    const quickTotal = partCost + expressFee;
+                    return (
+                      <>
+                        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center tabular-nums">
+                          <div className="text-[10.5px] text-amber-200">
+                            {bi('Acil Servis Ücreti', 'Express Payout')}
+                          </div>
+                          <div className="font-mono text-xl font-extrabold text-emerald-300">
+                            +{formatTRY(encounter.customerPrice)}
+                          </div>
+                          <div className="text-[10px] text-slate-300 mt-0.5">
+                            {bi('Parça Maliyeti', 'Part Cost')}: {formatTRY(partCost)}
+                          </div>
                         </div>
-                        <div className="font-mono text-xl font-extrabold text-emerald-300">
-                          +{formatTRY(encounter.customerPrice)}
-                        </div>
-                        <div className="text-[10px] text-slate-300 mt-0.5">
-                          {bi('Parça Maliyeti', 'Part Cost')}:{' '}
-                          {formatTRY(encounter.expressPartCost ?? 0)}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        {hasRepairBench && (
+                        <div className="space-y-1.5 tabular-nums">
+                          {hasRepairBench && (
+                            <button
+                              type="button"
+                              disabled={cash < partCost}
+                              onClick={onExpressRepairMini}
+                              className="w-full rounded-xl bg-amber-500 py-1.5 px-2 text-center text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                            >
+                              <div className="inline-flex items-center justify-center gap-1 text-xs font-extrabold">
+                                <Zap className="w-3.5 h-3.5" />
+                                {bi('Kendin Onar (Mini Tamir)', 'Fix Yourself (Mini Repair)')} · {formatTRY(partCost)}
+                              </div>
+                              <div className="text-[9.5px] font-bold text-slate-900/80">
+                                {bi('Sadece parça + bahşiş şansı', 'Parts only + tip bonus')}
+                              </div>
+                            </button>
+                          )}
                           <button
                             type="button"
-                            disabled={cash < (encounter.expressPartCost ?? 0)}
-                            onClick={onExpressRepairMini}
-                            className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                            disabled={cash < quickTotal}
+                            onClick={onExpressRepairQuick}
+                            className="w-full rounded-xl bg-emerald-500 py-1.5 px-2 text-center text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
                           >
-                            <Zap className="w-3.5 h-3.5" />
-                            {bi('Kendin Onar (Mini Oyun)', 'Fix Yourself (Mini-Game)')}
+                            <div className="inline-flex items-center justify-center gap-1 text-xs font-extrabold">
+                              <Wrench className="w-3.5 h-3.5" />
+                              {bi('Hızlı Onar', 'Quick Repair')} · {formatTRY(quickTotal)}
+                            </div>
+                            <div className="text-[9.5px] font-bold text-slate-900/80">
+                              +{formatTRY(expressFee)} {bi('Erken Teslimat Ücreti', 'Express Delivery Fee')}
+                            </div>
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={cash < (encounter.expressPartCost ?? 0)}
-                          onClick={onExpressRepairQuick}
-                          className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
-                        >
-                          <Wrench className="w-3.5 h-3.5" />
-                          {bi('Hızlı Onar & Teslim Et', 'Quick Repair & Deliver')}
-                        </button>
-                        {hasMasterTech && (
+                          {hasMasterTech && (
+                            <button
+                              type="button"
+                              disabled={cash < partCost}
+                              onClick={onDelegateExpressRepair}
+                              className="w-full inline-flex items-center justify-center gap-1 rounded-xl border border-sky-400/35 bg-sky-500/15 py-1.5 text-[11px] font-bold text-sky-200 cursor-pointer"
+                            >
+                              <UserCog className="w-3.5 h-3.5" />
+                              {bi('Hasan Ustaya Devret', 'Delegate to Master Hasan')} ({formatTRY(partCost)})
+                            </button>
+                          )}
                           <button
                             type="button"
-                            disabled={cash < (encounter.expressPartCost ?? 0)}
-                            onClick={onDelegateExpressRepair}
-                            className="w-full inline-flex items-center justify-center gap-1 rounded-xl border border-sky-400/35 bg-sky-500/15 py-1.5 text-[11px] font-bold text-sky-200 cursor-pointer"
+                            onClick={onDismiss}
+                            className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
                           >
-                            <UserCog className="w-3.5 h-3.5" />
-                            {bi('Hasan Ustaya Devret', 'Delegate to Master Hasan')}
+                            {bi('Reddet', 'Decline')}
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={onDismiss}
-                          className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
-                        >
-                          {bi('Reddet', 'Decline')}
-                        </button>
-                      </div>
-                    </>
-                  )}
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   {encounter.type === 'BULK_AUCTION' && (
                     <>
@@ -1618,67 +2272,82 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     </>
                   )}
 
-                  {encounter.type === 'WARRANTY_CLAIM' && (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        disabled={cash < encounter.customerPrice}
-                        onClick={() => onResolveWarranty('REPAIR')}
-                        className="w-full rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
-                        {bi('Ücretsiz Onar', 'Free Repair')} ({formatTRY(encounter.customerPrice)})
-                      </button>
-                      <button
-                        type="button"
-                        disabled={cash < (encounter.warrantyRecord?.salePrice ?? 0)}
-                        onClick={() => onResolveWarranty('REFUND')}
-                        className="w-full rounded-xl border border-amber-400/35 bg-amber-500/15 py-2 text-xs font-bold text-amber-200 disabled:opacity-35 cursor-pointer"
-                      >
-                        {bi('Tam İade Yap', 'Full Refund')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onResolveWarranty('REJECT')}
-                        className="w-full rounded-xl border border-rose-500/35 bg-rose-500/15 py-1.5 text-xs font-bold text-rose-200 cursor-pointer"
-                      >
-                        {bi('Reddet (-İtibar)', 'Reject (-Rep)')}
-                      </button>
-                    </div>
-                  )}
+                  {encounter.type === 'WARRANTY_CLAIM' && (() => {
+                    const repairCost =
+                      encounter.warrantyRepairCost ?? encounter.customerPrice;
+                    const refundCost = encounter.warrantyRefundCost ?? 1500;
+                    return (
+                      <div className="space-y-2 tabular-nums">
+                        <button
+                          type="button"
+                          disabled={cash < repairCost}
+                          onClick={() => onResolveWarranty('REPAIR')}
+                          className="w-full rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
+                          {bi('Ücretsiz Onar', 'Free Repair')} ({formatTRY(repairCost)})
+                        </button>
+                        <button
+                          type="button"
+                          disabled={cash < refundCost}
+                          onClick={() => onResolveWarranty('REFUND')}
+                          className="w-full rounded-xl border border-amber-400/35 bg-amber-500/15 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer"
+                        >
+                          {bi('Kısmi Nakit İade', 'Partial Cash Refund')} ({formatTRY(refundCost)})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onResolveWarranty('REJECT')}
+                          className="w-full rounded-xl border border-rose-500/35 bg-rose-500/15 py-1.5 text-xs font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+                        >
+                          {bi('Reddet (-İtibar)', 'Reject (-Rep)')}
+                        </button>
+                      </div>
+                    );
+                  })()}
 
-                  {encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob && (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => onResolveDataRecovery('SOFTWARE')}
-                        className="w-full min-h-[34px] rounded-xl bg-sky-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-sky-400 active:scale-[0.98] transition-all cursor-pointer touch-manipulation"
-                      >
-                        {bi(
-                          `Yazılımla Kurtar (Ücretsiz · %${Math.round(encounter.dataRecoveryJob.softwareSuccessRate * 100)})`,
-                          `Software Recovery (Free · ${Math.round(encounter.dataRecoveryJob.softwareSuccessRate * 100)}%)`
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={cash < encounter.dataRecoveryJob.cleanRoomCost}
-                        onClick={() => onResolveDataRecovery('CLEAN_ROOM')}
-                        className="w-full min-h-[34px] rounded-xl bg-emerald-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
-                      >
-                        {bi(
-                          `Temiz Oda Lab (%100 · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`,
-                          `Clean Room Lab (100% · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onDismiss}
-                        className="w-full min-h-[32px] rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 hover:bg-[#253244] cursor-pointer touch-manipulation"
-                      >
-                        {bi('İade Et · Geç', 'Decline')}
-                      </button>
-                    </div>
-                  )}
+                  {encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob && (() => {
+                    const swCost = encounter.dataRecoveryJob.softwareCost || 850;
+                    const swPct = Math.round(
+                      encounter.dataRecoveryJob.softwareSuccessRate * 100
+                    );
+                    return (
+                      <div className="space-y-2 tabular-nums">
+                        <button
+                          type="button"
+                          disabled={cash < swCost}
+                          onClick={() => {
+                            soundFX.playClick();
+                            setShowSoftwareRecoveryModal(true);
+                          }}
+                          className="w-full min-h-[34px] rounded-xl bg-sky-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-sky-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
+                        >
+                          {bi(
+                            `Yazılımla Kurtar — İşlemi Başlat (${formatTRY(swCost)} · %${swPct})`,
+                            `Software Recovery — Start Tool (${formatTRY(swCost)} · ${swPct}%)`
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={cash < encounter.dataRecoveryJob.cleanRoomCost}
+                          onClick={() => onResolveDataRecovery('CLEAN_ROOM')}
+                          className="w-full min-h-[34px] rounded-xl bg-emerald-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
+                        >
+                          {bi(
+                            `Temiz Oda Lab (%100 · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`,
+                            `Clean Room Lab (100% · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onDismiss}
+                          className="w-full min-h-[32px] rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 hover:bg-[#253244] cursor-pointer touch-manipulation"
+                        >
+                          {bi('İade Et · Geç', 'Decline')}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </section>
@@ -1686,15 +2355,56 @@ export const CounterView: React.FC<CounterViewProps> = ({
         )}
       </AnimatePresence>
 
-      {/* PHYSICAL OPTICAL LOUPE INSPECTION WORKBENCH MODAL */}
+      {/* PHYSICAL HANDS-ON INSPECTION WORKBENCH MODAL */}
       {showLoupeModal &&
         (encounter.type === 'SELLER' ||
           (encounter.type === 'TRADE_IN' && Boolean(encounter.tradeInDevice))) && (
           <PhysicalInspectModal
             device={inspectedTarget}
+            initialCategory={loupeInitialCategory}
             onInspectZone={(cat) => onInspect(cat, true)}
             onPhysicalCompleteBonus={onPhysicalInspectBonus}
-            onClose={() => setShowLoupeModal(false)}
+            onClose={() => {
+              setShowLoupeModal(false);
+              setLoupeInitialCategory(undefined);
+            }}
+          />
+        )}
+
+      {/* INTERACTIVE SOFTWARE DATA RECOVERY MODAL */}
+      {showSoftwareRecoveryModal &&
+        encounter.type === 'DATA_RECOVERY' &&
+        encounter.dataRecoveryJob && (
+          <SoftwareRecoveryModal
+            device={encounter.device}
+            job={encounter.dataRecoveryJob}
+            softwareCost={encounter.dataRecoveryJob.softwareCost || 850}
+            onCancel={() => setShowSoftwareRecoveryModal(false)}
+            onComplete={(succeeded) => {
+              setShowSoftwareRecoveryModal(false);
+              onResolveDataRecovery('SOFTWARE', succeeded);
+            }}
+          />
+        )}
+      {/* ESNAF ONARIM & ORİJİNALLİK RAPORU DIALOG (BUYER / TRADE-IN) */}
+      {showEsnafReportModal &&
+        encounter &&
+        (encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') && (
+          <EsnafReportModal
+            device={encounter.device}
+            customerName={encounter.customerName}
+            alreadyDisclosed={Boolean(encounter.buyerDisclosed)}
+            canDisclose={
+              encounter.outcome === 'ACTIVE' &&
+              Boolean(onDiscloseBuyer) &&
+              ((encounter.device.repairedDefects?.length ?? 0) > 0 ||
+                encounter.device.defects.length > 0 ||
+                encounter.device.imeiStatus === 'UNREGISTERED_OVERSEAS')
+            }
+            onDiscloseAndPresent={() => {
+              if (onDiscloseBuyer) onDiscloseBuyer();
+            }}
+            onClose={() => setShowEsnafReportModal(false)}
           />
         )}
     </div>

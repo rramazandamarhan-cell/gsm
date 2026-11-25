@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  FolderOpen,
   Layers,
   Lock,
   PackagePlus,
@@ -12,12 +13,14 @@ import {
   Store,
   UserCog,
   Wrench,
+  X,
   Zap,
 } from 'lucide-react';
 import {
   ACCESSORY_CATALOG,
   DEFECT_CATALOG,
   SHOWCASE_UPGRADE_MAX_LEVEL,
+  SPARE_PARTS_CATALOG,
 } from '../game/catalog';
 import {
   calculateMarketValue,
@@ -27,6 +30,9 @@ import {
   getListingDemand,
   getMasterTechSpecs,
   getMultiRepairCost,
+  getQuickRepairExpressFee,
+  getRepairCostWithStock,
+  getRequiredSpareParts,
   getScrapSaleValue,
   getShowcaseCapacity,
   getStockAgingInfo,
@@ -46,7 +52,9 @@ import {
   DefectId,
   LegacyPathId,
   PhoneDevice,
+  PrestigePerkId,
   ShopTier,
+  SparePartId,
   StaffId,
   StaffRepairJob,
   UpgradeId,
@@ -68,6 +76,9 @@ interface WorkshopViewProps {
   staffLevels: Record<StaffId, number>;
   staffRepairQueue: StaffRepairJob[];
   dailyNews: DailyMarketEvent;
+  spareParts?: Record<SparePartId, number>;
+  prestigePerks?: PrestigePerkId[];
+  onBuySparePart?: (partId: SparePartId, qty: 1 | 5) => void;
   onQuickRepairDefects: (
     phoneUid: string,
     defectIds: DefectId[],
@@ -81,12 +92,15 @@ interface WorkshopViewProps {
   onDelegateRepairToMaster: (phoneUid: string, defectIds: DefectId[]) => void;
   onAddBoxKit: (phoneUid: string) => void;
   onAttachAccessoryBundle: (phoneUid: string, accessoryId: AccessoryId) => void;
+  onDetachAccessoryBundle: (phoneUid: string, accessoryId: AccessoryId) => void;
   onUpdateListing: (
     phoneUid: string,
     listed: boolean,
     askingPrice: number
   ) => void;
   onScrapSellPhone: (phoneUid: string) => void;
+  complaintCount?: number;
+  onOpenComplaintArchive?: () => void;
   onBackToCounter: () => void;
   onGoToUpgrades: () => void;
 }
@@ -108,13 +122,19 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   staffLevels,
   staffRepairQueue,
   dailyNews,
+  spareParts,
+  prestigePerks,
+  onBuySparePart,
   onQuickRepairDefects,
   onStartMiniRepair,
   onDelegateRepairToMaster,
   onAddBoxKit,
   onAttachAccessoryBundle,
+  onDetachAccessoryBundle,
   onUpdateListing,
   onScrapSellPhone,
+  complaintCount = 0,
+  onOpenComplaintArchive,
   onBackToCounter,
   onGoToUpgrades,
 }) => {
@@ -174,13 +194,26 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             'Buy 2nd-hand phones from customers at the counter, repair them here, and list them on your showcase.'
           )}
         </p>
-        <button
-          type="button"
-          onClick={onBackToCounter}
-          className="mt-3 rounded-lg bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
-        >
-          ← {bi('Tezgaha Dön', 'Back to Counter')}
-        </button>
+        <div className="mt-3 flex items-center gap-2">
+          {onOpenComplaintArchive && (
+            <button
+              type="button"
+              onClick={onOpenComplaintArchive}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/15 px-3.5 py-2 text-xs font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              {bi('Şikayet & Garanti Dosyası', 'Complaints & Warranties')}
+              {complaintCount > 0 ? ` (${complaintCount})` : ''}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onBackToCounter}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+          >
+            ← {bi('Tezgaha Dön', 'Back to Counter')}
+          </button>
+        </div>
       </div>
     );
   }
@@ -197,23 +230,32 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   const repairableDefects = selected.defects.filter(
     (d) => DEFECT_CATALOG[d].repairable
   );
-  const inHouseCost = getMultiRepairCost(
+  const requiredParts = getRequiredSpareParts(repairableDefects);
+  const stockCalc = getRepairCostWithStock(
     repairableDefects,
+    spareParts,
     upgrades,
     dailyNews,
     false,
     shopLevel,
-    legacyPath
+    legacyPath,
+    prestigePerks
   );
+  const inHouseCost = stockCalc.cashCost;
   const outsourceCost = getMultiRepairCost(
     repairableDefects,
     upgrades,
     dailyNews,
     true,
     shopLevel,
-    legacyPath
+    legacyPath,
+    prestigePerks
   );
-  const masterCost = calculateMasterDelegateCost(inHouseCost, masterLevel, upgrades);
+  const masterCost = calculateMasterDelegateCost(
+    stockCalc.cashCost > 0 ? stockCalc.cashCost : stockCalc.baseCost,
+    masterLevel,
+    upgrades
+  );
   const staffJob = staffRepairQueue.find((j) => j.phoneUid === selected.uid);
 
   const minAsk = roundPrice(Math.max(1000, fairValue * 0.8));
@@ -249,6 +291,20 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {onOpenComplaintArchive && (
+              <button
+                type="button"
+                onClick={onOpenComplaintArchive}
+                title={bi('Müşteri Şikayet Dosyası & Garanti Arşivi', 'Customer Complaint File & Warranties')}
+                className="inline-flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/15 px-1.5 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-500/25 whitespace-nowrap cursor-pointer"
+              >
+                <FolderOpen className="w-3 h-3 shrink-0" />
+                <span>{bi('Dosya', 'File')}</span>
+                {complaintCount > 0 && (
+                  <span className="font-mono text-amber-300">{complaintCount}</span>
+                )}
+              </button>
+            )}
             {showcaseUpgradeLevel < SHOWCASE_UPGRADE_MAX_LEVEL && (
               <button
                 type="button"
@@ -459,9 +515,53 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 {bi('Tek Seferde Tamir Masası', 'Single-Session Repair')}
               </div>
               <span className="font-mono text-[10px] text-slate-400">
-                {repairableDefects.length} {bi('onarılabilir', 'fixable')}
+                {stockCalc.usedStockCount > 0 ? (
+                  <span className="text-emerald-300 font-bold">
+                    {bi(`Stoktan ${stockCalc.usedStockCount} parça ✓`, `${stockCalc.usedStockCount} from stock ✓`)}
+                  </span>
+                ) : (
+                  `${repairableDefects.length} ${bi('onarılabilir', 'fixable')}`
+                )}
               </span>
             </div>
+
+            {/* Compact Spare Parts Stock Strip (Screen / Battery / Kit) */}
+            {spareParts && (
+              <div className="grid grid-cols-3 gap-1 tabular-nums">
+                {SPARE_PARTS_CATALOG.map((part) => {
+                  const qty = spareParts[part.id] ?? 0;
+                  const needed = requiredParts[part.id] ?? 0;
+                  return (
+                    <div
+                      key={part.id}
+                      className={`rounded-md border px-1.5 py-0.5 flex items-center justify-between gap-1 text-[9px] ${
+                        needed > 0 && qty === 0
+                          ? 'border-amber-400/50 bg-amber-500/12 text-amber-200'
+                          : needed > 0 && qty > 0
+                          ? 'border-emerald-400/45 bg-emerald-500/12 text-emerald-200'
+                          : 'border-white/8 bg-[#0E141D] text-slate-300'
+                      }`}
+                    >
+                      <span className="truncate font-semibold">
+                        {lang === 'en' ? part.shortEn : part.shortTr}{' '}
+                        <strong className="font-mono">×{qty}</strong>
+                      </span>
+                      {onBuySparePart && (
+                        <button
+                          type="button"
+                          disabled={cash < part.unitCost}
+                          onClick={() => onBuySparePart(part.id, 1)}
+                          title={`${lang === 'en' ? part.nameEn : part.nameTr} (+1 · ${formatTRY(part.unitCost)})`}
+                          className="rounded bg-amber-500/20 border border-amber-400/40 px-1 py-0.2 font-mono text-[8.5px] font-extrabold text-amber-200 hover:bg-amber-500 hover:text-slate-950 disabled:opacity-30 cursor-pointer shrink-0"
+                        >
+                          +1
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {staffJob ? (
               <div className="flex items-center justify-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-[10.5px] text-sky-200 font-semibold">
@@ -489,37 +589,58 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             ) : (
               <div className="grid grid-cols-2 gap-1.5 tabular-nums">
                 {hasRepairBench ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={cash < inHouseCost}
-                      onClick={() =>
-                        onStartMiniRepair(
-                          selected,
-                          repairableDefects,
-                          inHouseCost
-                        )
-                      }
-                      className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                    >
-                      <Zap className="w-3 h-3" />
-                      {bi('Mini Tamir', 'Mini Fix')} ({formatTRY(inHouseCost)})
-                    </button>
-                    <button
-                      type="button"
-                      disabled={cash < inHouseCost}
-                      onClick={() =>
-                        onQuickRepairDefects(
-                          selected.uid,
-                          repairableDefects,
-                          false
-                        )
-                      }
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/15 bg-[#1D2736] py-1.5 text-[10.5px] font-bold text-slate-100 hover:bg-[#273447] disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                    >
-                      {bi('Hızlı Onar', 'Quick Fix')}
-                    </button>
-                  </>
+                  (() => {
+                    const expressFee = getQuickRepairExpressFee(
+                      stockCalc.cashCost > 0 ? stockCalc.cashCost : stockCalc.baseCost
+                    );
+                    const quickTotalCost = inHouseCost + expressFee;
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          disabled={cash < inHouseCost}
+                          onClick={() =>
+                            onStartMiniRepair(
+                              selected,
+                              repairableDefects,
+                              inHouseCost
+                            )
+                          }
+                          className="inline-flex flex-col items-center justify-center rounded-lg bg-amber-500 py-1 px-1.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap leading-tight"
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            {bi('Mini Tamir', 'Mini Fix')} (
+                            {inHouseCost === 0 ? bi('Stoktan', 'Stock') : formatTRY(inHouseCost)})
+                          </span>
+                          <span className="text-[8.5px] font-bold opacity-80">
+                            {stockCalc.usedStockCount > 0
+                              ? bi('Stok Parçası Kullanır · Usta İşi', 'Uses Stock Part · Master Chance')
+                              : bi('Sadece Parça · Usta İşi Şansı', 'Parts Only · Master Bonus')}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={cash < quickTotalCost}
+                          onClick={() =>
+                            onQuickRepairDefects(
+                              selected.uid,
+                              repairableDefects,
+                              false
+                            )
+                          }
+                          className="inline-flex flex-col items-center justify-center rounded-lg border border-white/15 bg-[#1D2736] py-1 px-1.5 text-[10px] font-bold text-slate-100 hover:bg-[#273447] disabled:opacity-35 cursor-pointer whitespace-nowrap leading-tight"
+                        >
+                          <span>
+                            {bi('Hızlı Onar', 'Quick Fix')} ({formatTRY(quickTotalCost)})
+                          </span>
+                          <span className="text-[8.5px] text-amber-300 font-semibold">
+                            +{formatTRY(expressFee)} {bi('Erken Teslimat', 'Express Fee')}
+                          </span>
+                        </button>
+                      </>
+                    );
+                  })()
                 ) : (
                   <button
                     type="button"
@@ -640,16 +761,21 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 const bonusVal = Math.round(acc.recommendedPrice * 1.1);
                 const canAttach =
                   unlocked && !attached && stock > 0 && !staffJob;
+                const canDetach = attached && !staffJob;
 
                 return (
                   <button
                     key={acc.id}
                     type="button"
-                    disabled={!canAttach}
-                    onClick={() => onAttachAccessoryBundle(selected.uid, acc.id)}
+                    disabled={!canAttach && !canDetach}
+                    onClick={() =>
+                      attached
+                        ? onDetachAccessoryBundle(selected.uid, acc.id)
+                        : onAttachAccessoryBundle(selected.uid, acc.id)
+                    }
                     className={`relative rounded-xl border p-1.5 flex flex-col justify-between text-center transition-colors min-h-0 overflow-hidden ${
                       attached
-                        ? 'border-emerald-400/55 bg-emerald-500/15 cursor-default'
+                        ? 'border-emerald-400/55 bg-emerald-500/15 hover:border-rose-400/70 hover:bg-rose-500/15 cursor-pointer group'
                         : !unlocked
                         ? 'border-white/6 bg-[#0D121A]/85 opacity-70 cursor-not-allowed'
                         : stock > 0
@@ -657,11 +783,14 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                         : 'border-white/6 bg-[#0E141D]/65 opacity-55 cursor-not-allowed'
                     }`}
                   >
-                    {/* Top-right Stock / Lock / Attached Status */}
+                    {/* Top-right Stock / Lock / Attached (Click to Detach!) Status */}
                     <div className="shrink-0 flex items-center justify-end">
                       {attached ? (
-                        <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/25 px-1 py-0.2 text-[8.5px] font-extrabold text-emerald-300">
-                          <Check className="w-2.5 h-2.5" /> {bi('Takılı', 'On')}
+                        <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/25 group-hover:bg-rose-500/30 px-1 py-0.2 text-[8.5px] font-extrabold text-emerald-300 group-hover:text-rose-200 transition-colors">
+                          <Check className="w-2.5 h-2.5 group-hover:hidden" />
+                          <X className="w-2.5 h-2.5 hidden group-hover:block" />
+                          <span className="group-hover:hidden">{bi('Takılı', 'On')}</span>
+                          <span className="hidden group-hover:inline">{bi('Çıkar', 'Remove')}</span>
                         </span>
                       ) : !unlocked ? (
                         <span className="inline-flex items-center gap-0.5 font-mono text-[9px] font-bold text-amber-300">
