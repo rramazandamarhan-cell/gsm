@@ -31,21 +31,17 @@ interface CapacitorGlobal {
 
 const PUBLIC_SITE_ORIGIN = (
   (import.meta as unknown as { env?: Record<string, string | undefined> }).env
-    ?.VITE_PUBLIC_SITE_URL ?? ''
+    ?.VITE_PUBLIC_SITE_URL || 'https://graceful-llama-0f0053.netlify.app'
 ).replace(/\/+$/, '');
 
 export const STORE_RELEASE_META = {
   appId: 'com.esnafgsm.simulator',
-  versionName: '2.3.0',
+  versionName: '1.0.0',
   channelLabel: 'Play Store AAB & App Store Hazır',
   developerName: 'EsOra Mobile Studio',
   developerEmail: 'esoramobilestudio@gmail.com',
-  privacyUrl: PUBLIC_SITE_ORIGIN
-    ? `${PUBLIC_SITE_ORIGIN}/privacy.html`
-    : '/privacy.html',
-  termsUrl: PUBLIC_SITE_ORIGIN
-    ? `${PUBLIC_SITE_ORIGIN}/terms.html`
-    : '/terms.html',
+  privacyUrl: `${PUBLIC_SITE_ORIGIN}/privacy.html`,
+  termsUrl: `${PUBLIC_SITE_ORIGIN}/terms.html`,
   supportEmail: 'esorastudiodestek@gmail.com',
 } as const;
 
