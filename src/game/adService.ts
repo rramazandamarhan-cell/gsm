@@ -47,9 +47,9 @@ const env =
 
 const TEST_PUBLISHER_PREFIX = 'ca-app-pub-3940256099942544';
 const androidRewardedId =
-  env.VITE_ADMOB_ANDROID_REWARDED || 'ca-app-pub-3940256099942544/5224354917';
+  env.VITE_ADMOB_ANDROID_REWARDED || 'ca-app-pub-9402241323787415/6147015955';
 const androidInterstitialId =
-  env.VITE_ADMOB_ANDROID_INTERSTITIAL || 'ca-app-pub-3940256099942544/1033173712';
+  env.VITE_ADMOB_ANDROID_INTERSTITIAL || 'ca-app-pub-9402241323787415/5265499923';
 const iosRewardedId =
   env.VITE_ADMOB_IOS_REWARDED || 'ca-app-pub-3940256099942544/1712485313';
 const iosInterstitialId =

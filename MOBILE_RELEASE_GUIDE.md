@@ -24,7 +24,7 @@ npm run cap:sync
 ### Android Studio (.aab Derleme)
 1. `android/app/src/main/AndroidManifest.xml` içine Google AdMob **Android App ID** meta-data satırını ekleyin:
    ```xml
-   <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY"/>
+   <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9402241323787415~3281325258"/>
    ```
 2. `android/app/src/main/AndroidManifest.xml` içinde `MainActivity` için `android:screenOrientation="sensorLandscape"` ayarlayın.
 3. `npm run cap:android` ile Android Studio'yu açıp **Build → Generate Signed App Bundle (.aab)** ile Google Play Console'a yükleyin.

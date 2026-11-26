@@ -27,6 +27,8 @@ export default defineConfig(() => {
           'store-assets/screenshot-1-bargain-16x9.jpg',
           'store-assets/screenshot-2-repair-16x9.jpg',
           'store-assets/screenshot-3-empire-16x9.jpg',
+          'store-assets/screenshot-4-diagnostics-16x9.jpg',
+          'store-assets/screenshot-5-museum-auction-16x9.jpg',
           'privacy.html',
           'terms.html',
         ],
@@ -143,7 +145,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
       }),
@@ -172,6 +174,7 @@ export default defineConfig(() => {
       },
     },
     server: {
+      allowedHosts: true as const,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

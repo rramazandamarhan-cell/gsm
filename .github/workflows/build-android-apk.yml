@@ -32,8 +32,8 @@ jobs:
       - name: Build production web app
         run: npm run build
 
-      - name: Install Capacitor CLI & Android platform
-        run: npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+      - name: Install Capacitor CLI, Android platform & AdMob plugin
+        run: npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor-community/admob@7
 
       - name: Add Android native project & sync web assets
         run: |
@@ -48,15 +48,18 @@ jobs:
           import glob, os, re
           import xml.etree.ElementTree as ET
 
-          # 1. Patch AndroidManifest.xml for sensorLandscape & fullscreen configChanges
+          # 1. Patch AndroidManifest.xml for sensorLandscape & Google AdMob App ID
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           if os.path.exists(manifest_path):
               txt = open(manifest_path, encoding="utf-8").read()
               if 'android:screenOrientation' not in txt:
                   txt = txt.replace('<activity', '<activity android:screenOrientation="sensorLandscape"', 1)
+              admob_meta = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9402241323787415~3281325258"/>'
+              if 'com.google.android.gms.ads.APPLICATION_ID' not in txt and '</application>' in txt:
+                  txt = txt.replace('</application>', f'    {admob_meta}\n    </application>', 1)
               open(manifest_path, "w", encoding="utf-8").write(txt)
               ET.parse(manifest_path)
-              print("Configured AndroidManifest.xml sensorLandscape OK")
+              print("Configured AndroidManifest.xml sensorLandscape + AdMob App ID OK")
 
           # 2. Patch res/values/styles.xml for dark edge-to-edge fullscreen & notch cutout coverage
           styles_path = "android/app/src/main/res/values/styles.xml"
@@ -193,8 +196,8 @@ jobs:
           if [ -f "$GRADLE_FILE" ]; then
             VERSION_CODE="${{ github.run_number }}"
             sed -i "s/versionCode [0-9]\+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
-            sed -i 's/versionName "[^"]*"/versionName "2.2.0"/' "$GRADLE_FILE"
-            echo "Stamped versionCode=${VERSION_CODE} versionName=2.2.0"
+            sed -i 's/versionName "[^"]*"/versionName "1.0.0"/' "$GRADLE_FILE"
+            echo "Stamped versionCode=${VERSION_CODE} versionName=1.0.0"
           fi
 
           # Copy custom GSM Simulator 512px icon into Android mipmap launcher resources
