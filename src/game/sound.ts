@@ -6,6 +6,8 @@ class SoundEngine {
   private ctx: AudioContext | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private muted = false;
+  private adSuspended = false;
+  private pageHidden = false;
   private ambientEnabled = false;
   private ambientNodes: {
     source: AudioBufferSourceNode;
@@ -20,8 +22,47 @@ class SoundEngine {
     gain: GainNode;
   } | null = null;
 
+  constructor() {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        this.pageHidden = document.hidden;
+        this.syncPlaybackSuspension();
+      });
+    }
+  }
+
+  private isAudioBlocked(): boolean {
+    return this.muted || this.adSuspended || this.pageHidden;
+  }
+
+  private syncPlaybackSuspension(): void {
+    if (this.isAudioBlocked()) {
+      this.stopAmbientNodes();
+      this.stopRadioEngine();
+      if (this.ctx && this.ctx.state === 'running') {
+        this.ctx.suspend().catch(() => {});
+      }
+      return;
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    if (this.ambientEnabled && !this.ambientNodes) {
+      this.startAmbientNodes();
+    }
+    if (this.radioStation !== 'OFF' && this.radioTimer === null) {
+      this.startRadioEngine();
+    }
+  }
+
+  public setAdSuspended(suspended: boolean): void {
+    if (this.adSuspended === suspended) return;
+    this.adSuspended = suspended;
+    this.syncPlaybackSuspension();
+  }
+
   private ensureContext(): AudioContext | null {
-    if (this.muted) return null;
+    if (this.isAudioBlocked()) return null;
     if (typeof window === 'undefined') return null;
     if (!this.ctx) {
       const AudioCtx =
@@ -61,17 +102,7 @@ class SoundEngine {
 
   public setMuted(muted: boolean): void {
     this.muted = muted;
-    if (muted) {
-      this.stopAmbientNodes();
-      this.stopRadioEngine();
-    } else {
-      if (this.ambientEnabled) {
-        this.startAmbientNodes();
-      }
-      if (this.radioStation !== 'OFF') {
-        this.startRadioEngine();
-      }
-    }
+    this.syncPlaybackSuspension();
   }
 
   public toggleMute(): boolean {
@@ -85,7 +116,7 @@ class SoundEngine {
 
   public setAmbientEnabled(enabled: boolean): void {
     this.ambientEnabled = enabled;
-    if (enabled && !this.muted) {
+    if (enabled && !this.isAudioBlocked()) {
       this.startAmbientNodes();
     } else {
       this.stopAmbientNodes();
@@ -109,17 +140,17 @@ class SoundEngine {
     const changed = this.radioStation !== station;
     this.radioStation = station;
     this.stopRadioEngine();
-    if (changed && !this.muted) {
+    if (changed && !this.isAudioBlocked()) {
       this.playRadioStaticBurst();
     }
-    if (station !== 'OFF' && !this.muted) {
+    if (station !== 'OFF' && !this.isAudioBlocked()) {
       this.radioStep = 0;
       this.startRadioEngine();
     }
   }
 
   private startRadioEngine(): void {
-    if (this.muted || this.radioStation === 'OFF') return;
+    if (this.isAudioBlocked() || this.radioStation === 'OFF') return;
     if (this.radioTimer !== null) return;
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -202,7 +233,7 @@ class SoundEngine {
     };
 
     const tick = () => {
-      if (this.muted || this.radioStation === 'OFF') {
+      if (this.isAudioBlocked() || this.radioStation === 'OFF') {
         this.stopRadioEngine();
         return;
       }
@@ -267,7 +298,7 @@ class SoundEngine {
   }
 
   private startAmbientNodes(): void {
-    if (this.ambientNodes || this.muted || !this.ambientEnabled) return;
+    if (this.ambientNodes || this.isAudioBlocked() || !this.ambientEnabled) return;
     const ctx = this.ensureContext();
     if (!ctx) return;
 
@@ -412,10 +443,10 @@ class SoundEngine {
   }
 
   public playDoorBell(): void {
-    if (this.ambientEnabled && !this.ambientNodes && !this.muted) {
+    if (this.ambientEnabled && !this.ambientNodes && !this.isAudioBlocked()) {
       this.startAmbientNodes();
     }
-    if (this.radioStation !== 'OFF' && this.radioTimer === null && !this.muted) {
+    if (this.radioStation !== 'OFF' && this.radioTimer === null && !this.isAudioBlocked()) {
       this.startRadioEngine();
     }
     this.playTone(987.77, 0.32, 'sine', 0.065, 0);

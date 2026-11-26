@@ -4,6 +4,7 @@
 // - Explicit Rewarded Ad confirmation flow before launching any rewarded video (both Native & Web)
 // - Low-frequency Interstitial pacing: automatic at day end once every 5–7 game days & >= 4 min cooldown
 
+import { soundFX } from './sound';
 import { getRuntimePlatform } from './storeBridge';
 import { AdMonetizationState } from './types';
 
@@ -34,7 +35,10 @@ interface CapacitorAdMobPlugin {
     initializeForTesting?: boolean;
     testingDevices?: string[];
   }) => Promise<void>;
-  requestConsentInfo?: () => Promise<{ isConsentFormAvailable?: boolean }>;
+  requestConsentInfo?: () => Promise<{
+    status?: 'REQUIRED' | 'OBTAINED' | 'NOT_REQUIRED' | 'UNKNOWN' | string;
+    isConsentFormAvailable?: boolean;
+  }>;
   showConsentForm?: () => Promise<void>;
   prepareRewardVideoAd?: (opts: { adId: string; isTesting?: boolean }) => Promise<void>;
   showRewardVideoAd?: () => Promise<{ type?: string; amount?: number }>;
@@ -91,6 +95,7 @@ export const AD_PACING_RULES = {
 } as const;
 
 let adMobInitialized = false;
+let nativeAdInFlight = false;
 let lastInterstitialShownAt = 0;
 let lastInterstitialDayRuntime = 0;
 let webAdListener: ((session: ActiveWebAdSession | null) => void) | null = null;
@@ -176,7 +181,10 @@ export async function initializeAdService(): Promise<void> {
       initializeForTesting: ADMOB_CONFIG.isTesting,
     });
     const consent = await admob.requestConsentInfo?.();
-    if (consent?.isConsentFormAvailable) {
+    if (
+      consent?.isConsentFormAvailable &&
+      (!consent.status || consent.status === 'REQUIRED')
+    ) {
       await admob.showConsentForm?.();
     }
   } catch {
@@ -281,11 +289,14 @@ export async function showRewardedAd(opts: {
   const admob = getNativeAdMob();
 
   if (admob && (platform === 'android' || platform === 'ios')) {
+    if (nativeAdInFlight) return false;
+    nativeAdInFlight = true;
     webAdListener?.(null);
     const adId =
       platform === 'ios'
         ? ADMOB_CONFIG.ios.rewardedId
         : ADMOB_CONFIG.android.rewardedId;
+    soundFX.setAdSuspended(true);
     try {
       await admob.prepareRewardVideoAd?.({
         adId,
@@ -295,6 +306,9 @@ export async function showRewardedAd(opts: {
       return Boolean(reward);
     } catch {
       return false;
+    } finally {
+      soundFX.setAdSuspended(false);
+      nativeAdInFlight = false;
     }
   }
 
@@ -355,10 +369,19 @@ export async function maybeShowEndOfDayInterstitial(
   const admob = getNativeAdMob();
 
   if (admob && (platform === 'android' || platform === 'ios')) {
+    if (nativeAdInFlight) {
+      return {
+        shown: false,
+        lastInterstitialDay: currentLast,
+        nextInterstitialDay: currentNext,
+      };
+    }
+    nativeAdInFlight = true;
     const adId =
       platform === 'ios'
         ? ADMOB_CONFIG.ios.interstitialId
         : ADMOB_CONFIG.android.interstitialId;
+    soundFX.setAdSuspended(true);
     try {
       await admob.prepareInterstitial?.({
         adId,
@@ -376,6 +399,9 @@ export async function maybeShowEndOfDayInterstitial(
         lastInterstitialDay: currentLast,
         nextInterstitialDay: currentNext,
       };
+    } finally {
+      soundFX.setAdSuspended(false);
+      nativeAdInFlight = false;
     }
   }
 
