@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertOctagon, CheckCircle2, Search, Gavel } from 'lucide-react';
+import { AlertOctagon, CheckCircle2, Search, Gavel, AlertTriangle, ChevronDown } from 'lucide-react';
 import { getLocalizedCategoryLabel, getLocalizedDefect, useLanguage } from '../game/i18n';
 import { InspectionOverlayData } from '../game/types';
 
@@ -15,30 +15,52 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
 }) => {
   const { lang, bi } = useLanguage();
   const [phase, setPhase] = useState<'scanning' | 'result'>('scanning');
+  const [userInteracted, setUserInteracted] = useState(false);
+  const dismissTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!data) return;
     setPhase('scanning');
+    setUserInteracted(false);
 
     const scanTimer = window.setTimeout(() => {
       setPhase('result');
     }, 420);
 
-    const dismissTimer = window.setTimeout(() => {
+    const autoMs =
+      data.foundDefects.length > 2
+        ? 4600
+        : data.foundDefects.length > 0
+        ? 3000
+        : 1500;
+
+    dismissTimerRef.current = window.setTimeout(() => {
       onComplete();
-    }, data.foundDefects.length > 0 ? 2200 : 1450);
+    }, autoMs);
 
     return () => {
       window.clearTimeout(scanTimer);
-      window.clearTimeout(dismissTimer);
+      if (dismissTimerRef.current !== null) {
+        window.clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
     };
   }, [data, onComplete]);
 
+  const pauseAutoDismiss = () => {
+    if (!userInteracted) {
+      setUserInteracted(true);
+    }
+    if (dismissTimerRef.current !== null) {
+      window.clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+  };
+
   const hasDefect = (data?.foundDefects.length ?? 0) > 0;
-  const primaryDefect =
-    data && data.foundDefects.length > 0
-      ? getLocalizedDefect(data.foundDefects[0], lang)
-      : null;
+  const localizedDefects = (data?.foundDefects ?? []).map((id) =>
+    getLocalizedDefect(id, lang)
+  );
 
   return (
     <AnimatePresence>
@@ -52,10 +74,10 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
           onClick={onComplete}
           role="status"
           aria-live="polite"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3 sm:p-4 cursor-pointer"
         >
           <motion.div
-            initial={{ scale: 0.82, opacity: 0, y: 12 }}
+            initial={{ scale: 0.84, opacity: 0, y: 12 }}
             animate={
               phase === 'result' && hasDefect
                 ? {
@@ -73,7 +95,13 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
               damping: 26,
               x: { duration: 0.32, ease: 'easeInOut' },
             }}
-            className={`relative w-full max-w-sm rounded-2xl border p-6 text-center shadow-2xl overflow-hidden ${
+            onClick={(e) => {
+              if (phase === 'result' && hasDefect) {
+                e.stopPropagation();
+                pauseAutoDismiss();
+              }
+            }}
+            className={`relative w-full max-w-md max-h-[88dvh] flex flex-col rounded-2xl border p-4 sm:p-5 text-center shadow-2xl overflow-hidden cursor-default ${
               phase === 'scanning'
                 ? 'border-amber-400/45 bg-[#151E2A]'
                 : hasDefect
@@ -87,14 +115,14 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                 initial={{ opacity: 0.65, scale: 0.7 }}
                 animate={{ opacity: 0, scale: 1.55 }}
                 transition={{ duration: 0.85, ease: 'easeOut', repeat: Infinity }}
-                className={`pointer-events-none absolute left-1/2 top-16 -ml-14 h-28 w-28 rounded-full border-2 ${
+                className={`pointer-events-none absolute left-1/2 top-12 -ml-12 h-24 w-24 rounded-full border-2 ${
                   hasDefect ? 'border-rose-400' : 'border-emerald-400'
                 }`}
               />
             )}
 
             {/* Animated Magnifying Glass Centerpiece */}
-            <div className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center">
+            <div className="relative mx-auto mb-2.5 flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center">
               <div
                 className={`absolute inset-0 rounded-full border-2 ${
                   phase === 'scanning'
@@ -108,14 +136,14 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
               {phase === 'scanning' ? (
                 <motion.div
                   animate={{
-                    x: [-14, 14, -8, 10, 0],
-                    y: [-8, 8, 10, -6, 0],
+                    x: [-12, 12, -8, 10, 0],
+                    y: [-6, 6, 8, -5, 0],
                     rotate: [-10, 12, -6, 6, 0],
                   }}
                   transition={{ duration: 0.42, ease: 'easeInOut' }}
                   className="relative z-10 flex items-center justify-center"
                 >
-                  <Search className="w-11 h-11 text-amber-400 stroke-[2.2]" />
+                  <Search className="w-9 h-9 sm:w-10 sm:h-10 text-amber-400 stroke-[2.2]" />
                 </motion.div>
               ) : hasDefect ? (
                 <motion.div
@@ -124,7 +152,7 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                   transition={{ type: 'spring', stiffness: 520, damping: 18 }}
                   className="relative z-10 flex items-center justify-center"
                 >
-                  <AlertOctagon className="w-12 h-12 text-rose-400 stroke-[2.2]" />
+                  <AlertOctagon className="w-10 h-10 sm:w-11 sm:h-11 text-rose-400 stroke-[2.2]" />
                 </motion.div>
               ) : (
                 <motion.div
@@ -133,13 +161,13 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                   transition={{ type: 'spring', stiffness: 480, damping: 20 }}
                   className="relative z-10 flex items-center justify-center"
                 >
-                  <CheckCircle2 className="w-12 h-12 text-emerald-400 stroke-[2.2]" />
+                  <CheckCircle2 className="w-10 h-10 sm:w-11 sm:h-11 text-emerald-400 stroke-[2.2]" />
                 </motion.div>
               )}
             </div>
 
             {/* Category & Device Subtitle */}
-            <div className="text-xs font-medium text-slate-400 mb-1">
+            <div className="shrink-0 text-[11px] font-medium text-slate-400 mb-1 truncate">
               {data.deviceName} ·{' '}
               {lang === 'en'
                 ? getLocalizedCategoryLabel(data.category, lang)
@@ -147,8 +175,8 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
             </div>
 
             {phase === 'scanning' ? (
-              <div>
-                <h3 className="font-display text-xl font-bold text-amber-300">
+              <div className="shrink-0">
+                <h3 className="font-display text-lg sm:text-xl font-bold text-amber-300">
                   {bi('Büyüteçle İnceleniyor...', 'Inspecting with Loupe...')}
                 </h3>
                 <div className="mt-3 h-1.5 w-44 mx-auto rounded-full bg-white/10 overflow-hidden">
@@ -160,30 +188,61 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                   />
                 </div>
               </div>
-            ) : hasDefect && primaryDefect ? (
-              <div>
+            ) : hasDefect && localizedDefects.length > 0 ? (
+              <div className="flex-1 min-h-0 flex flex-col">
                 <motion.div
-                  initial={{ scale: 1.25, opacity: 0 }}
+                  initial={{ scale: 1.2, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                  className="inline-block font-display text-2xl font-extrabold tracking-wide text-rose-400 drop-shadow-[0_0_16px_rgba(244,63,94,0.75)] mb-1.5"
+                  className="shrink-0 inline-flex items-center justify-center gap-2 font-display text-xl sm:text-2xl font-extrabold tracking-wide text-rose-400 drop-shadow-[0_0_16px_rgba(244,63,94,0.75)] mb-2"
                 >
-                  {bi('HATA TESPİT EDİLDİ!', 'DEFECT DETECTED!')}
+                  <span>{bi('HATA TESPİT EDİLDİ!', 'DEFECT DETECTED!')}</span>
+                  <span className="rounded-md border border-rose-400/50 bg-rose-500/20 px-1.5 py-0.5 font-mono text-xs text-rose-200">
+                    {localizedDefects.length}
+                  </span>
                 </motion.div>
-                <div className="text-base font-bold text-slate-50 mb-1">
-                  {primaryDefect.name}
-                  {data.foundDefects.length > 1
-                    ? bi(
-                        ` (+${data.foundDefects.length - 1} ek kusur)`,
-                        ` (+${data.foundDefects.length - 1} more)`
-                      )
-                    : ''}
+
+                {/* Scrollable Full Defect List — guarantees every discovered fault is readable */}
+                <div
+                  onScroll={pauseAutoDismiss}
+                  onTouchStart={pauseAutoDismiss}
+                  className="flex-1 min-h-0 max-h-[34dvh] sm:max-h-[220px] overflow-y-auto pasaj-scroll overscroll-contain space-y-1.5 pr-1 text-left mb-2.5"
+                >
+                  {localizedDefects.map((def, idx) => (
+                    <div
+                      key={def.id}
+                      className="rounded-xl border border-rose-400/35 bg-black/30 px-3 py-2 space-y-0.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-slate-50 min-w-0">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          <span className="truncate">{def.name}</span>
+                        </span>
+                        <span className="font-mono text-[10px] font-bold text-rose-300/90 shrink-0">
+                          #{idx + 1}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-rose-100/80 leading-snug">
+                        {def.description}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-rose-100/80 leading-relaxed mb-3">
-                  {primaryDefect.description}
-                </p>
-                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
-                  <Gavel className="w-3.5 h-3.5" />
+
+                {localizedDefects.length > 2 && (
+                  <div className="shrink-0 inline-flex items-center justify-center gap-1 text-[10px] font-semibold text-rose-200/75 mb-1.5">
+                    <ChevronDown className="w-3 h-3 animate-bounce" />
+                    <span>
+                      {bi(
+                        'Tüm kusurları görmek için listeyi kaydırabilirsin',
+                        'Scroll the list to inspect all detected faults'
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                <div className="shrink-0 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-300 mb-2.5">
+                  <Gavel className="w-3.5 h-3.5 shrink-0" />
                   <span>
                     {bi(
                       'Pazarlık Kozu Açıldı — Fiyatı Kırabilirsin',
@@ -191,9 +250,17 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                     )}
                   </span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={onComplete}
+                  className="shrink-0 w-full rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 active:scale-[0.98] transition-all cursor-pointer touch-manipulation"
+                >
+                  {bi('Tamam · Tezgaha Dön', 'Got It · Back to Counter')}
+                </button>
               </div>
             ) : (
-              <div>
+              <div className="shrink-0">
                 <motion.div
                   initial={{ scale: 1.15, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -207,12 +274,11 @@ export const InspectionOverlay: React.FC<InspectionOverlayProps> = ({
                     'No hidden faults or non-OEM replacement parts were found in this zone.'
                   )}
                 </p>
+                <div className="mt-3 text-[11px] text-slate-400/80">
+                  {bi('Devam etmek için tıkla', 'Tap anywhere to continue')}
+                </div>
               </div>
             )}
-
-            <div className="mt-4 text-[11px] text-slate-400/80">
-              {bi('Devam etmek için tıkla', 'Tap anywhere to continue')}
-            </div>
           </motion.div>
         </motion.div>
       )}

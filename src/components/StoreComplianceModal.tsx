@@ -4,6 +4,7 @@ import {
   Check,
   Copy,
   Download,
+  ExternalLink,
   FileText,
   Globe,
   Maximize2,
@@ -546,18 +547,39 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                   <p className="text-[10px] text-slate-300 leading-snug">
                     {legalView === 'privacy'
                       ? bi(
-                          'GSM Simulator verilerinizi yalnızca cihaz içi localStorage alanında saklar. Kişisel veri, konum, mikrofon veya reklam kimliği toplamaz ve üçüncü taraflarla paylaşmaz.',
-                          'GSM Simulator stores progress strictly on-device via localStorage. Zero personal data, location, microphone, or ad tracking is collected or shared.'
+                          'GSM Simulator oyun kaydını yalnızca cihaz içi localStorage alanında saklar. Mobil mağaza sürümlerinde isteğe bağlı ödüllü/geçiş reklamları için Google AdMob (GDPR/ATT onaylı) kullanılabilir.',
+                          'GSM Simulator stores game progress locally via localStorage. Native store builds may use Google AdMob for optional rewarded & low-frequency interstitial ads with GDPR/ATT consent.'
                         )
                       : bi(
-                          'Bu oyun tamamen kurgusal bir ticaret simülasyonudur. Gerçek para ile kumar/bahis içermez. Marka ve cihaz isimleri parodi niteliğindedir.',
-                          'This game is a purely fictional trading simulation with no real-money gambling. All brand and device names are parody creations.'
+                          'Bu oyun tamamen kurgusal bir ticaret simülasyonudur. Gerçek para ile kumar/bahis içermez. Marka, model ve sanatçı isimleri tamamen kurgusal parodidir.',
+                          'This game is a purely fictional trading simulation with no real-money gambling. All brand, model, and artist names are fictional parodies.'
                         )}
                   </p>
+                  {/* Direct clickable legal document links required by Google Play & Apple App Store reviewers */}
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <a
+                      href={STORE_RELEASE_META.privacyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-sky-400/35 bg-sky-500/12 px-2 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-500/22 transition-colors truncate"
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span>{bi('Gizlilik Politikası', 'Privacy Policy')}</span>
+                    </a>
+                    <a
+                      href={STORE_RELEASE_META.termsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-amber-400/35 bg-amber-500/12 px-2 py-1 text-[10px] font-bold text-amber-200 hover:bg-amber-500/22 transition-colors truncate"
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span>{bi('Kullanım Koşulları', 'Terms of Service')}</span>
+                    </a>
+                  </div>
                   <div className="grid grid-cols-2 gap-1.5 text-[10px]">
                     <div className="rounded border border-emerald-500/25 bg-[#101722] px-2 py-1">
-                      <span className="text-slate-400">{bi('Veri:', 'Data:')}</span>{' '}
-                      <strong className="text-emerald-400">{bi('Yok (0)', 'None (0)')}</strong>
+                      <span className="text-slate-400">{bi('Kayıt:', 'Save:')}</span>{' '}
+                      <strong className="text-emerald-400">{bi('Cihaz İçi', 'On-Device')}</strong>
                     </div>
                     <div className="rounded border border-white/10 bg-[#101722] px-2 py-1">
                       <span className="text-slate-400">{bi('Yaş:', 'Rating:')}</span>{' '}
@@ -713,8 +735,17 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                       {getPlatformDisplayLabel()}
                     </span>
                   </div>
-                  <div className="font-mono text-[9.5px] text-slate-500">
-                    {STORE_RELEASE_META.appId} · © 2026 GSM Simulator
+                  <div className="font-mono text-[9.5px] text-slate-400">
+                    {STORE_RELEASE_META.appId} · © 2026 {STORE_RELEASE_META.developerName}
+                  </div>
+                  <div className="text-[10px] text-slate-300">
+                    {bi('Destek:', 'Support:')}{' '}
+                    <a
+                      href={`mailto:${STORE_RELEASE_META.supportEmail}`}
+                      className="font-mono text-sky-300 hover:underline"
+                    >
+                      {STORE_RELEASE_META.supportEmail}
+                    </a>
                   </div>
                   <div className="text-slate-500 leading-tight">
                     {bi(

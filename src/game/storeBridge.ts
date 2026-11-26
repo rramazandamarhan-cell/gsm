@@ -1,5 +1,6 @@
 // Native Google Play / Apple App Store / Web PWA runtime bridge.
-// Safely routes Haptics, Platform detection, and Store Review hooks without crashing in plain browser mode.
+// Safely routes Haptics, StatusBar, ScreenOrientation, SplashScreen, Platform detection,
+// and Store Review hooks without crashing in plain browser/PWA mode.
 
 export type RuntimePlatform = 'android' | 'ios' | 'web';
 
@@ -14,18 +15,41 @@ interface CapacitorGlobal {
     InAppReview?: {
       requestReview?: () => Promise<void>;
     };
+    StatusBar?: {
+      hide?: () => Promise<void>;
+      setStyle?: (opts: { style: 'DARK' | 'LIGHT' }) => Promise<void>;
+      setBackgroundColor?: (opts: { color: string }) => Promise<void>;
+    };
+    SplashScreen?: {
+      hide?: (opts?: { fadeOutDuration?: number }) => Promise<void>;
+    };
+    ScreenOrientation?: {
+      lock?: (opts: { orientation: 'landscape' | 'landscape-primary' }) => Promise<void>;
+    };
   };
 }
 
+const PUBLIC_SITE_ORIGIN = (
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+    ?.VITE_PUBLIC_SITE_URL ?? ''
+).replace(/\/+$/, '');
+
 export const STORE_RELEASE_META = {
   appId: 'com.esnafgsm.simulator',
-  versionName: '2.2.0',
+  versionName: '2.3.0',
   channelLabel: 'Play Store AAB & App Store Hazır',
-  privacyUrl: '/privacy.html',
-  termsUrl: '/terms.html',
+  developerName: 'EsOra Mobile Studio',
+  developerEmail: 'esoramobilestudio@gmail.com',
+  privacyUrl: PUBLIC_SITE_ORIGIN
+    ? `${PUBLIC_SITE_ORIGIN}/privacy.html`
+    : '/privacy.html',
+  termsUrl: PUBLIC_SITE_ORIGIN
+    ? `${PUBLIC_SITE_ORIGIN}/terms.html`
+    : '/terms.html',
+  supportEmail: 'esorastudiodestek@gmail.com',
 } as const;
 
-function getCapacitor(): CapacitorGlobal | null {
+export function getCapacitor(): CapacitorGlobal | null {
   if (typeof window === 'undefined') return null;
   const cap = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
   return cap ?? null;
@@ -48,6 +72,33 @@ export function getPlatformDisplayLabel(): string {
   return 'Web / PWA Sürümü';
 }
 
+/**
+ * Configures native mobile chrome on app launch (landscape lock, dark immersive status bar,
+ * and smooth splash screen hide) so Apple App Store Guideline 4.2 native UX checks pass.
+ */
+export async function initNativeAppChrome(): Promise<void> {
+  const plugins = getCapacitor()?.Plugins;
+  if (!plugins) return;
+
+  try {
+    await plugins.ScreenOrientation?.lock?.({ orientation: 'landscape' });
+  } catch {
+    // Some tablets/split-screen modes ignore orientation lock
+  }
+  try {
+    await plugins.StatusBar?.setStyle?.({ style: 'DARK' });
+    await plugins.StatusBar?.setBackgroundColor?.({ color: '#0F141B' });
+    await plugins.StatusBar?.hide?.();
+  } catch {
+    // Safe fallback
+  }
+  try {
+    await plugins.SplashScreen?.hide?.({ fadeOutDuration: 280 });
+  } catch {
+    // Safe fallback
+  }
+}
+
 export function triggerHaptic(
   enabled: boolean,
   style: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' = 'light'
@@ -57,10 +108,16 @@ export function triggerHaptic(
   const haptics = getCapacitor()?.Plugins?.Haptics;
   if (haptics) {
     if (style === 'success' || style === 'warning' || style === 'error') {
-      haptics.notification?.({ type: style.toUpperCase() as 'SUCCESS' | 'WARNING' | 'ERROR' }).catch(() => {});
+      haptics
+        .notification?.({
+          type: style.toUpperCase() as 'SUCCESS' | 'WARNING' | 'ERROR',
+        })
+        .catch(() => {});
       return;
     }
-    haptics.impact?.({ style: style.toUpperCase() as 'LIGHT' | 'MEDIUM' | 'HEAVY' }).catch(() => {});
+    haptics
+      .impact?.({ style: style.toUpperCase() as 'LIGHT' | 'MEDIUM' | 'HEAVY' })
+      .catch(() => {});
     return;
   }
 

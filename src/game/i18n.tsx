@@ -494,7 +494,7 @@ export function getLocalizedDecoration(id: DecorationId, lang: Language): ShopDe
       visualEffectText: 'Adds warm golden hanging lights across the ceiling (+25 Prestige).',
     },
     retro_shelf: {
-      name: 'Retro 3310 Collector Shelf',
+      name: 'Retro 3390 Collector Shelf',
       summary: 'Display iconic GSM relics and conversation pieces behind the counter.',
       visualEffectText: 'Showcases a nostalgic retro phone shelf in the top-left (+32 Prestige).',
     },
@@ -592,7 +592,7 @@ export function getLocalizedMuseumItem(id: MuseumItemId, lang: Language): Museum
     }
   > = {
     nokya_3310: {
-      name: 'Nokya 3310 (Indestructible)',
+      name: 'Nokya 3390 (Indestructible)',
       eraTag: '2000 · Golden GSM Era',
       rarityLabel: 'Classic Relic',
       story: 'Dropped four stories into wet concrete, cracked the slab, not a scratch on the shell — still sitting at 48% battery since 2003.',
@@ -601,16 +601,16 @@ export function getLocalizedMuseumItem(id: MuseumItemId, lang: Language): Museum
       collectorPerk: 'Sparks counter nostalgia · +20 Prestige · +1,200 ₺/day showcase draw',
     },
     eriksun_t28: {
-      name: 'ErikSun T28 Active Flip',
+      name: 'Erixon K28 Active Flip',
       eraTag: '1999 · Spring-Flip Revolution',
       rarityLabel: 'Rare Archive',
       story: 'Iconic side-button spring flip whose crisp "snap" turned every café head in 1999. Its previous owner built thumb muscles just flipping it.',
       fullHistory:
-        'Weighing just 83 grams with a magnesium frame, the T28 was a pocket marvel in 1999. Found in a mysterious watchmaker’s drawer, its call log still holds only two missed calls: "Mr. X" and "Under the Bridge at 12:00". The spring flip still clicks like day one.',
+        'Weighing just 83 grams with a magnesium frame, the K28 was a pocket marvel in 1999. Found in a mysterious watchmaker’s drawer, its call log still holds only two missed calls: "Mr. X" and "Under the Bridge at 12:00". The spring flip still clicks like day one.',
       collectorPerk: 'Attracts vintage collectors · +30 Prestige · +2,600 ₺/day showcase income',
     },
     motorazr_v3: {
-      name: 'MotoRazr V3 Razor-Thin',
+      name: 'RazorFlip F3 Razor-Thin',
       eraTag: '2004 · Anodized Aluminum Icon',
       rarityLabel: 'Design Legend',
       story: 'Nothing beats slamming a flip phone shut mid-argument. Its sapphire laser-etched keypad lights up the whole shop after dark!',
@@ -619,10 +619,10 @@ export function getLocalizedMuseumItem(id: MuseumItemId, lang: Language): Museum
       collectorPerk: 'Design & influencer magnet · +45 Prestige · +4,800 ₺/day gallery draw',
     },
     blakberi_bold: {
-      name: 'BlakBeri Bold Q-Keyboard',
+      name: 'BeriBold Q-Keyboard Executive',
       eraTag: '2008 · Executive & Trading Era',
       rarityLabel: 'VIP Archive Piece',
-      story: 'That blinking red LED spiked blood pressure across every office tower in 2008. Rumor says its former CEO typed BBM messages in his sleep.',
+      story: 'That blinking red LED spiked blood pressure across every office tower in 2008. Rumor says its former CEO typed encrypted office messages in his sleep.',
       fullHistory:
         'Symbol of million-dollar deals in 2008, complete with sculpted QWERTY keys and stitched leatherette back. Sourced from a retired bank director’s vault; its trackball glides so smoothly locals joke it still checks stock quotes at midnight.',
       collectorPerk: 'Executive VIP trust · +65 Prestige · +8,500 ₺/day prestige bonus',
@@ -768,46 +768,109 @@ export function getLocalizedStoryChapter(ch: StoryChapter, lang: Language): Stor
       title: 'Chapter 1: First Shutter (Age 23)',
       subtitle: 'From 5 years as an apprentice to your own 12 m² stall',
       narrative:
-        'After 5 years learning under Master Cemal, you opened your own arcade shutter. First step: inspect 2nd-hand phones, haggle hard, and grow your starting capital!',
+        'After 5 years learning under Master Cemal, you opened your own arcade shutter. Inspect 2nd-hand phones carefully, haggle hard, and close your first 8 hot sales!',
       mentorNote:
-        'Master Cemal: "Kid, warm up your instincts on 2nd-hand phones first. Spot defects, cut the price, build up your register — once you save 45,000 ₺ we’ll open the accessory rack!"',
-      objectiveText: 'Sell a total of 3 phones from your showcase',
+        'Master Cemal: "Kid, warm up your instincts on 2nd-hand phones first. Spot defects, cut the price, and build your register — 8 sales will teach you the pulse of the arcade!"',
+      objectiveText: 'Sell a total of 8 phones from your showcase',
     },
     ch_2_own_bench: {
       title: 'Chapter 2: Your Own Screwdriver',
       subtitle: 'Stop outsourcing repairs and keep the craft margin',
       narrative:
-        'Time to turn the board & screen skills you learned into real cash. Restore faulty phones in your workshop or express counter for big resale jumps.',
+        'Time to turn the board, battery & screen skills you learned into real profit. Set up your own ESD repair bench and bring 10 faulty phones back to life!',
       mentorNote:
-        'Master Cemal: "Everyone runs from cracked screens — a real technician sees the margin hiding inside. Steady heat, don’t tear the flex!"',
-      objectiveText: 'Complete 3 phone repairs at your workshop or express counter',
+        'Master Cemal: "Rookies run from cracked screens — a real technician sees the margin hiding inside. Steady heat, don’t tear the flex!"',
+      objectiveText: 'Complete 10 phone repairs at your workshop or express counter',
     },
     ch_3_accessory_shelf: {
       title: 'Chapter 3: The Accessory Rack',
       subtitle: 'Tempered glass, cases & chargers keep cash flowing',
       narrative:
-        'Buy the 45,000 ₺ Accessory License to swing open wholesale doors! Expand your store tier to unlock car mounts, GaN chargers, powerbanks & ANC earbuds.',
+        'Buy the 45,000 ₺ Accessory License to swing open wholesale doors! Bundle accessories with phone sales and keep your rack stocked for daily passive cash.',
       mentorNote:
         'Master Cemal: "Phones bring the glory, kid, but cases and screen protectors always pay the rent. Never let the rack run dry!"',
-      objectiveText: 'Sell a total of 8 phone accessories',
+      objectiveText: 'Sell a total of 35 phone accessories',
+    },
+    ch_4_detective_eye: {
+      title: 'Chapter 4: Sharpest Eye in the Arcade',
+      subtitle: 'Catching every "mint condition" bluff red-handed',
+      narrative:
+        'Shady sellers and hidden faults never stop in the arcade. Expose aftermarket panels, chipped batteries, unregistered IMEIs & liquid damage to dominate negotiations!',
+      mentorNote:
+        'Master Cemal: "Never trust a seller’s word — trust your eyes and test tools. Once you catch 35 hidden faults, nobody in this arcade will dare bluff you!"',
+      objectiveText: 'Expose 35 hidden defects during inspections and use them as leverage',
     },
     ch_4_brand_dealer: {
-      title: 'Chapter 4: Sealed-Box Dealership',
+      title: 'Chapter 5: Sealed-Box Dealership',
       subtitle: 'Step beyond 2nd-hand into official factory-sealed stock',
       narrative:
         'Purchase the 220,000 ₺ Official Dealership License to stock 24-month warranty sealed phones directly from distributors and elevate your showcase.',
       mentorNote:
         'Master Cemal: "Factory-sealed boxes build instant credibility. Bundle a case and fast charger alongside one and they’ll be customers for life!"',
-      objectiveText: 'Sell 3 factory-sealed Brand-New phones from distributors',
+      objectiveText: 'Sell 12 factory-sealed Brand-New phones from distributors',
     },
     ch_5_showroom_boss: {
-      title: 'Chapter 5: GSM Empire',
-      subtitle: 'High-Street Showroom & Technical Service Leader',
+      title: 'Chapter 6: High-Street GSM Hub',
+      subtitle: 'Breaking out of the back-alley arcade onto the main avenue',
       narrative:
-        'Appraisal, micro-soldering, customs auctions, city branches, and official brand distribution under one roof! Upgrade to Shop Tier 3 "High-Street GSM Store".',
+        'Leave your small corner stall behind and open a wide glass-front flagship hub on the city’s busiest street. Upgrade to Tier 3 "High-Street GSM Hub"!',
       mentorNote:
-        'Master Cemal: "There’s nothing left I can teach you. You’re the new king of the arcade — may your shutter always open to abundance!"',
-      objectiveText: 'Upgrade your shop to Tier 3 "High-Street GSM Store" or higher',
+        'Master Cemal: "Rent goes up on the main street, and so do expectations. But everyone who sees your sign walks in — hold your head high, kid!"',
+      objectiveText: 'Upgrade your shop to Tier 3 "High-Street GSM Hub" or higher',
+    },
+    ch_7_equipment_arsenal: {
+      title: 'Chapter 7: Tech Automation Hub',
+      subtitle: 'Barcode stock, laser back-glass, microscopes & 4K CCTV',
+      narrative:
+        'A booming business can’t run on elbow grease alone. Install 10 equipment modules or business licenses to transform your counter into a modern tech fortress.',
+      mentorNote:
+        'Master Cemal: "Good tools make a master shine! Every piece of gear you install slashes costs and turns heads at the counter."',
+      objectiveText: 'Install a total of 10 Equipment or Business License upgrades',
+    },
+    ch_8_branch_network: {
+      title: 'Chapter 8: Citywide Branch Network',
+      subtitle: 'Scaling from a solo shop into a regional chain',
+      narrative:
+        'A single counter can only take you so far. Open at least 2 city branches from the Market tab to generate reliable passive daily revenue across town!',
+      mentorNote:
+        'Master Cemal: "Once you’ve got two branches ringing the register while you sleep, you’re no longer a shopkeeper — you’re a boss!"',
+      objectiveText: 'Open at least 2 active city branches',
+    },
+    ch_9_museum_curator: {
+      title: 'Chapter 9: Keeper of GSM History',
+      subtitle: 'Legendary retro phones and museum prestige',
+      narrative:
+        'True masters never forget where mobile tech began. Acquire 4 rare vintage relics for your GSM Museum to supercharge your shop prestige.',
+      mentorNote:
+        'Master Cemal: "Old-timers tear up seeing those classic keypad legends behind glass. Grow your museum and your reputation will echo across the city!"',
+      objectiveText: 'Collect 4 rare vintage relics in your GSM Museum',
+    },
+    ch_10_rival_takeover: {
+      title: 'Chapter 10: Break the Rival Monopoly',
+      subtitle: 'Acquire the rival tech chain under your own banner',
+      narrative:
+        'For years the rival retail chain tried to undercut your arcade. Build your war chest, buy them out from the Market tab, and claim undisputed city leadership!',
+      mentorNote:
+        'Master Cemal: "The day you drop that big chain’s keys on your desk, the whole arcade will give you a standing ovation!"',
+      objectiveText: 'Buy out the Rival Tech Chain from the Market tab',
+    },
+    ch_11_plaza_empire: {
+      title: 'Chapter 11: Multi-Million GSM Empire',
+      subtitle: 'Crossing 5,000,000 ₺ in cumulative net profit',
+      narrative:
+        'Appraisal, clean-room micro-soldering, customs auctions, branches, and official distribution all firing at once. Surpass 5,000,000 ₺ total career profit!',
+      mentorNote:
+        'Master Cemal: "You started at 23 in a 12-square-meter stall and now you move millions. There is nothing left I can teach you!"',
+      objectiveText: 'Earn 5,000,000 ₺ in cumulative net career profit',
+    },
+    ch_12_prestige_legend: {
+      title: 'Chapter 12: Eternal Merchant Legacy',
+      subtitle: 'Ascend to Prestige Cycle 1 (P1) and cement your legend',
+      narrative:
+        'You reached the summit — now make your legacy permanent! Complete all Prestige requirements, ascend to Cycle 1 (P1), mount your wall plaque, and rise stronger than ever.',
+      mentorNote:
+        'Master Cemal: "True legends don’t peak once — they conquer every era. May your shutter always open to abundance, grandmaster!"',
+      objectiveText: 'Reach Prestige Cycle 1 (P1) from the Prestige tab',
     },
   };
   return { ...ch, ...(enMap[ch.id] ?? {}) };
@@ -816,78 +879,48 @@ export function getLocalizedStoryChapter(ch: StoryChapter, lang: Language): Stor
 export function getLocalizedMilestone(m: CareerMilestone, lang: Language): CareerMilestone {
   if (lang === 'tr') return m;
   const enMap: Record<string, { title: string; description: string }> = {
-    ms_first_sale: {
-      title: 'First Sale, First Cash',
-      description: 'Sell your first 2nd-hand phone from the showcase and ring the register.',
-    },
-    ms_defect_hunter: {
-      title: 'Eagle-Eyed Appraiser',
-      description: 'Expose 5 hidden defects during inspection and use them as leverage.',
-    },
-    ms_micro_surgeon: {
-      title: 'Micro-Soldering Surgeon',
-      description: 'Repair a total of 4 phone defects across workshop or express jobs.',
-    },
-    ms_hot_streak: {
-      title: 'Unstoppable Streak (5x)',
-      description: 'Reach a 5x consecutive successful deal streak without losing a customer.',
-    },
-    ms_sales_10: {
-      title: 'Trusted Arcade Name (10 Sales)',
-      description: 'Close a total of 10 smartphone sales across your career.',
-    },
-    ms_acc_king: {
-      title: 'Accessory Rack Master (20 Sold)',
-      description: 'After unlocking your Accessory License, sell a total of 20 accessories.',
-    },
-    ms_collector_8: {
-      title: 'Model Catalog Explorer (8 Models)',
-      description: 'Discover and handle 8 different phone models in your career.',
-    },
-    ms_profit_60k: {
-      title: 'Golden Counter (60,000 ₺ Profit)',
-      description: 'Earn 60,000 ₺ in cumulative net trading profit.',
-    },
-    ms_defect_20: {
-      title: 'Detective Legend (20 Defects)',
-      description: 'Expose 20 hidden defects to bust shady seller bluffs.',
-    },
-    ms_brand_new_dealer: {
-      title: 'Authorized Sealed Dealer (4 Units)',
-      description: 'Sell 4 factory-sealed brand-new phones with your Dealership License.',
-    },
-    ms_repair_15: {
-      title: 'Head Technical Service (15 Repairs)',
-      description: 'Bring 15 faulty smartphones back to life in your workshop or express desk.',
-    },
-    ms_tier3_showroom: {
-      title: 'High-Street Hub Boss',
-      description: 'Expand your business to the Tier 3 "High-Street GSM Hub".',
-    },
-    ms_sales_30: {
-      title: 'Citywide Trader (30 Sales)',
-      description: 'Sell 30 phones to become the busiest mobile counter in town.',
-    },
-    ms_acc_80: {
-      title: 'Accessory Powerhouse (80 Sold)',
-      description: 'Sell a cumulative total of 80 cases, protectors, chargers & earbuds.',
-    },
-    ms_profit_350k: {
-      title: 'Regional Capital (350,000 ₺ Profit)',
-      description: 'Reach 350,000 ₺ in cumulative net trading profit.',
-    },
-    ms_brand_new_15: {
-      title: 'Official Distributor Leader (15 Sealed)',
-      description: 'Close 15 factory-sealed brand-new smartphone sales.',
-    },
-    ms_profit_1m: {
-      title: 'Millionaire Dealer (1.2M ₺ Profit)',
-      description: 'Cross 1,200,000 ₺ in cumulative net career profit!',
-    },
-    ms_tier5_flagship: {
-      title: 'Mall Flagship & Plaza Vision',
-      description: 'Open your Tier 5 Mall Flagship store to enter the big leagues!',
-    },
+    ms_first_sale: { title: 'First Sales, First Cash (5)', description: 'Sell your first 5 phones from the showcase and warm up the register.' },
+    ms_defect_hunter: { title: 'Eagle-Eyed Appraiser (12)', description: 'Expose 12 hidden defects during inspection and use them as leverage.' },
+    ms_micro_surgeon: { title: 'Micro-Soldering Surgeon (10)', description: 'Complete 10 phone repairs across workshop or express jobs.' },
+    ms_hot_streak: { title: 'Unstoppable Streak (8x)', description: 'Reach an 8x consecutive successful deal streak without losing a customer.' },
+    ms_tea_host_25: { title: 'Warm Tea Hospitality (25)', description: 'Serve 25 cups of Turkish tea to customers at your counter.' },
+    ms_sales_10: { title: 'Trusted Arcade Name (20 Sales)', description: 'Close a total of 20 smartphone sales across your career.' },
+    ms_acc_king: { title: 'Accessory Rack Master (45)', description: 'After unlocking your Accessory License, sell a total of 45 accessories.' },
+    ms_collector_8: { title: 'Model Catalog Explorer (12)', description: 'Discover and handle 12 different phone models in your career.' },
+    ms_equip_6: { title: 'Equipped Workshop (6 Gear)', description: 'Install 6 different Equipment or License upgrades in your shop.' },
+    ms_profit_60k: { title: 'Golden Counter (200K ₺ Profit)', description: 'Earn 200,000 ₺ in cumulative net trading profit.' },
+    ms_defect_20: { title: 'Detective Legend (40 Defects)', description: 'Expose 40 hidden defects to bust shady seller bluffs.' },
+    ms_repair_15: { title: 'Head Technical Service (30)', description: 'Bring 30 faulty smartphones back to life in your workshop or express desk.' },
+    ms_brand_new_dealer: { title: 'Authorized Sealed Dealer (10)', description: 'Sell 10 factory-sealed brand-new phones with your Dealership License.' },
+    ms_tier3_showroom: { title: 'High-Street Hub Boss', description: 'Expand your business to the Tier 3 "High-Street GSM Hub".' },
+    ms_day_30: { title: 'Arcade Veteran (Day 30)', description: 'Keep your shop thriving and reach Business Day 30.' },
+    ms_streak_15: { title: 'Negotiation Wizard (15x)', description: 'Close 15 consecutive deals without a single walkout!' },
+    ms_sales_30: { title: 'Citywide Trader (60 Sales)', description: 'Sell 60 phones to become the busiest mobile counter in town.' },
+    ms_acc_80: { title: 'Accessory Powerhouse (160)', description: 'Sell a cumulative total of 160 cases, protectors, chargers & earbuds.' },
+    ms_loan_cleared_1: { title: 'Debt-Free Merchant (1 Loan)', description: 'Pay off a commercial bank loan completely to clear your debt.' },
+    ms_collector_24: { title: 'Encopedic Catalog (24 Models)', description: 'Discover 24 distinct smartphone models across your career.' },
+    ms_profit_350k: { title: 'Regional Capital (1M ₺ Profit)', description: 'Reach 1,000,000 ₺ in cumulative net trading profit.' },
+    ms_branches_2: { title: 'Chain Founder (2 Branches)', description: 'Operate 2 active city branches simultaneously.' },
+    ms_museum_3: { title: 'GSM Historian (3 Relics)', description: 'Add 3 rare vintage collector phones to your GSM Museum.' },
+    ms_brand_new_15: { title: 'Official Distributor Leader (30)', description: 'Close 30 factory-sealed brand-new smartphone sales.' },
+    ms_defect_100: { title: 'X-Ray Chief Inspector (100)', description: 'Expose 100 hidden defects across your inspection career.' },
+    ms_repair_60: { title: 'Master Surgeon Academy (75)', description: 'Complete 75 phone repairs to become the city’s #1 service lab.' },
+    ms_sales_120: { title: 'Fleet Boss (150 Sales)', description: 'Close 150 total smartphone sales and become a city legend.' },
+    ms_equip_14: { title: 'Full Automation Hub (14 Gear)', description: 'Install 14 Equipment & License upgrades across your shop.' },
+    ms_tea_host_100: { title: 'Patron of the Tea House (100)', description: 'Serve 100 cups of Turkish tea to win hearts across the arcade.' },
+    ms_acc_400: { title: 'Wholesale Accessory King (400)', description: 'Sell 400 total accessories across counter & passive shelves!' },
+    ms_profit_1m: { title: 'Millionaire Dealer (3.5M ₺)', description: 'Cross 3,500,000 ₺ in cumulative net career profit!' },
+    ms_tier5_flagship: { title: 'Mall Flagship Vision', description: 'Open your Tier 5 Mall Flagship store to enter the big leagues!' },
+    ms_brand_new_80: { title: 'Regional Distributor (80)', description: 'Sell 80 factory-sealed brand-new devices from distributors.' },
+    ms_day_75: { title: 'Pillar of the Industry (Day 75)', description: 'Lead your GSM business strong all the way to Day 75.' },
+    ms_streak_30: { title: 'Legendary Closer (30x Streak)', description: 'Chain 30 consecutive deals without losing a single customer!' },
+    ms_branches_4: { title: 'Metro Chain Emperor (4 Branches)', description: 'Open all 4 city branch locations to dominate every district!' },
+    ms_museum_6: { title: 'Immortal Museum Curator (6)', description: 'Collect 6 rare vintage GSM relics for a complete museum wing!' },
+    ms_tier6_plaza: { title: 'Grand GSM Plaza HQ (Tier 6)', description: 'Unlock the ultimate Tier 6 GSM Plaza headquarters!' },
+    ms_equip_all: { title: 'Complete Tech Arsenal (20/20)', description: 'Install all 20 equipment and business license upgrades!' },
+    ms_sales_350: { title: 'National Phone Baron (350)', description: 'Break records with 350 career smartphone sales!' },
+    ms_profit_10m: { title: 'GSM Empire (12M ₺ Profit)', description: 'Surpass 12,000,000 ₺ in cumulative net career profit!' },
+    ms_prestige_3: { title: 'Eternal Arcade Legend (P3)', description: 'Ascend to Prestige Cycle 3 (P3) for eternal merchant glory!' },
   };
   return { ...m, ...(enMap[m.id] ?? {}) };
 }

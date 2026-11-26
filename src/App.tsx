@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BarChart3,
   Building2,
+  Flame,
   Newspaper,
   Package,
   Pause,
+  PlayCircle,
   RotateCw,
-  ShieldCheck,
   Sparkles,
   Star,
   Store,
@@ -16,11 +17,19 @@ import {
   VolumeX,
   Wrench,
   X,
+  Zap,
 } from 'lucide-react';
 import { AchievementBadgeToast } from './components/AchievementBadgeToast';
+import { AdOverlayModal } from './components/AdOverlayModal';
+import { AnalyticsModal } from './components/AnalyticsModal';
 import { BrandLogo } from './components/BrandLogo';
 import { ComplaintArchiveModal } from './components/ComplaintArchiveModal';
 import { CounterView } from './components/CounterView';
+import {
+  DebtClearedCelebrationData,
+  DebtClearedOverlay,
+} from './components/DebtClearedOverlay';
+import { EsnafDramaModal } from './components/EsnafDramaModal';
 import {
   CLASSIFIED_COD_FEE,
   CLASSIFIED_ONSITE_FEE,
@@ -30,7 +39,6 @@ import { InspectionOverlay } from './components/InspectionOverlay';
 import { MiniRepairModal } from './components/MiniRepairModal';
 import { MissionsView } from './components/MissionsView';
 import {
-  AnalyticsModal,
   DaySummaryModal,
   EndModal,
   PauseModal,
@@ -161,8 +169,27 @@ import {
   simulateEndOfDayAccessorySales,
   tickRivalFlashSnatch,
 } from './game/engine';
+import {
+  AD_PACING_RULES,
+  ActiveWebAdSession,
+  initializeAdService,
+  maybeShowEndOfDayInterstitial,
+  normalizeAdState,
+  registerWebAdOverlayListener,
+  showRewardedAd,
+} from './game/adService';
+import {
+  advanceDramaProgress,
+  applyDramaChoice,
+  maybeTriggerMorningDrama,
+  tickDramaOnNewDay,
+} from './game/esnafDrama';
 import { soundFX } from './game/sound';
-import { requestNativeStoreReview, triggerHaptic } from './game/storeBridge';
+import {
+  initNativeAppChrome,
+  requestNativeStoreReview,
+  triggerHaptic,
+} from './game/storeBridge';
 import {
   AccessoryId,
   AchievementBadgeNotification,
@@ -239,6 +266,7 @@ export default function App() {
   // Mid-day overlays for re-reading Morning Newspaper, live D3 Analytics, Store Compliance & Offline Idle Earnings
   const [showNewspaperReview, setShowNewspaperReview] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showLegacyModal, setShowLegacyModal] = useState(false);
   const [showComplianceModal, setShowComplianceModal] = useState(false);
   const [showComplaintArchive, setShowComplaintArchive] = useState(false);
   const [activeWarrantyModal, setActiveWarrantyModal] = useState<{
@@ -260,6 +288,55 @@ export default function App() {
   );
   const [offlineSummary, setOfflineSummary] =
     useState<OfflineEarningsSummary | null>(null);
+  const [activeWebAd, setActiveWebAd] = useState<ActiveWebAdSession | null>(null);
+  const [inspectingActiveDrama, setInspectingActiveDrama] = useState(false);
+  const [debtClearedOverlay, setDebtClearedOverlay] =
+    useState<DebtClearedCelebrationData | null>(null);
+  const lastDramaStingerKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const drama = shop.activeDrama;
+    if (
+      screen !== 'PLAYING' ||
+      !drama ||
+      drama.phase === 'ACTIVE_QUEST'
+    ) {
+      return;
+    }
+    const key = `${drama.dramaId}:${drama.startedDay}:${drama.phase}`;
+    if (lastDramaStingerKeyRef.current !== key) {
+      lastDramaStingerKeyRef.current = key;
+      if (drama.phase === 'RESOLVED_SUCCESS') {
+        soundFX.playQuestClaim();
+      } else {
+        soundFX.playDramaStinger();
+      }
+    }
+  }, [screen, shop.activeDrama]);
+
+  const handleSelectDramaChoice = (choiceId: string) => {
+    soundFX.playClick();
+    setShop((prev) => applyDramaChoice(prev, choiceId));
+    setInspectingActiveDrama(false);
+  };
+
+  const handleDismissResolvedDrama = () => {
+    setShop((prev) => ({
+      ...prev,
+      activeDrama: null,
+    }));
+    setInspectingActiveDrama(false);
+  };
+
+  useEffect(() => {
+    registerWebAdOverlayListener(setActiveWebAd);
+    void initNativeAppChrome();
+    void initializeAdService();
+    return () => {
+      registerWebAdOverlayListener(null);
+    };
+  }, []);
+
   const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(() =>
     typeof window !== 'undefined'
       ? window.innerWidth < 640 && window.innerHeight > window.innerWidth
@@ -632,6 +709,115 @@ export default function App() {
     }
   };
 
+  const consume2xCashMultiplier = (prev: ShopState, baseExtraCash: number) => {
+    const ad = normalizeAdState(prev.adState, prev.day);
+    if (
+      ad.cashMultiplier !== 2 ||
+      ad.cashMultiplierDealsLeft <= 0 ||
+      baseExtraCash <= 0
+    ) {
+      return {
+        extraCash: 0,
+        remainingDeals: ad.cashMultiplierDealsLeft,
+        nextAdState: ad,
+      };
+    }
+    const remainingDeals = Math.max(0, ad.cashMultiplierDealsLeft - 1);
+    const extraCash = Math.round(baseExtraCash);
+    return {
+      extraCash,
+      remainingDeals,
+      nextAdState: {
+        ...ad,
+        cashMultiplier: (remainingDeals > 0 ? 2 : 1) as 1 | 2,
+        cashMultiplierDealsLeft: remainingDeals,
+      },
+    };
+  };
+
+  const handleActivate2xCashAd = async () => {
+    const ad = normalizeAdState(shop.adState, shop.day);
+    if (ad.cashMultiplier === 2 && ad.cashMultiplierDealsLeft > 0) {
+      pushFeedback(
+        bi(
+          `2x Para Çarpanı zaten aktif! Kalan: ${ad.cashMultiplierDealsLeft} işlem.`,
+          `2x Cash Multiplier already active! ${ad.cashMultiplierDealsLeft} deals left.`
+        ),
+        'amber'
+      );
+      return;
+    }
+    soundFX.playClick();
+    const dealsGrant = AD_PACING_RULES.cashMultiplierDealsGrant;
+    const completed = await showRewardedAd({
+      placement: 'CASH_2X_MULTIPLIER_REWARDED',
+      rewardLabelTr: `2x Para Çarpanı (${dealsGrant} İşlem Boyunca)`,
+      rewardLabelEn: `2x Cash Multiplier (Next ${dealsGrant} Deals)`,
+      detailTr: `Kısa bir ödüllü reklam izleyerek sonraki ${dealsGrant} telefon satışı, acil tamir veya aksesuar işleminde kazancını 2x çarpanla artırmak istiyor musun?`,
+      detailEn: `Watch a short rewarded ad to boost your next ${dealsGrant} phone sales, express repairs, or accessory deals with a 2x cash multiplier?`,
+      multiplierBadge: `2x · ${dealsGrant} İŞLEM`,
+    });
+    if (!completed) return;
+    soundFX.playCashRegister();
+    triggerHaptic(shop.hapticsEnabled, 'success');
+    pushFeedback(
+      bi(
+        `⚡ 2x Para Çarpanı Aktif! Sonraki ${dealsGrant} işlemde kazancın katlanacak!`,
+        `⚡ 2x Cash Multiplier Active! Boosted earnings for your next ${dealsGrant} deals!`
+      ),
+      'positive'
+    );
+    setShop((prev) => {
+      const curAd = normalizeAdState(prev.adState, prev.day);
+      return {
+        ...prev,
+        adState: {
+          ...curAd,
+          cashMultiplier: 2,
+          cashMultiplierDealsLeft: dealsGrant,
+          totalRewardedAdsWatched: curAd.totalRewardedAdsWatched + 1,
+        },
+      };
+    });
+  };
+
+  const handleActivatePassive2xAd = async () => {
+    const curAd = normalizeAdState(shop.adState, shop.day);
+    if (curAd.passiveIncome2xDay === shop.day) return;
+    soundFX.playClick();
+    const completed = await showRewardedAd({
+      placement: 'PASSIVE_INCOME_2X_REWARDED',
+      rewardLabelTr: `Gün ${shop.day} Pasif Gelir 2x Çarpanı`,
+      rewardLabelEn: `Day ${shop.day} 2x Daily Passive Income`,
+      detailTr:
+        'Kısa bir ödüllü reklam izleyerek bugünün şube, müze ve pasif gelirini gün sonunda 2 katı olarak kasaya yatırmak istiyor musun?',
+      detailEn:
+        "Watch a short rewarded ad to double today's branch, museum, and passive income at end of day?",
+      multiplierBadge: '2x PASİF',
+    });
+    if (!completed) return;
+    soundFX.playCashRegister();
+    triggerHaptic(shop.hapticsEnabled, 'success');
+    pushFeedback(
+      bi(
+        `⚡ Gün ${shop.day} Pasif Gelir 2x Aktif! Gün sonunda 2 kat gelir yatacak.`,
+        `⚡ Day ${shop.day} 2x Passive Income Active! Double payout at closing.`
+      ),
+      'positive'
+    );
+    setShop((prev) => {
+      const ad = normalizeAdState(prev.adState, prev.day);
+      return {
+        ...prev,
+        adState: {
+          ...ad,
+          passiveIncome2xDay: prev.day,
+          totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1,
+        },
+      };
+    });
+  };
+
   const handleClaimOfflineEarnings = (amount: number, doubled: boolean) => {
     soundFX.playCashRegister();
     pushFeedback(
@@ -640,15 +826,21 @@ export default function App() {
         : `+${formatTRY(amount)} · Gece Geliri Kasada!`,
       'positive'
     );
-    setShop((prev) => ({
-      ...prev,
-      cash: prev.cash + amount,
-      lastSavedAt: Date.now(),
-      todayStats: {
-        ...prev.todayStats,
-        branchIncome: (prev.todayStats.branchIncome ?? 0) + amount,
-      },
-    }));
+    setShop((prev) => {
+      const ad = normalizeAdState(prev.adState, prev.day);
+      return {
+        ...prev,
+        cash: prev.cash + amount,
+        lastSavedAt: Date.now(),
+        adState: doubled
+          ? { ...ad, totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1 }
+          : ad,
+        todayStats: {
+          ...prev.todayStats,
+          branchIncome: (prev.todayStats.branchIncome ?? 0) + amount,
+        },
+      };
+    });
     setOfflineSummary(null);
   };
 
@@ -972,7 +1164,8 @@ export default function App() {
         dailyQueue: nextQueue,
         totalTeasServed: prev.totalTeasServed + 1,
       };
-      return applyQuestProgress(updated, 'SERVE_TEA', 1);
+      const withQuest = applyQuestProgress(updated, 'SERVE_TEA', 1);
+      return advanceDramaProgress(withQuest, 'SERVE_TEAS', 1);
     });
   };
 
@@ -1011,8 +1204,11 @@ export default function App() {
       soundFX.playAngryLeave();
       setShakeTrigger((n) => n + 1);
       pushFeedback('Blöf Tutmadı · Müşteri Kalktı!', 'negative');
-    } else if (updatedEncounter.mood === 'annoyed') {
-      soundFX.playScanDefect();
+    } else if (
+      updatedEncounter.mood === 'annoyed' ||
+      updatedEncounter.mood === 'angry'
+    ) {
+      soundFX.playCustomerAngry();
       setShakeTrigger((n) => n + 1);
       pushFeedback('Hamle Geri Tepti', 'negative');
     } else {
@@ -1379,7 +1575,7 @@ export default function App() {
     finalPrice: number,
     reputationDelta: number
   ) => {
-    soundFX.playCashRegister();
+    soundFX.playBargainSuccess();
     const hasNeon = shop.upgrades.includes('neon_sign');
     const repBonus =
       reputationDelta > 0 && hasNeon ? reputationDelta * 1.45 : reputationDelta;
@@ -1655,6 +1851,20 @@ export default function App() {
           ? discoverSpec(nextDiscovered, tradeInPhone.specId)
           : nextDiscovered;
 
+        const baseAdBonus = Math.max(
+          500,
+          profit > 0 ? profit : Math.round(finalPrice * 0.25)
+        );
+        const adBoost = consume2xCashMultiplier(prev, baseAdBonus);
+        if (adBoost.extraCash > 0) {
+          window.setTimeout(() => {
+            pushFeedback(
+              `⚡ 2x Reklam Çarpanı: +${formatTRY(adBoost.extraCash)} ekstra kasa! (${adBoost.remainingDeals} kaldı)`,
+              'amber'
+            );
+          }, 90);
+        }
+
         let nextState: ShopState = {
           ...prev,
           cash:
@@ -1664,7 +1874,8 @@ export default function App() {
             saleTax -
             tradeBenchCost +
             crossSellRev +
-            streakBonus,
+            streakBonus +
+            adBoost.extraCash,
           reputation: finalRepWithStaff,
           dealStreak: nextStreak,
           bestDealStreak: nextBestStreak,
@@ -1674,18 +1885,22 @@ export default function App() {
           soldHistory: [soldRecord, ...(prev.soldHistory ?? [])].slice(0, 35),
           dailyQueue: cleanedQueueWithCert,
           reviews: nextReviews,
-          totalProfitEarned: prev.totalProfitEarned + profit,
+          adState: adBoost.nextAdState,
+          totalProfitEarned: prev.totalProfitEarned + profit + adBoost.extraCash,
           totalPhonesSold: prev.totalPhonesSold + 1,
           totalBrandNewSold: prev.totalBrandNewSold + (isBrandNewSale ? 1 : 0),
           totalAccessoriesSold: prev.totalAccessoriesSold + crossSellList.length,
           totalTradeInsDone: (prev.totalTradeInsDone ?? 0) + (isTradeIn ? 1 : 0),
-          bestSingleDealProfit: Math.max(prev.bestSingleDealProfit, profit),
+          bestSingleDealProfit: Math.max(
+            prev.bestSingleDealProfit,
+            profit + adBoost.extraCash
+          ),
           todayStats: {
             ...prev.todayStats,
             phonesSold: prev.todayStats.phonesSold + 1,
             phonesBought: prev.todayStats.phonesBought + (tradeInPhone ? 1 : 0),
             accessoriesSold: prev.todayStats.accessoriesSold + crossSellList.length,
-            salesRevenue: prev.todayStats.salesRevenue + finalPrice,
+            salesRevenue: prev.todayStats.salesRevenue + finalPrice + adBoost.extraCash,
             accessoryRevenue: prev.todayStats.accessoryRevenue + crossSellRev,
             repairSpend: prev.todayStats.repairSpend + tradeBenchCost,
             posCommission: (prev.todayStats.posCommission ?? 0) + posCommission,
@@ -1702,6 +1917,14 @@ export default function App() {
             crossSellList.length * 10
         );
         nextState = applyQuestProgress(nextState, 'SELL_PHONE', 1);
+        nextState = advanceDramaProgress(nextState, 'SELL_PHONES', 1);
+        if (profit + adBoost.extraCash > 0) {
+          nextState = advanceDramaProgress(
+            nextState,
+            'EARN_PROFIT',
+            profit + adBoost.extraCash
+          );
+        }
         if (isBrandNewSale) {
           nextState = applyQuestProgress(nextState, 'SELL_BRAND_NEW', 1);
         }
@@ -1829,14 +2052,14 @@ export default function App() {
       soundFX.playAngryLeave();
       setShakeTrigger((n) => n + 1);
       pushFeedback('Müşteri Kızıp Dükkanı Terk Etti', 'negative');
+    } else if (
+      result.updatedEncounter.mood === 'annoyed' ||
+      result.updatedEncounter.mood === 'angry'
+    ) {
+      soundFX.playCustomerAngry();
+      setShakeTrigger((n) => n + 1);
     } else {
       soundFX.playCounterOffer();
-      if (
-        result.updatedEncounter.mood === 'annoyed' ||
-        result.updatedEncounter.mood === 'angry'
-      ) {
-        setShakeTrigger((n) => n + 1);
-      }
     }
 
     setShop((prev) => {
@@ -2007,9 +2230,18 @@ export default function App() {
 
       const repGain = bonusTip > 0 ? 0.22 : quality === 'ROUGH' ? 0.04 : 0.12;
       const nextStreak = prev.dealStreak + 1;
+      const adBoost = consume2xCashMultiplier(prev, Math.max(250, netPayout));
+      if (adBoost.extraCash > 0) {
+        window.setTimeout(() => {
+          pushFeedback(
+            `⚡ 2x Reklam Çarpanı: +${formatTRY(adBoost.extraCash)} servis bonusu! (${adBoost.remainingDeals} kaldı)`,
+            'amber'
+          );
+        }, 90);
+      }
       let nextState: ShopState = {
         ...prev,
-        cash: prev.cash - partCost + netPayout,
+        cash: prev.cash - partCost + netPayout + adBoost.extraCash,
         reputation: Math.min(5, prev.reputation + repGain),
         dealStreak: nextStreak,
         bestDealStreak: Math.max(prev.bestDealStreak, nextStreak),
@@ -2020,19 +2252,31 @@ export default function App() {
         spareParts: nextParts,
         soldHistory: [expressRecord, ...(prev.soldHistory ?? [])].slice(0, 35),
         dailyQueue: nextQueue,
+        adState: adBoost.nextAdState,
         totalPhonesRepaired: prev.totalPhonesRepaired + 1,
-        totalProfitEarned: prev.totalProfitEarned + netProfit,
-        bestSingleDealProfit: Math.max(prev.bestSingleDealProfit, netProfit),
+        totalProfitEarned: prev.totalProfitEarned + netProfit + adBoost.extraCash,
+        bestSingleDealProfit: Math.max(
+          prev.bestSingleDealProfit,
+          netProfit + adBoost.extraCash
+        ),
         todayStats: {
           ...prev.todayStats,
           repairSpend: prev.todayStats.repairSpend + partCost,
-          serviceRevenue: prev.todayStats.serviceRevenue + totalPayout,
+          serviceRevenue: prev.todayStats.serviceRevenue + totalPayout + adBoost.extraCash,
           salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
           reputationDelta: prev.todayStats.reputationDelta + repGain,
         },
       };
       nextState = applyXpGain(nextState, bonusTip >= 1000 ? 55 : 30);
       nextState = applyQuestProgress(nextState, 'REPAIR_PHONE', 1);
+      nextState = advanceDramaProgress(nextState, 'REPAIR_PHONES', 1);
+      if (netProfit + adBoost.extraCash > 0) {
+        nextState = advanceDramaProgress(
+          nextState,
+          'EARN_PROFIT',
+          netProfit + adBoost.extraCash
+        );
+      }
 
       if (checkVictoryCondition(nextState)) {
         window.setTimeout(() => {
@@ -2369,20 +2613,30 @@ export default function App() {
 
       const repGain = 0.06;
       const nextStreak = prev.dealStreak + 1;
+      const adBoost = consume2xCashMultiplier(prev, Math.max(150, netRev));
+      if (adBoost.extraCash > 0) {
+        window.setTimeout(() => {
+          pushFeedback(
+            `⚡ 2x Reklam Çarpanı: +${formatTRY(adBoost.extraCash)} aksesuar bonusu! (${adBoost.remainingDeals} kaldı)`,
+            'amber'
+          );
+        }, 90);
+      }
       let nextState: ShopState = {
         ...prev,
-        cash: prev.cash + netRev,
+        cash: prev.cash + netRev + adBoost.extraCash,
         reputation: Math.min(5, prev.reputation + repGain),
         dealStreak: nextStreak,
         bestDealStreak: Math.max(prev.bestDealStreak, nextStreak),
         accessories: nextAccessories,
         dailyQueue: nextQueue,
+        adState: adBoost.nextAdState,
         totalAccessoriesSold: prev.totalAccessoriesSold + totalUnits,
-        totalProfitEarned: prev.totalProfitEarned + netProfit,
+        totalProfitEarned: prev.totalProfitEarned + netProfit + adBoost.extraCash,
         todayStats: {
           ...prev.todayStats,
           accessoriesSold: prev.todayStats.accessoriesSold + totalUnits,
-          accessoryRevenue: prev.todayStats.accessoryRevenue + totalRev,
+          accessoryRevenue: prev.todayStats.accessoryRevenue + totalRev + adBoost.extraCash,
           salesTaxPaid: (prev.todayStats.salesTaxPaid ?? 0) + saleTax,
           reputationDelta: prev.todayStats.reputationDelta + repGain,
         },
@@ -2600,7 +2854,7 @@ export default function App() {
     }
     soundFX.playQuestClaim();
     pushFeedback(
-      `Hikaye Bölümü Tamam! +${formatTRY(ch.rewardCash)}`,
+      `Hikaye Bölümü Tamam! +${formatTRY(ch.rewardCash)}${ch.rewardXp > 0 ? ` · +${ch.rewardXp} XP` : ''}`,
       'positive'
     );
     setShop((prev) => {
@@ -2726,6 +2980,11 @@ export default function App() {
         }
         if (staffTick.completedCount > 0) {
           nextState = applyQuestProgress(nextState, 'REPAIR_PHONE', staffTick.completedCount);
+          nextState = advanceDramaProgress(
+            nextState,
+            'REPAIR_PHONES',
+            staffTick.completedCount
+          );
         }
         return nextState;
       });
@@ -2744,7 +3003,9 @@ export default function App() {
         staffRepairQueue: finalStaffTick.updatedQueue,
       };
 
-      const rent = getDailyRent(stateAfterFinalStaff.day, stateAfterFinalStaff.shopTier);
+      const rawRent = getDailyRent(stateAfterFinalStaff.day, stateAfterFinalStaff.shopTier);
+      const rentDiscountPct = Math.max(0, Math.min(0.6, stateAfterFinalStaff.todayRentDiscountPct ?? 0));
+      const rent = Math.round(rawRent * (1 - rentDiscountPct));
       const wages = getDailyStaffWages(stateAfterFinalStaff.staff);
       const techWork = applyMasterTechEndOfDay(stateAfterFinalStaff);
       const passiveAcc = simulateEndOfDayAccessorySales(stateAfterFinalStaff);
@@ -2764,6 +3025,13 @@ export default function App() {
         techWork.cost -
         empireEod.loanPayments;
       soundFX.playDayComplete();
+
+      if (empireEod.passive2xApplied) {
+        pushFeedback(
+          `⚡ 2x Pasif Gelir Çarpanı Uygulandı (+${formatTRY(empireEod.branchIncome)})!`,
+          'positive'
+        );
+      }
 
       if (empireEod.overdueTaxNotice) {
         pushFeedback('Maliye Gecikme Cezası Uygulandı (-0.15★)!', 'negative');
@@ -2809,6 +3077,37 @@ export default function App() {
         const filteredHistory = prev.history.filter(
           (entry) => entry.day !== prev.day
         );
+        const eodLoansClosedCount = empireEod.paidOffLoans.length;
+        const eodPrestigeBonusAdd =
+          eodLoansClosedCount > 0
+            ? eodLoansClosedCount * 4 + (empireEod.allLoansCleared ? 4 : 0)
+            : 0;
+        const nextDebtFreePrestige =
+          (prev.debtFreePrestigeBonus ?? 0) + eodPrestigeBonusAdd;
+
+        if (eodLoansClosedCount > 0) {
+          const clearedLoanName =
+            empireEod.paidOffLoans.length === 1
+              ? empireEod.paidOffLoans[0].name
+              : `${empireEod.paidOffLoans.length} Ticari Kredi`;
+          const clearedTotal = empireEod.paidOffLoans.reduce(
+            (sum, l) => sum + l.remainingBalance,
+            0
+          );
+          window.setTimeout(() => {
+            soundFX.playQuestClaim();
+            triggerHaptic(prev.hapticsEnabled, 'success');
+            setDebtClearedOverlay({
+              id: Date.now(),
+              loanName: clearedLoanName,
+              amountCleared: clearedTotal,
+              prestigeBonusAdded: eodPrestigeBonusAdd,
+              totalDebtFreePrestige: nextDebtFreePrestige,
+              allLoansZero: empireEod.allLoansCleared,
+            });
+          }, 260);
+        }
+
         let nextState: ShopState = {
           ...prev,
           cash: nextCash,
@@ -2817,6 +3116,9 @@ export default function App() {
           staffRepairQueue: finalStaffTick.updatedQueue,
           accessories: passiveAcc.updatedAccessories,
           activeLoans: empireEod.updatedLoans,
+          loansPaidOffCount:
+            (prev.loansPaidOffCount ?? 0) + eodLoansClosedCount,
+          debtFreePrestigeBonus: nextDebtFreePrestige,
           weeklyTaxDue: empireEod.newWeeklyTaxDue,
           rival: empireEod.updatedRival,
           morningNotifications: empireEod.overdueTaxNotice
@@ -2864,8 +3166,45 @@ export default function App() {
         setScreen('GAME_OVER');
       } else {
         setScreen('DAY_SUMMARY');
+        // Low-frequency Interstitial Ad: triggers automatically at day end once every 5–7 game days
+        const completedDay = stateAfterFinalStaff.day;
+        const adSnapshot = stateAfterFinalStaff.adState;
+        void maybeShowEndOfDayInterstitial(completedDay, adSnapshot, false).then((res) => {
+          if (res.shown) {
+            setShop((prev) => {
+              const ad = normalizeAdState(prev.adState, prev.day);
+              return {
+                ...prev,
+                adState: {
+                  ...ad,
+                  lastInterstitialDay: res.lastInterstitialDay,
+                  nextInterstitialDay: res.nextInterstitialDay,
+                  totalInterstitialsShown: ad.totalInterstitialsShown + 1,
+                },
+              };
+            });
+          }
+        });
       }
     }
+  };
+
+  const handleClaimDaySummaryAdBonus = (bonusCash: number) => {
+    soundFX.playCashRegister();
+    triggerHaptic(shop.hapticsEnabled, 'success');
+    pushFeedback(`Ödüllü Reklam Primi: +${formatTRY(bonusCash)} Kasaya Eklendi!`, 'positive');
+    setShop((prev) => {
+      const ad = normalizeAdState(prev.adState, prev.day);
+      return {
+        ...prev,
+        cash: prev.cash + bonusCash,
+        totalProfitEarned: prev.totalProfitEarned + bonusCash,
+        adState: {
+          ...ad,
+          totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1,
+        },
+      };
+    });
   };
 
   const handleStartNextDay = () => {
@@ -2901,6 +3240,7 @@ export default function App() {
         activeStoreEvent: null,
         nextCustomerEventEffect: null,
         storeEventsTriggeredToday: 0,
+        todayRentDiscountPct: 0,
         dailyQuests: generateDailyQuests(
           nextDay,
           timers.upgrades,
@@ -2931,8 +3271,28 @@ export default function App() {
         nextBase.sundayKermes = null;
       }
 
-      return nextBase;
+      // Tick active multi-day Esnaf Draması or trigger a fresh morning story arc based on live shop state
+      let finalNext = tickDramaOnNewDay(nextBase);
+      if (!finalNext.activeDrama) {
+        const morningDrama = maybeTriggerMorningDrama(
+          finalNext,
+          calculatePrestige(finalNext)
+        );
+        if (morningDrama) {
+          finalNext = {
+            ...finalNext,
+            activeDrama: morningDrama,
+            morningNotifications: [
+              `Esnaf Draması Başladı: ${morningDrama.titleTr} — Gazeteyi kapatınca kararını ver!`,
+              ...finalNext.morningNotifications,
+            ],
+          };
+        }
+      }
+
+      return finalNext;
     });
+    setInspectingActiveDrama(false);
     setActiveTab('COUNTER');
     setScreen('MORNING_NEWS');
   };
@@ -2981,7 +3341,12 @@ export default function App() {
         },
       };
       nextState = applyXpGain(nextState, 25);
-      return applyQuestProgress(nextState, 'SELL_PHONE', 1);
+      nextState = applyQuestProgress(nextState, 'SELL_PHONE', 1);
+      nextState = advanceDramaProgress(nextState, 'SELL_PHONES', 1);
+      if (netProfit > 0) {
+        nextState = advanceDramaProgress(nextState, 'EARN_PROFIT', netProfit);
+      }
+      return nextState;
     });
   };
 
@@ -3157,7 +3522,8 @@ export default function App() {
         nextState,
         (effectiveMaster ? 55 : 25) + (defectIds.length - 1) * 15
       );
-      return applyQuestProgress(nextState, 'REPAIR_PHONE', 1);
+      nextState = applyQuestProgress(nextState, 'REPAIR_PHONE', 1);
+      return advanceDramaProgress(nextState, 'REPAIR_PHONES', 1);
     });
   };
 
@@ -3831,30 +4197,90 @@ export default function App() {
     }));
   };
 
-  const handleResolveStoreEventAction = () => {
+  const handleResolveStoreEventAction = (choice: 'PRIMARY' | 'ALT' = 'PRIMARY') => {
     const ev = shop.activeStoreEvent;
-    if (!ev || ev.resolved || !ev.actionLabel) return;
-    const cost = ev.actionCost ?? 0;
+    if (!ev || ev.resolved) return;
+
+    const isAlt = choice === 'ALT';
+    const label = isAlt ? ev.altActionLabel : ev.actionLabel;
+    if (!label) return;
+
+    const cost = (isAlt ? ev.altActionCost : ev.actionCost) ?? 0;
     if (shop.cash < cost) return;
-    soundFX.playScanOk();
-    pushFeedback(
-      `${ev.title} Çözüldü (${cost > 0 ? `-${formatTRY(cost)}` : 'Ücretsiz'})!`,
-      'positive'
-    );
-    setShop((prev) => ({
-      ...prev,
-      cash: prev.cash - cost,
-      activeStoreEvent: prev.activeStoreEvent
-        ? { ...prev.activeStoreEvent, resolved: true }
-        : null,
-      nextCustomerEventEffect: {
-        title: `${ev.title} (Çözüldü)`,
-        moodDelta: ev.actionMoodDelta ?? Math.max(4, ev.moodDelta + 8),
-        patienceDelta: ev.actionPatienceDelta ?? 8,
-        budgetMultiplier: ev.actionBudgetMultiplier ?? 1.03,
-        visualKind: ev.visualKind,
-      },
-    }));
+
+    const riskReward = isAlt ? ev.altActionRiskReward : ev.actionRiskReward;
+    let cashDelta = -cost + ((isAlt ? ev.altActionCashDelta : ev.actionCashDelta) ?? 0);
+    let repDelta = (isAlt ? ev.altActionReputationDelta : ev.actionReputationDelta) ?? 0;
+    const rentDiscountAdd = (isAlt ? ev.altActionRentDiscountPct : ev.actionRentDiscountPct) ?? 0;
+    const bonusAcc = isAlt ? ev.altActionBonusAccessory : ev.actionBonusAccessory;
+    let moodDelta =
+      (isAlt ? ev.altActionMoodDelta : ev.actionMoodDelta) ??
+      Math.max(4, ev.moodDelta + 8);
+    const patienceDelta =
+      (isAlt ? ev.altActionPatienceDelta : ev.actionPatienceDelta) ?? 8;
+    const budgetMultiplier =
+      (isAlt ? ev.altActionBudgetMultiplier : ev.actionBudgetMultiplier) ?? 1.03;
+
+    let feedbackText =
+      (isAlt ? ev.altActionResultText : ev.actionResultText) ??
+      `${ev.title} çözüldü!`;
+    let feedbackTone: 'positive' | 'negative' | 'amber' = 'positive';
+
+    if (riskReward) {
+      const won = Math.random() < riskReward.successChance;
+      if (won) {
+        cashDelta += riskReward.successCashDelta;
+        moodDelta = riskReward.successMoodDelta;
+        feedbackText = riskReward.successText;
+        feedbackTone = 'positive';
+        soundFX.playQuestClaim();
+      } else {
+        cashDelta += riskReward.failCashDelta;
+        moodDelta = riskReward.failMoodDelta;
+        feedbackText = riskReward.failText;
+        feedbackTone = 'negative';
+        soundFX.playScanDefect();
+      }
+    } else {
+      soundFX.playScanOk();
+    }
+
+    pushFeedback(feedbackText, feedbackTone);
+
+    setShop((prev) => {
+      const nextAccessories = bonusAcc
+        ? {
+            ...prev.accessories,
+            [bonusAcc.id]: {
+              ...prev.accessories[bonusAcc.id],
+              quantity: (prev.accessories[bonusAcc.id]?.quantity ?? 0) + bonusAcc.quantity,
+            },
+          }
+        : prev.accessories;
+
+      const nextRentDiscount = Math.min(
+        0.5,
+        (prev.todayRentDiscountPct ?? 0) + rentDiscountAdd
+      );
+
+      return {
+        ...prev,
+        cash: Math.max(0, prev.cash + cashDelta),
+        reputation: Math.max(1, Math.min(5, prev.reputation + repDelta)),
+        accessories: nextAccessories,
+        todayRentDiscountPct: nextRentDiscount,
+        activeStoreEvent: prev.activeStoreEvent
+          ? { ...prev.activeStoreEvent, resolved: true }
+          : null,
+        nextCustomerEventEffect: {
+          title: `${ev.title} (Çözüldü)`,
+          moodDelta,
+          patienceDelta,
+          budgetMultiplier,
+          visualKind: ev.visualKind,
+        },
+      };
+    });
   };
 
   const handleDismissStoreEvent = () => {
@@ -3862,23 +4288,42 @@ export default function App() {
     setShop((prev) => ({ ...prev, activeStoreEvent: null }));
   };
 
-  const handleClaimDailyStreak = () => {
+  const handleClaimDailyStreak = async (doubled = false) => {
     if (shop.dailyStreakClaimed) return;
     const idx = Math.min(DAILY_STREAK_REWARDS.length - 1, Math.max(0, (shop.loginStreak ?? 1) - 1));
     const reward = DAILY_STREAK_REWARDS[idx];
+    let finalCash = reward.cash;
+    if (doubled) {
+      const ok = await showRewardedAd({
+        placement: 'DAILY_STREAK_2X_REWARDED',
+        rewardLabelTr: `Günlük Giriş Ödülü 2x (+${formatTRY(reward.cash * 2)})`,
+        rewardLabelEn: `Daily Login Reward 2x (+${formatTRY(reward.cash * 2)})`,
+        detailTr: `Kısa bir ödüllü reklam izleyerek Gün #${reward.day} giriş ödülünü ${formatTRY(reward.cash)} yerine 2 katına (+${formatTRY(reward.cash * 2)}) çıkarmak istiyor musun?`,
+        detailEn: `Watch a short rewarded ad to double your Day #${reward.day} login bonus from ${formatTRY(reward.cash)} to +${formatTRY(reward.cash * 2)}?`,
+        multiplierBadge: '2x GÜNLÜK',
+      });
+      if (!ok) return;
+      finalCash = reward.cash * 2;
+    }
     soundFX.playQuestClaim();
     pushFeedback(
-      `Günlük Giriş Serisi #${reward.day}: +${formatTRY(reward.cash)}!`,
+      doubled
+        ? `⚡ 2x Günlük Giriş Serisi #${reward.day}: +${formatTRY(finalCash)}!`
+        : `Günlük Giriş Serisi #${reward.day}: +${formatTRY(finalCash)}!`,
       'positive'
     );
     setShop((prev) => {
+      const ad = normalizeAdState(prev.adState, prev.day);
       const nextState: ShopState = {
         ...prev,
-        cash: prev.cash + reward.cash,
+        cash: prev.cash + finalCash,
         dailyStreakClaimed: true,
+        adState: doubled
+          ? { ...ad, totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1 }
+          : ad,
         todayStats: {
           ...prev.todayStats,
-          questRewards: prev.todayStats.questRewards + reward.cash,
+          questRewards: prev.todayStats.questRewards + finalCash,
         },
       };
       return applyXpGain(nextState, reward.xp);
@@ -4067,6 +4512,10 @@ export default function App() {
       };
       nextState = applyXpGain(nextState, 42);
       nextState = applyQuestProgress(nextState, 'SELL_PHONE', 1);
+      nextState = advanceDramaProgress(nextState, 'SELL_PHONES', 1);
+      if (profit > 0) {
+        nextState = advanceDramaProgress(nextState, 'EARN_PROFIT', profit);
+      }
       if (checkVictoryCondition(nextState)) {
         window.setTimeout(() => {
           soundFX.playDayComplete();
@@ -4320,12 +4769,37 @@ export default function App() {
   const handleRepayLoanEarly = (loanId: string) => {
     const loan = (shop.activeLoans ?? []).find((l) => l.id === loanId);
     if (!loan || shop.cash < loan.remainingBalance) return;
-    soundFX.playScanOk();
-    pushFeedback(`Kredi Kapatıldı (-${formatTRY(loan.remainingBalance)})`, 'positive');
+    const remainingLoansCount = (shop.activeLoans ?? []).filter(
+      (l) => l.id !== loanId
+    ).length;
+    const allLoansZero = remainingLoansCount === 0;
+    const prestigeBonusAdd = allLoansZero ? 8 : 4;
+    const nextTotalDebtFreePrestige =
+      (shop.debtFreePrestigeBonus ?? 0) + prestigeBonusAdd;
+
+    soundFX.playQuestClaim();
+    triggerHaptic(shop.hapticsEnabled, 'success');
+    pushFeedback(
+      allLoansZero
+        ? `Mali Borç Bitti! +${prestigeBonusAdd} Kalıcı Prestij`
+        : `Kredi Kapatıldı · +${prestigeBonusAdd} Kalıcı Prestij`,
+      'positive'
+    );
+    setDebtClearedOverlay({
+      id: Date.now(),
+      loanName: loan.name,
+      amountCleared: loan.remainingBalance,
+      prestigeBonusAdded: prestigeBonusAdd,
+      totalDebtFreePrestige: nextTotalDebtFreePrestige,
+      allLoansZero,
+    });
     setShop((prev) => ({
       ...prev,
       cash: prev.cash - loan.remainingBalance,
       activeLoans: prev.activeLoans.filter((l) => l.id !== loanId),
+      loansPaidOffCount: (prev.loansPaidOffCount ?? 0) + 1,
+      debtFreePrestigeBonus:
+        (prev.debtFreePrestigeBonus ?? 0) + prestigeBonusAdd,
       todayStats: {
         ...prev.todayStats,
         loanPayments: (prev.todayStats.loanPayments ?? 0) + loan.remainingBalance,
@@ -4502,16 +4976,16 @@ export default function App() {
 
   return (
     <div className="h-dvh w-screen overflow-hidden flex flex-col bg-[#0F141B] text-slate-100 select-none">
-      {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Reliable touch targets on Android/iOS landscape */}
-      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(4px,env(safe-area-inset-top))] pb-[4px] min-h-[44px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[6px] lg:gap-2">
-        <div className="flex items-center gap-[6px] lg:gap-2.5 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
-          <div className="hidden md:flex items-center shrink-0">
+      {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Clean breathing room for all 6 tabs on mobile landscape */}
+      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(4px,env(safe-area-inset-top))] pb-[4px] min-h-[44px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[6px] lg:gap-2.5">
+        <div className="flex items-center gap-[6px] lg:gap-2 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
+          <div className="hidden xl:flex items-center shrink-0">
             <BrandLogo size="compact" />
           </div>
 
           <nav
             aria-label="Dükkan bölümleri"
-            className="grid grid-cols-6 sm:flex sm:items-center gap-[3px] lg:gap-1 rounded-lg bg-[#0D1219] p-[3px] border border-white/10 w-full sm:w-auto sm:max-w-full overflow-x-auto no-scrollbar"
+            className="grid grid-cols-6 sm:flex sm:items-center gap-[4px] lg:gap-1.5 rounded-lg bg-[#0D1219] p-[3px] border border-white/10 w-full sm:w-auto sm:max-w-full overflow-x-auto no-scrollbar"
           >
             <button
               type="button"
@@ -4519,14 +4993,14 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('COUNTER');
               }}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'COUNTER'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
               <Users className="w-[14px] h-[14px] shrink-0" />
-              <span className="truncate">{bi('Tezgah', 'Counter')}</span>
+              <span>{bi('Tezgah', 'Counter')}</span>
             </button>
 
             <button
@@ -4535,14 +5009,14 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('WORKSHOP');
               }}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WORKSHOP'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
               <Wrench className="w-[14px] h-[14px] shrink-0" />
-              <span className="truncate">
+              <span>
                 {bi('Atölye', 'Workshop')}
                 {shop.inventory.length > 0 ? ` (${shop.inventory.length})` : ''}
               </span>
@@ -4555,14 +5029,14 @@ export default function App() {
                 setActiveTab('WHOLESALE');
               }}
               title={bi('Toptancı, Aksesuar & Sıfır Bayilik', 'Wholesale, Accessories & Flagship Supply')}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WHOLESALE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
               <Package className="w-[14px] h-[14px] shrink-0" />
-              <span className="truncate">{bi('Toptan', 'Supply')}</span>
+              <span>{bi('Toptan', 'Supply')}</span>
             </button>
 
             <button
@@ -4572,14 +5046,14 @@ export default function App() {
                 setActiveTab('EMPIRE');
               }}
               title={bi('Sarı İlan, İhale, Şube, Banka & Müze', 'Classifieds, Auctions, Branches, Bank & Museum')}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'EMPIRE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
               <Building2 className="w-[14px] h-[14px] shrink-0" />
-              <span className="truncate">{bi('Piyasa', 'Market')}</span>
+              <span>{bi('Piyasa', 'Market')}</span>
               {getWeekdayInfo(shop.day).isSunday && (
                 <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                   {bi('Kermes', 'Fair')}
@@ -4598,14 +5072,14 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('MISSIONS');
               }}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'MISSIONS'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
               <Target className="w-[14px] h-[14px] shrink-0" />
-              <span className="truncate">{bi('Görev', 'Quests')}</span>
+              <span>{bi('Görev', 'Quests')}</span>
               {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
                 <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                   +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
@@ -4620,14 +5094,14 @@ export default function App() {
                 setActiveTab('UPGRADES');
               }}
               title={bi('Ekipman, Dükkan, Dekor, Ekip & Gardırop', 'Equipment, Shops, Decor, Staff & Wardrobe')}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[8px] lg:px-2.5 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'UPGRADES'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
               <Sparkles className="w-[14px] h-[14px] shrink-0" />
-              <span className="truncate">{bi('Büyüt', 'Upgrade')}</span>
+              <span>{bi('Büyüt', 'Upgrade')}</span>
             </button>
           </nav>
         </div>
@@ -4687,6 +5161,70 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2">
+                {(() => {
+                  const adBoostActive =
+                    (shop.adState?.cashMultiplier ?? 1) === 2 &&
+                    (shop.adState?.cashMultiplierDealsLeft ?? 0) > 0;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => void handleActivate2xCashAd()}
+                      title={
+                        adBoostActive
+                          ? bi(
+                              `2x Para Çarpanı Aktif (${shop.adState?.cashMultiplierDealsLeft ?? 0} işlem kaldı)`,
+                              `2x Cash Multiplier Active (${shop.adState?.cashMultiplierDealsLeft ?? 0} deals left)`
+                            )
+                          : bi(
+                              'Ödüllü reklam izle · Sonraki 3 işlemde 2x Para Çarpanı aç',
+                              'Watch Rewarded Ad · Unlock 2x Cash Multiplier for next 3 deals'
+                            )
+                      }
+                      className={`inline-flex items-center gap-1 min-h-[30px] rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-extrabold transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation ${
+                        adBoostActive
+                          ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.22)]'
+                          : 'border-amber-400/45 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
+                      }`}
+                    >
+                      {adBoostActive ? (
+                        <>
+                          <Zap className="w-3 h-3 text-emerald-300 shrink-0" />
+                          <span>2x ({shop.adState?.cashMultiplierDealsLeft})</span>
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-3 h-3 text-amber-300 shrink-0" />
+                          <span>{bi('2x Para', '2x Cash')}</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
+
+                {shop.activeDrama?.phase === 'ACTIVE_QUEST' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFX.playClick();
+                      setInspectingActiveDrama(true);
+                    }}
+                    title={
+                      lang === 'en'
+                        ? shop.activeDrama.objectiveLabelEn
+                        : shop.activeDrama.objectiveLabelTr
+                    }
+                    className="inline-flex items-center gap-1 min-h-[30px] rounded-md border border-rose-400/55 bg-rose-500/20 px-2 py-0.5 font-mono text-[10.5px] font-extrabold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation"
+                  >
+                    <Flame className="w-3 h-3 text-amber-300 shrink-0" />
+                    <span>
+                      {shop.activeDrama.objectiveKind === 'EARN_PROFIT'
+                        ? `${Math.round((shop.activeDrama.progress / Math.max(1, shop.activeDrama.target)) * 100)}%`
+                        : `${shop.activeDrama.progress}/${shop.activeDrama.target}`}{' '}
+                      · {shop.activeDrama.daysLeft}g
+                    </span>
+                  </button>
+                )}
+
                 <div className="inline-flex items-center gap-0.5 text-[11px] lg:text-xs font-semibold text-amber-400">
                   <Star className="w-[13px] h-[13px] fill-amber-400" />
                   <span className="font-mono">{shop.reputation.toFixed(1)}</span>
@@ -4713,9 +5251,21 @@ export default function App() {
                   }}
                   aria-label={bi('Dili İngilizce yap', 'Switch language to Turkish')}
                   title={bi('Dil: Türkçe (EN için tıkla)', 'Language: English (tap for TR)')}
-                  className="hidden lg:flex h-[32px] px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10.5px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
+                  className="hidden xl:flex h-[32px] px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10.5px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
                   {lang.toUpperCase()}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFX.playClick();
+                    setShowAnalyticsModal(true);
+                  }}
+                  aria-label={bi('Haftalık satış, kâr ve başarım grafikleri', 'Weekly sales, profit & achievements charts')}
+                  title={bi('Haftalık Satış/Kâr Grafiği & Başarımlar', 'Weekly Sales/Profit Charts & Achievements')}
+                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/12 text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/22 transition-colors cursor-pointer touch-manipulation"
+                >
+                  <BarChart3 className="w-[15px] h-[15px]" />
                 </button>
                 <button
                   type="button"
@@ -4728,30 +5278,6 @@ export default function App() {
                   className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-amber-300 hover:text-amber-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
                   <Newspaper className="w-[15px] h-[15px]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playClick();
-                    setShowAnalyticsModal(true);
-                  }}
-                  aria-label={bi('Dükkan istatistik panelini aç', 'Open shop analytics')}
-                  title={bi('Dükkan İstatistikleri', 'Shop Analytics')}
-                  className="hidden lg:flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-emerald-300 hover:text-emerald-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
-                >
-                  <BarChart3 className="w-[15px] h-[15px]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playClick();
-                    openComplianceModal('SETTINGS');
-                  }}
-                  aria-label={bi('Ayarlar, Başarımlar ve Gizlilik', 'Settings, Achievements & Privacy')}
-                  title={bi('Ayarlar & Başarımlar', 'Settings & Achievements')}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-sky-300 hover:text-sky-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
-                >
-                  <ShieldCheck className="w-[15px] h-[15px]" />
                 </button>
                 <button
                   type="button"
@@ -4771,7 +5297,8 @@ export default function App() {
                     soundFX.playClick();
                     setScreen('PAUSED');
                   }}
-                  aria-label={bi('Oyunu duraklat', 'Pause game')}
+                  aria-label={bi('Oyunu duraklat, ayarlar ve başarımlar', 'Pause game, settings & achievements')}
+                  title={bi('Duraklat, Ayarlar, Başarımlar & İstatistikler', 'Pause, Settings, Achievements & Analytics')}
                   className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
                   <Pause className="w-[15px] h-[15px]" />
@@ -4840,6 +5367,7 @@ export default function App() {
             queueTotal={shop.dailyQueue.length}
             activeStoreEvent={shop.activeStoreEvent}
             nextCustomerEventEffect={shop.nextCustomerEventEffect}
+            todayRentDiscountPct={shop.todayRentDiscountPct ?? 0}
             equippedOutfit={shop.equippedOutfit}
             hiredStaff={shop.staff}
             staffLevels={shop.staffLevels}
@@ -4991,6 +5519,7 @@ export default function App() {
             onBuyUpgrade={handleBuyUpgrade}
             onKermesSellPhone={handleKermesSellPhone}
             onBuyKermesDeal={handleBuyKermesDeal}
+            onActivatePassive2xAd={() => void handleActivatePassive2xAd()}
             onGoToStaff={() => {
               soundFX.playClick();
               setActiveTab('UPGRADES');
@@ -5182,6 +5711,11 @@ export default function App() {
             setScreen('PLAYING');
             setShowAnalyticsModal(true);
           }}
+          onOpenLegacy={() => {
+            soundFX.playClick();
+            setScreen('PLAYING');
+            setShowLegacyModal(true);
+          }}
           onOpenCompliance={() => {
             soundFX.playClick();
             setScreen('PLAYING');
@@ -5199,6 +5733,7 @@ export default function App() {
         <DaySummaryModal
           stats={shop.todayStats}
           shop={shop}
+          onClaimAdBonus={handleClaimDaySummaryAdBonus}
           onNextDay={handleStartNextDay}
         />
       )}
@@ -5208,6 +5743,25 @@ export default function App() {
         <OfflineEarningsModal
           summary={offlineSummary}
           onClaim={handleClaimOfflineEarnings}
+        />
+      )}
+
+      {/* ADMOB REWARDED / INTERSTITIAL WEB PREVIEW OVERLAY */}
+      {activeWebAd && <AdOverlayModal session={activeWebAd} />}
+
+      {showLegacyModal && screen === 'PLAYING' && (
+        <EndModal
+          mode="LEGACY"
+          state={shop}
+          onRestart={handleStartNew}
+          onTriggerPrestige={() => {
+            setShowLegacyModal(false);
+            handleTriggerPrestige();
+          }}
+          onCloseLegacy={() => {
+            soundFX.playClick();
+            setShowLegacyModal(false);
+          }}
         />
       )}
 
@@ -5258,6 +5812,23 @@ export default function App() {
         />
       )}
 
+      {/* MULTI-DAY MORNING ESNAF DRAMASI STORY MODAL */}
+      {screen === 'PLAYING' &&
+        shop.activeDrama &&
+        (shop.activeDrama.phase !== 'ACTIVE_QUEST' || inspectingActiveDrama) && (
+          <EsnafDramaModal
+            drama={shop.activeDrama}
+            cash={shop.cash}
+            onSelectChoice={handleSelectDramaChoice}
+            onDismissResolved={handleDismissResolvedDrama}
+            onCloseInspect={() => setInspectingActiveDrama(false)}
+          />
+        )}
+
+      <DebtClearedOverlay
+        data={debtClearedOverlay}
+        onDismiss={() => setDebtClearedOverlay(null)}
+      />
       <AchievementBadgeToast
         badge={badgeQueue[0] ?? null}
         onDismiss={dismissCurrentBadge}

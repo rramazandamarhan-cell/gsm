@@ -10,6 +10,7 @@ import {
   Gift,
   Lock,
   MessageSquare,
+  PlayCircle,
   RotateCcw,
   ScrollText,
   Smartphone,
@@ -33,12 +34,13 @@ import {
   getLevelUpBonusCash,
   getMilestoneCurrentValue,
   getPlaystyleLabel,
-  getPrestigeCashTarget,
   getPrestigeIncomeMultiplier,
   getPrestigePointsEarned,
+  getPrestigeRequirements,
   getShopRank,
   getStoryChapterCurrentValue,
   getStreakBonusCash,
+  isPrestigeEligible,
   PRESTIGE_PERKS,
 } from '../game/engine';
 import {
@@ -57,7 +59,7 @@ interface MissionsViewProps {
   onClaimDailyQuest: (questId: string) => void;
   onClaimMilestone: (milestoneId: string) => void;
   onClaimStoryChapter: (chapterId: string) => void;
-  onClaimDailyStreak: () => void;
+  onClaimDailyStreak: (doubled?: boolean) => void;
   onTriggerPrestige: () => void;
   onBuyPrestigePerk: (perkId: PrestigePerkId) => void;
   onBackToCounter: () => void;
@@ -121,9 +123,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const prestigeLevel = shop.prestigeLevel ?? 0;
   const prestigePoints = shop.prestigePoints ?? 0;
   const prestigePerks = shop.prestigePerks ?? [];
-  const prestigeTarget = getPrestigeCashTarget(prestigeLevel);
+  const prestigeReq = getPrestigeRequirements(prestigeLevel);
+  const prestigeTarget = prestigeReq.cashTarget;
   const prestigeEarnedPreview = getPrestigePointsEarned(shop);
-  const prestigeReady = shop.cash >= prestigeTarget;
+  const prestigeReady = isPrestigeEligible(shop);
   const prestigeMultPct = Math.round((getPrestigeIncomeMultiplier(shop) - 1) * 100);
   const streakBonus = getStreakBonusCash(shop.dealStreak, shop.shopTier);
   const todayStreakReward =
@@ -262,14 +265,28 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           </div>
 
           {!shop.dailyStreakClaimed && todayStreakReward && (
-            <button
-              type="button"
-              onClick={onClaimDailyStreak}
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
-            >
-              <Gift className="w-3.5 h-3.5" />
-              {bi('Günlük Ödül', 'Daily Bonus')} +{formatTRY(todayStreakReward.cash)}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onClaimDailyStreak(false)}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
+              >
+                <Gift className="w-3.5 h-3.5" />
+                {bi('Günlük Ödül', 'Daily')} +{formatTRY(todayStreakReward.cash)}
+              </button>
+              <button
+                type="button"
+                onClick={() => onClaimDailyStreak(true)}
+                title={bi(
+                  'Ödüllü reklam izleyerek günlük ödülü 2x al',
+                  'Watch a rewarded ad to claim 2x daily bonus'
+                )}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2 py-1 text-[10.5px] font-extrabold text-amber-200 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap"
+              >
+                <PlayCircle className="w-3.5 h-3.5 text-amber-300" />
+                {bi('2x İzle', '2x Ad')} (+{formatTRY(todayStreakReward.cash * 2)})
+              </button>
+            </div>
           )}
 
           <button
@@ -282,59 +299,85 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       </div>
 
-      {/* TAB 1: STORY CHAPTERS (2-COLUMN ZERO SCROLL) */}
+      {/* TAB 1: 12-CHAPTER STORY ARC (SCROLLABLE CHAPTER SIDEBAR + DETAIL PANEL) */}
       {subTab === 'STORY' && (
         <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 overflow-hidden">
-          {/* Chapter List */}
-          <div className="col-span-4 flex flex-col gap-1.5 min-h-0 overflow-hidden">
-            {STORY_CHAPTERS.map((ch) => {
-              const loc = getLocalizedStoryChapter(ch, lang);
-              const val = getStoryChapterCurrentValue(shop, ch);
-              const claimed = shop.claimedChapterIds.includes(ch.id);
-              const ready = !claimed && val >= ch.target;
-              const selected = ch.id === activeChapterRaw.id;
-              return (
-                <button
-                  key={ch.id}
-                  type="button"
-                  onClick={() => setSelectedChapterId(ch.id)}
-                  className={`flex-1 rounded-xl border px-2.5 py-1.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer min-h-0 ${
-                    selected
-                      ? 'border-amber-400 bg-amber-500/15'
-                      : 'border-white/10 bg-[#151D28] hover:bg-[#1B2432]'
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold text-slate-100 truncate">
-                      {loc.title}
+          {/* Scrollable Chapter List (12 Chapters) */}
+          <div className="col-span-5 lg:col-span-4 flex flex-col gap-1.5 min-h-0 overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-1 text-[10px] font-mono text-slate-400">
+              <span>
+                {bi('Hikâye İlerlemesi', 'Story Progress')}:{' '}
+                <strong className="text-amber-300">
+                  {shop.claimedChapterIds.length} / {STORY_CHAPTERS.length}
+                </strong>
+              </span>
+              <span className="text-emerald-300">
+                %{Math.round((shop.claimedChapterIds.length / STORY_CHAPTERS.length) * 100)}
+              </span>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll pr-1 space-y-1.5">
+              {STORY_CHAPTERS.map((ch) => {
+                const loc = getLocalizedStoryChapter(ch, lang);
+                const val = getStoryChapterCurrentValue(shop, ch);
+                const claimed = shop.claimedChapterIds.includes(ch.id);
+                const ready = !claimed && val >= ch.target;
+                const selected = ch.id === activeChapterRaw.id;
+                const pct = Math.min(100, Math.round((val / ch.target) * 100));
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => setSelectedChapterId(ch.id)}
+                    className={`w-full shrink-0 rounded-xl border px-2.5 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                      selected
+                        ? 'border-amber-400 bg-amber-500/15'
+                        : claimed
+                        ? 'border-emerald-500/25 bg-emerald-500/6 hover:bg-emerald-500/10'
+                        : 'border-white/10 bg-[#151D28] hover:bg-[#1B2432]'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-bold text-slate-100 truncate">
+                        {loc.title}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className={`h-full ${claimed || ready ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-400 shrink-0 tabular-nums">
+                          {ch.metric === 'totalProfitEarned'
+                            ? `%${pct}`
+                            : `${Math.min(val, ch.target)}/${ch.target}`}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[9.5px] text-slate-400 truncate">
-                      {Math.min(val, ch.target)} / {ch.target}
-                    </div>
-                  </div>
-                  {claimed ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  ) : ready ? (
-                    <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[9.5px] font-extrabold text-slate-950 shrink-0">
-                      {bi('AL', 'CLAIM')}
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[10px] text-emerald-300 shrink-0 tabular-nums">
-                      +{formatTRY(ch.rewardCash)}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                    {claimed ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : ready ? (
+                      <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[9.5px] font-extrabold text-slate-950 shrink-0">
+                        {bi('AL', 'CLAIM')}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[9.5px] font-bold text-emerald-300 shrink-0 tabular-nums">
+                        +{formatTRY(ch.rewardCash)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Active Chapter Detail */}
-          <div className="col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between min-h-0 overflow-hidden">
-            <div className="space-y-2">
+          <div className="col-span-7 lg:col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between min-h-0 overflow-hidden">
+            <div className="space-y-2 overflow-y-auto pasaj-scroll pr-1">
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="min-w-0">
                   <span className="text-[10px] font-mono font-bold text-amber-300 uppercase">
-                    {rank} · {bi('GÜN', 'DAY')} {shop.day}
+                    {bi(`Bölüm ${activeChapterRaw.chapterNumber} / ${STORY_CHAPTERS.length}`, `Chapter ${activeChapterRaw.chapterNumber} / ${STORY_CHAPTERS.length}`)} · {rank} · {bi('GÜN', 'DAY')} {shop.day}
                   </span>
                   <h3 className="font-display text-base font-extrabold text-slate-50">
                     {activeChapter.title}
@@ -347,9 +390,11 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                   <div className="text-sm font-extrabold text-emerald-400">
                     +{formatTRY(activeChapter.rewardCash)}
                   </div>
-                  <div className="text-[10px] text-slate-400">
-                    {bi('Bölüm Ödülü', 'Chapter Bonus')}
-                  </div>
+                  {activeChapter.rewardXp > 0 && (
+                    <div className="text-[10px] font-bold text-amber-300">
+                      +{activeChapter.rewardXp} XP
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -357,20 +402,21 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 {activeChapter.narrative}
               </p>
 
-              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-2 text-[11px] text-amber-100 flex items-start gap-2">
+              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-2.5 text-[11px] text-amber-100 flex items-start gap-2">
                 <MessageSquare className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span className="italic">{activeChapter.mentorNote}</span>
               </div>
             </div>
 
-            <div className="space-y-1.5 pt-2 border-t border-white/8 tabular-nums">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-200">
+            <div className="shrink-0 space-y-1.5 pt-2 border-t border-white/8 tabular-nums">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-semibold text-slate-200 truncate">
                   {activeChapter.objectiveText}
                 </span>
-                <span className="font-mono font-bold text-amber-300">
-                  {Math.min(activeChVal, activeChapterRaw.target)} /{' '}
-                  {activeChapterRaw.target}
+                <span className="font-mono font-bold text-amber-300 shrink-0">
+                  {activeChapterRaw.metric === 'totalProfitEarned'
+                    ? `${formatTRY(Math.min(activeChVal, activeChapterRaw.target))} / ${formatTRY(activeChapterRaw.target)}`
+                    : `${Math.min(activeChVal, activeChapterRaw.target)} / ${activeChapterRaw.target}`}
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
@@ -591,9 +637,13 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                   <div className="space-y-1 tabular-nums">
                     <div className="flex justify-between text-[9.5px] font-mono">
                       <span className="text-slate-400">
-                        {Math.min(val, m.target)} / {m.target}
+                        {m.metric === 'totalProfitEarned'
+                          ? `${formatTRY(Math.min(val, m.target))} / ${formatTRY(m.target)}`
+                          : `${Math.min(val, m.target)} / ${m.target}`}
                       </span>
-                      <span className="text-amber-300">{pct}%</span>
+                      <span className="text-amber-300">
+                        +{m.rewardXp} XP · {pct}%
+                      </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                       <div
@@ -623,26 +673,37 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             })}
           </div>
 
-          <div className="shrink-0 flex items-center justify-center gap-2 text-[11px]">
-            <button
-              type="button"
-              disabled={safeMsPage === 0}
-              onClick={() => setMsPage((p) => Math.max(0, p - 1))}
-              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" /> {bi('Önceki', 'Prev')}
-            </button>
-            <span className="font-mono text-slate-400">
-              {safeMsPage + 1} / {totalMsPages}
+          <div className="shrink-0 flex items-center justify-between gap-2 text-[11px] px-1">
+            <span className="font-mono text-[10.5px] text-slate-400">
+              {bi('Tamamlanan', 'Completed')}:{' '}
+              <strong className="text-emerald-300">
+                {shop.claimedMilestoneIds.length} / {CAREER_MILESTONES.length}
+              </strong>
             </span>
-            <button
-              type="button"
-              disabled={safeMsPage >= totalMsPages - 1}
-              onClick={() => setMsPage((p) => Math.min(totalMsPages - 1, p + 1))}
-              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
-            >
-              {bi('Sonraki', 'Next')} <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={safeMsPage === 0}
+                onClick={() => setMsPage((p) => Math.max(0, p - 1))}
+                className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> {bi('Önceki', 'Prev')}
+              </button>
+              <span className="font-mono text-slate-400">
+                {safeMsPage + 1} / {totalMsPages}
+              </span>
+              <button
+                type="button"
+                disabled={safeMsPage >= totalMsPages - 1}
+                onClick={() => setMsPage((p) => Math.min(totalMsPages - 1, p + 1))}
+                className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+              >
+                {bi('Sonraki', 'Next')} <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <span className="hidden sm:inline font-mono text-[10.5px] text-amber-300/90">
+              {totalMsPages} {bi('Sayfa', 'Pages')}
+            </span>
           </div>
         </div>
       )}
@@ -823,34 +884,73 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 )}
               </p>
 
-              {/* Cash Goal Progress */}
-              <div className="rounded-lg border border-white/10 bg-[#0E141D] p-2 space-y-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-slate-400">
-                    {bi('Prestij Nakit Hedefi', 'Prestige Cash Target')}
-                  </span>
-                  <span className="font-mono font-bold text-amber-300">
-                    {formatTRY(shop.cash)} / {formatTRY(prestigeTarget)}
-                  </span>
+              {/* Structured 3-Gate Prestige Requirements (Cash + Shop Tier + Level) */}
+              <div className="rounded-lg border border-white/10 bg-[#0E141D] p-2 space-y-1.5">
+                <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+                  {bi(`Prestij #${prestigeLevel + 1} Geçiş Şartları`, `Prestige #${prestigeLevel + 1} Requirements`)}
                 </div>
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+
+                {/* Gate 1: Cash */}
+                <div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className={shop.cash >= prestigeTarget ? 'text-emerald-300 font-semibold' : 'text-slate-300'}>
+                      {shop.cash >= prestigeTarget ? '✓ ' : '• '}
+                      {bi('Kasa Hedefi', 'Cash Goal')}
+                    </span>
+                    <span className="font-mono font-bold text-amber-300">
+                      {formatTRY(shop.cash)} / {formatTRY(prestigeTarget)}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        shop.cash >= prestigeTarget ? 'bg-emerald-400' : 'bg-amber-400'
+                      }`}
+                      style={{
+                        width: `${Math.min(100, Math.round((shop.cash / prestigeTarget) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Gate 2 & 3: Shop Tier + Level */}
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5 text-[10px]">
                   <div
-                    className={`h-full transition-all ${
-                      prestigeReady ? 'bg-emerald-400' : 'bg-amber-400'
+                    className={`rounded-md border px-2 py-1 flex items-center justify-between ${
+                      shop.shopTier >= prestigeReq.minShopTier
+                        ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-300'
+                        : 'border-white/10 bg-[#141C27] text-slate-300'
                     }`}
-                    style={{
-                      width: `${Math.min(100, Math.round((shop.cash / prestigeTarget) * 100))}%`,
-                    }}
-                  />
+                  >
+                    <span className="truncate">{bi('Dükkan', 'Shop Tier')}</span>
+                    <strong className="font-mono shrink-0">
+                      {shop.shopTier}/{prestigeReq.minShopTier}
+                    </strong>
+                  </div>
+                  <div
+                    className={`rounded-md border px-2 py-1 flex items-center justify-between ${
+                      shop.level >= prestigeReq.minLevel
+                        ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-300'
+                        : 'border-white/10 bg-[#141C27] text-slate-300'
+                    }`}
+                  >
+                    <span className="truncate">{bi('Seviye', 'Level')}</span>
+                    <strong className="font-mono shrink-0">
+                      {shop.level}/{prestigeReq.minLevel}
+                    </strong>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[9.5px] text-slate-400">
+
+                <div className="flex justify-between text-[9.5px] text-slate-400 pt-0.5 border-t border-white/8">
                   <span>
                     {bi('Kalıcı Gelir Çarpanı', 'Permanent Income Bonus')}:{' '}
                     <strong className="text-emerald-300">+%{prestigeMultPct}</strong>
                   </span>
                   <span>
                     {bi('Kazanılacak', 'Earn on Reset')}:{' '}
-                    <strong className="text-amber-300">+{prestigeEarnedPreview} PP</strong>
+                    <strong className="text-amber-300">
+                      {prestigeReady ? `+${prestigeEarnedPreview} PP` : bi('Şartlar bekleniyor', 'Pending')}
+                    </strong>
                   </span>
                 </div>
               </div>
@@ -877,7 +977,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 <RotateCcw className="w-3.5 h-3.5" />
                 {prestigeReady
                   ? bi(`Prestij Yap (+${prestigeEarnedPreview} PP Kazan)`, `Prestige Reset (+${prestigeEarnedPreview} PP)`)
-                  : bi(`${formatTRY(prestigeTarget)} Gerekli`, `Need ${formatTRY(prestigeTarget)}`)}
+                  : bi(`3 Şartı Tamamla (${formatTRY(prestigeTarget)} · Dük.${prestigeReq.minShopTier} · Sv.${prestigeReq.minLevel})`, `Meet All 3 Goals (${formatTRY(prestigeTarget)} · T${prestigeReq.minShopTier} · Lv.${prestigeReq.minLevel})`)}
               </button>
             ) : (
               <div className="grid grid-cols-2 gap-1.5">

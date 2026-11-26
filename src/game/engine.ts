@@ -91,6 +91,7 @@ import {
   UpgradeId,
 } from './types';
 import { getCurrentLang } from './i18n';
+import { createDefaultAdState, normalizeAdState } from './adService';
 
 const bi = (tr: string, en: string): string =>
   getCurrentLang() === 'en' ? en : tr;
@@ -673,6 +674,20 @@ export function getStoryChapterCurrentValue(
       return state.totalPhonesRepaired;
     case 'totalBrandNewSold':
       return state.totalBrandNewSold;
+    case 'totalDefectsExposed':
+      return state.totalDefectsExposed;
+    case 'totalProfitEarned':
+      return Math.max(0, Math.round(state.totalProfitEarned + (state.lifetimeTotalProfit ?? 0)));
+    case 'upgradesCount':
+      return state.upgrades.length;
+    case 'branchesCount':
+      return state.branches.length;
+    case 'museumCount':
+      return state.museumItems.length;
+    case 'rivalBoughtOut':
+      return state.rival?.boughtOut ? 1 : 0;
+    case 'prestigeLevel':
+      return state.prestigeLevel ?? 0;
     case 'shopTier':
       return state.shopTier;
     case 'level':
@@ -698,11 +713,25 @@ export function getMilestoneCurrentValue(
     case 'shopTier':
       return state.shopTier;
     case 'totalProfitEarned':
-      return Math.max(0, Math.round(state.totalProfitEarned));
+      return Math.max(0, Math.round(state.totalProfitEarned + (state.lifetimeTotalProfit ?? 0)));
     case 'totalAccessoriesSold':
       return state.totalAccessoriesSold;
     case 'totalBrandNewSold':
       return state.totalBrandNewSold;
+    case 'totalTeasServed':
+      return state.totalTeasServed ?? 0;
+    case 'upgradesCount':
+      return state.upgrades.length;
+    case 'branchesCount':
+      return state.branches.length;
+    case 'museumCount':
+      return state.museumItems.length;
+    case 'loansPaidOffCount':
+      return state.loansPaidOffCount ?? 0;
+    case 'day':
+      return state.day;
+    case 'prestigeLevel':
+      return state.prestigeLevel ?? 0;
   }
 }
 
@@ -796,20 +825,20 @@ export function generateDailyQuests(
   playstyle: PlaystyleType = 'BALANCED',
   prestigeLevel = 0
 ): DailyQuest[] {
-  // Always 3 dynamic daily quests scaled by player level, day, prestige, and playstyle
-  const levelTier = Math.floor((Math.max(1, level) - 1) / 3);
-  const tierBump = Math.min(4, levelTier + (day >= 12 ? 2 : day >= 5 ? 1 : 0) + prestigeLevel);
+  // Always 3 demanding daily quests scaled by player level, day, prestige, and playstyle
+  const levelTier = Math.floor((Math.max(1, level) - 1) / 2);
+  const tierBump = Math.min(5, levelTier + (day >= 15 ? 2 : day >= 6 ? 1 : 0) + prestigeLevel);
   const diffTag: 'Standart' | 'Zorlu' | 'Usta İşi' =
     tierBump >= 3 ? 'Usta İşi' : tierBump >= 1 ? 'Zorlu' : 'Standart';
 
-  const inspectTarget = 2 + Math.min(4, tierBump + (playstyle === 'DETECTIVE' ? 1 : 0));
-  const leverageTarget = 2 + Math.min(4, tierBump + (playstyle === 'DETECTIVE' ? 1 : 0));
-  const sellTarget = 2 + Math.min(4, tierBump + (playstyle === 'TRADER_SHARK' ? 1 : 0));
-  const teaTarget = 3 + Math.min(3, Math.floor(tierBump / 2) + (day >= 8 ? 1 : 0));
-  const bargainTarget = 2 + Math.min(3, Math.floor(tierBump / 2) + (playstyle === 'TRADER_SHARK' ? 1 : 0));
+  const inspectTarget = 3 + Math.min(5, tierBump + (playstyle === 'DETECTIVE' ? 1 : 0));
+  const leverageTarget = 3 + Math.min(5, tierBump + (playstyle === 'DETECTIVE' ? 1 : 0));
+  const sellTarget = 3 + Math.min(5, tierBump + (playstyle === 'TRADER_SHARK' ? 1 : 0));
+  const teaTarget = 4 + Math.min(4, Math.floor(tierBump / 2) + (day >= 8 ? 1 : 0));
+  const bargainTarget = 2 + Math.min(4, Math.ceil(tierBump / 2) + (playstyle === 'TRADER_SHARK' ? 1 : 0));
   const rewardScale =
-    (1 + Math.min(2.6, (day - 1) * 0.08 + (level - 1) * 0.12)) *
-    (1 + prestigeLevel * 0.25);
+    (1.35 + Math.min(4.0, (day - 1) * 0.1 + (level - 1) * 0.18)) *
+    (1 + prestigeLevel * 0.35);
 
   type QuestCandidate = Omit<DailyQuest, 'id' | 'progress' | 'claimed'> & {
     weight: number;
@@ -818,14 +847,14 @@ export function generateDailyQuests(
   const pool: QuestCandidate[] = [
     {
       kind: 'INSPECT_FULL',
-      title: bi('Detaylı Ekspertiz Uzmanı', 'Full Inspection Specialist'),
+      title: bi('Titiz Ekspertiz Mesaisi', 'Full Inspection Specialist'),
       description: bi(
         `Tezgaha konulan ${inspectTarget} telefonun tüm 4 donanım testini elle eksiksiz tamamla.`,
         `Complete all 4 hands-on hardware checks on ${inspectTarget} phones.`
       ),
       target: inspectTarget,
-      reward: roundPrice(1700 * rewardScale),
-      xpReward: 55 + tierBump * 16,
+      reward: roundPrice(2400 * rewardScale),
+      xpReward: 75 + tierBump * 22,
       difficultyTag: diffTag,
       playstyleFocus: 'DETECTIVE',
       weight: playstyle === 'DETECTIVE' ? 4 : playstyle === 'REPAIR_MASTER' ? 2.5 : 1.5,
@@ -838,22 +867,22 @@ export function generateDailyQuests(
         `Expose ${leverageTarget} hidden defects during inspection and use them as leverage.`
       ),
       target: leverageTarget,
-      reward: roundPrice(2000 * rewardScale),
-      xpReward: 65 + tierBump * 16,
+      reward: roundPrice(2900 * rewardScale),
+      xpReward: 90 + tierBump * 24,
       difficultyTag: diffTag,
       playstyleFocus: 'DETECTIVE',
       weight: playstyle === 'DETECTIVE' ? 4 : playstyle === 'TRADER_SHARK' ? 2.2 : 1.6,
     },
     {
       kind: 'SELL_PHONE',
-      title: bi('Sıcak Vitrin Satışı', 'Hot Showcase Sales'),
+      title: bi('Yoğun Vitrin Satışı', 'High-Volume Showcase Sales'),
       description: bi(
         `Bugün vitrininden en az ${sellTarget} cihazı alıcılarla el sıkışarak sat.`,
         `Close at least ${sellTarget} phone sales from your showcase today.`
       ),
       target: sellTarget,
-      reward: roundPrice(2150 * rewardScale),
-      xpReward: 70 + tierBump * 18,
+      reward: roundPrice(3200 * rewardScale),
+      xpReward: 95 + tierBump * 26,
       difficultyTag: diffTag,
       playstyleFocus: 'TRADER_SHARK',
       weight: playstyle === 'TRADER_SHARK' ? 4 : 2,
@@ -866,22 +895,22 @@ export function generateDailyQuests(
         `Serve Turkish tea to ${teaTarget} customers to soften negotiations.`
       ),
       target: teaTarget,
-      reward: roundPrice(1400 * rewardScale),
-      xpReward: 45 + tierBump * 12,
+      reward: roundPrice(1900 * rewardScale),
+      xpReward: 60 + tierBump * 16,
       difficultyTag: tierBump >= 2 ? 'Zorlu' : 'Standart',
       playstyleFocus: 'BALANCED',
       weight: playstyle === 'BALANCED' ? 2.2 : 1.1,
     },
     {
       kind: 'BUY_BARGAIN',
-      title: bi('Kelepir Avcısı', 'Bargain Hunter'),
+      title: bi('Sıkı Kelepir Avcısı', 'Hardcore Bargain Hunter'),
       description: bi(
         `${bargainTarget} cihazı gerçek piyasa değerinin altında kapatarak yüksek kâr marjı aç.`,
         `Buy ${bargainTarget} devices below their true market value.`
       ),
       target: bargainTarget,
-      reward: roundPrice(2350 * rewardScale),
-      xpReward: 75 + tierBump * 18,
+      reward: roundPrice(3400 * rewardScale),
+      xpReward: 105 + tierBump * 26,
       difficultyTag: diffTag,
       playstyleFocus: 'TRADER_SHARK',
       weight: playstyle === 'TRADER_SHARK' ? 4 : playstyle === 'DETECTIVE' ? 2.4 : 1.5,
@@ -889,7 +918,7 @@ export function generateDailyQuests(
   ];
 
   if (upgrades.includes('accessory_license')) {
-    const accTarget = 4 + Math.min(8, tierBump * 2);
+    const accTarget = 6 + Math.min(12, tierBump * 2);
     pool.push({
       kind: 'SELL_ACCESSORY',
       title: bi('Aksesuar Reyon Hareketi', 'Accessory Shelf Action'),
@@ -898,8 +927,8 @@ export function generateDailyQuests(
         `Sell ${accTarget} accessories via counter, cross-sell, or end-of-day shelf.`
       ),
       target: accTarget,
-      reward: roundPrice(2050 * rewardScale),
-      xpReward: 65 + tierBump * 16,
+      reward: roundPrice(2950 * rewardScale),
+      xpReward: 90 + tierBump * 22,
       difficultyTag: diffTag,
       playstyleFocus: 'TRADER_SHARK',
       weight: playstyle === 'TRADER_SHARK' ? 3 : 1.7,
@@ -908,17 +937,17 @@ export function generateDailyQuests(
 
   if (upgrades.includes('repair_bench') || day >= 2) {
     const repairTarget =
-      2 + Math.min(4, Math.floor(tierBump / 2) + (playstyle === 'REPAIR_MASTER' ? 1 : 0));
+      3 + Math.min(5, Math.ceil(tierBump / 2) + (playstyle === 'REPAIR_MASTER' ? 1 : 0));
     pool.push({
       kind: 'REPAIR_PHONE',
-      title: bi('Mikro Tamir Mesaisi', 'Micro Repair Shift'),
+      title: bi('Ağır Tamir Mesaisi', 'Heavy Micro-Repair Shift'),
       description: bi(
         `Atölye tezgahında veya acil serviste en az ${repairTarget} cihaz arızasını onar.`,
         `Repair at least ${repairTarget} device defects at the workshop or express service.`
       ),
       target: repairTarget,
-      reward: roundPrice(2550 * rewardScale),
-      xpReward: 85 + tierBump * 18,
+      reward: roundPrice(3700 * rewardScale),
+      xpReward: 115 + tierBump * 28,
       difficultyTag: diffTag,
       playstyleFocus: 'REPAIR_MASTER',
       weight: playstyle === 'REPAIR_MASTER' ? 5 : 2,
@@ -926,17 +955,17 @@ export function generateDailyQuests(
   }
 
   if (upgrades.includes('brand_new_license')) {
-    const bnTarget = 1 + (tierBump >= 2 ? 1 : 0);
+    const bnTarget = 2 + (tierBump >= 3 ? 2 : tierBump >= 1 ? 1 : 0);
     pool.push({
       kind: 'SELL_BRAND_NEW',
-      title: bi('Sıfır Kutu Satışı', 'Sealed Box Sale'),
+      title: bi('Resmi Bayi Kotası', 'Authorized Dealer Quota'),
       description: bi(
         `Toptancıdan getirdiğin ${bnTarget} adet Sıfır Kapalı Kutu telefonu müşteriye sat.`,
-        `Sell ${bnTarget} brand-new factory-sealed phone(s) ordered from a distributor.`
+        `Sell ${bnTarget} brand-new factory-sealed phones ordered from a distributor.`
       ),
       target: bnTarget,
-      reward: roundPrice(3300 * rewardScale),
-      xpReward: 95 + tierBump * 22,
+      reward: roundPrice(4800 * rewardScale),
+      xpReward: 135 + tierBump * 32,
       difficultyTag: 'Usta İşi',
       playstyleFocus: 'TRADER_SHARK',
       weight: playstyle === 'TRADER_SHARK' ? 3.2 : 1.8,
@@ -1012,23 +1041,61 @@ export const PRESTIGE_PERKS: PrestigePerkSpec[] = [
   },
 ];
 
+export interface PrestigeRequirements {
+  cashTarget: number;
+  minShopTier: ShopTier;
+  minLevel: number;
+}
+
+export function getPrestigeRequirements(prestigeLevel = 0): PrestigeRequirements {
+  const p = Math.max(0, Math.floor(prestigeLevel));
+  if (p === 0) {
+    return { cashTarget: 650000, minShopTier: 3, minLevel: 6 };
+  }
+  if (p === 1) {
+    return { cashTarget: 1500000, minShopTier: 4, minLevel: 10 };
+  }
+  if (p === 2) {
+    return { cashTarget: 3250000, minShopTier: 5, minLevel: 14 };
+  }
+  return {
+    cashTarget: Math.round((6000000 * Math.pow(1.65, p - 3)) / 50000) * 50000,
+    minShopTier: 6,
+    minLevel: 18 + (p - 3) * 4,
+  };
+}
+
 export function getPrestigeCashTarget(prestigeLevel = 0): number {
-  return Math.round(150000 * Math.pow(2, Math.max(0, prestigeLevel)));
+  return getPrestigeRequirements(prestigeLevel).cashTarget;
+}
+
+export function isPrestigeEligible(state: ShopState): boolean {
+  const req = getPrestigeRequirements(state.prestigeLevel ?? 0);
+  return (
+    state.cash >= req.cashTarget &&
+    state.shopTier >= req.minShopTier &&
+    state.level >= req.minLevel
+  );
 }
 
 export function getPrestigePointsEarned(state: ShopState): number {
-  const target = getPrestigeCashTarget(state.prestigeLevel ?? 0);
-  if (state.cash < target) return 0;
-  const cashRatioBonus = Math.floor(state.cash / Math.max(75000, target * 0.5));
-  const levelBonus = Math.floor(state.level / 2);
-  const tierBonus = Math.max(0, state.shopTier - 1);
-  return Math.max(2, cashRatioBonus + levelBonus + tierBonus);
+  if (!isPrestigeEligible(state)) return 0;
+  const req = getPrestigeRequirements(state.prestigeLevel ?? 0);
+  const excessCashBonus = Math.min(
+    6,
+    Math.floor((state.cash - req.cashTarget) / Math.max(250000, req.cashTarget * 0.45))
+  );
+  const tierBonus = Math.max(1, state.shopTier - 1);
+  const levelBonus = Math.floor(state.level / 4);
+  const empireBonus =
+    Math.min(3, state.branches.length) + Math.floor(state.museumItems.length / 2);
+  return Math.max(3, 2 + excessCashBonus + tierBonus + levelBonus + empireBonus);
 }
 
 export function getPrestigeIncomeMultiplier(state: Pick<ShopState, 'prestigeLevel' | 'prestigePerks'>): number {
   const pLvl = state.prestigeLevel ?? 0;
   const silverBonus = (state.prestigePerks ?? []).includes('silver_tongue') ? 0.1 : 0;
-  return 1 + pLvl * 0.1 + silverBonus;
+  return 1 + pLvl * 0.12 + silverBonus;
 }
 
 export function buildCustomerFaultReport(
@@ -1158,6 +1225,7 @@ export function calculatePrestige(
   state: Pick<ShopState, 'shopTier' | 'activeDecorations'> & {
     branches?: BranchId[];
     museumItems?: MuseumItemId[];
+    debtFreePrestigeBonus?: number;
   }
 ): number {
   const tierPrestige = SHOP_TIERS[state.shopTier].prestigeBonus;
@@ -1173,7 +1241,14 @@ export function calculatePrestige(
     const found = MUSEUM_ITEMS.find((m) => m.id === mId);
     return sum + (found ? found.prestigeBonus : 0);
   }, 0);
-  return tierPrestige + decorPrestige + branchPrestige + museumPrestige;
+  const debtFreePrestige = Math.max(0, state.debtFreePrestigeBonus ?? 0);
+  return (
+    tierPrestige +
+    decorPrestige +
+    branchPrestige +
+    museumPrestige +
+    debtFreePrestige
+  );
 }
 
 export function getShowcaseCapacity(
@@ -4033,8 +4108,17 @@ export function maybeTriggerRandomStoreEvent(
   state: ShopState
 ): RandomStoreEvent | null {
   if (state.activeStoreEvent || state.storeEventsTriggeredToday >= 2) return null;
-  if (Math.random() > 0.36) return null;
-  const tpl = pick(RANDOM_STORE_EVENTS);
+  if (Math.random() > 0.48) return null;
+  const eligible = RANDOM_STORE_EVENTS.filter((ev) => {
+    const minOk = ev.minShopTier ? state.shopTier >= ev.minShopTier : true;
+    const maxOk = ev.maxShopTier ? state.shopTier <= ev.maxShopTier : true;
+    const notRepeat =
+      state.nextCustomerEventEffect?.title !== ev.title &&
+      state.nextCustomerEventEffect?.title !== `${ev.title} (Çözüldü)`;
+    return minOk && maxOk && notRepeat;
+  });
+  const pool = eligible.length > 0 ? eligible : RANDOM_STORE_EVENTS;
+  const tpl = pick(pool);
   return {
     ...tpl,
     id: makeId('evt'),
@@ -4382,8 +4466,11 @@ export function computeOfflineEarnings(state: ShopState): OfflineEarningsSummary
 
 export function processEmpireEndOfDay(state: ShopState): {
   branchIncome: number;
+  passive2xApplied: boolean;
   loanPayments: number;
   updatedLoans: ActiveLoan[];
+  paidOffLoans: ActiveLoan[];
+  allLoansCleared: boolean;
   newWeeklyTaxDue: number;
   overdueTaxRepDelta: number;
   overdueTaxNotice: string | null;
@@ -4401,9 +4488,15 @@ export function processEmpireEndOfDay(state: ShopState): {
   if (state.rival?.boughtOut) {
     branchIncome += 3500; // Kurnaz Kerim's former corner shop net income!
   }
+  const passive2xApplied =
+    branchIncome > 0 && (state.adState?.passiveIncome2xDay ?? 0) === state.day;
+  if (passive2xApplied) {
+    branchIncome = Math.round(branchIncome * 2);
+  }
 
   let loanPayments = 0;
   const updatedLoans: ActiveLoan[] = [];
+  const paidOffLoans: ActiveLoan[] = [];
   for (const loan of state.activeLoans ?? []) {
     const pay = Math.min(loan.remainingBalance, loan.dailyPayment);
     loanPayments += pay;
@@ -4411,6 +4504,8 @@ export function processEmpireEndOfDay(state: ShopState): {
     const daysLeft = Math.max(0, loan.daysLeft - 1);
     if (rem > 0 && daysLeft > 0) {
       updatedLoans.push({ ...loan, remainingBalance: rem, daysLeft });
+    } else {
+      paidOffLoans.push(loan);
     }
   }
 
@@ -4457,8 +4552,12 @@ export function processEmpireEndOfDay(state: ShopState): {
 
   return {
     branchIncome,
+    passive2xApplied,
     loanPayments,
     updatedLoans,
+    paidOffLoans,
+    allLoansCleared:
+      paidOffLoans.length > 0 && updatedLoans.length === 0,
     newWeeklyTaxDue,
     overdueTaxRepDelta,
     overdueTaxNotice,
@@ -4861,6 +4960,7 @@ export function createInitialShopState(): ShopState {
     activeStoreEvent: null,
     nextCustomerEventEffect: null,
     storeEventsTriggeredToday: 0,
+    todayRentDiscountPct: 0,
     privacyAccepted: true,
     hapticsEnabled: true,
     textSpeed: 'fast',
@@ -4907,6 +5007,12 @@ export function createInitialShopState(): ShopState {
     spareParts: { screen: 1, battery: 1, board_kit: 1 },
     complaintHistory: [],
     sundayKermes: null,
+    adState: createDefaultAdState(0),
+    activeDrama: null,
+    completedDramaIds: [],
+    lastDramaDay: 0,
+    loansPaidOffCount: 0,
+    debtFreePrestigeBonus: 0,
   };
 
   baseState.dailyQueue = generateDailyQueue(baseState);
@@ -4949,6 +5055,8 @@ export function executePrestigeReset(state: ShopState): ShopState {
     museumItems: [...state.museumItems],
     ownedOutfits: [...state.ownedOutfits],
     equippedOutfit: state.equippedOutfit,
+    loansPaidOffCount: state.loansPaidOffCount ?? 0,
+    debtFreePrestigeBonus: state.debtFreePrestigeBonus ?? 0,
     discoveredSpecIds: [...state.discoveredSpecIds],
     claimedMilestoneIds: [...state.claimedMilestoneIds],
     unlockedAchievementIds: state.unlockedAchievementIds
@@ -6602,6 +6710,7 @@ export function loadShopState(): ShopState | null {
       activeStoreEvent: parsed.activeStoreEvent ?? null,
       nextCustomerEventEffect: parsed.nextCustomerEventEffect ?? null,
       storeEventsTriggeredToday: parsed.storeEventsTriggeredToday ?? 0,
+      todayRentDiscountPct: parsed.todayRentDiscountPct ?? 0,
       privacyAccepted: parsed.privacyAccepted ?? true,
       hapticsEnabled: parsed.hapticsEnabled ?? true,
       textSpeed: parsed.textSpeed ?? 'fast',
@@ -6695,6 +6804,14 @@ export function loadShopState(): ShopState | null {
         ? parsed.complaintHistory
         : [],
       sundayKermes: parsed.sundayKermes ?? null,
+      adState: normalizeAdState(parsed.adState, day),
+      activeDrama: parsed.activeDrama ?? null,
+      completedDramaIds: Array.isArray(parsed.completedDramaIds)
+        ? parsed.completedDramaIds
+        : [],
+      lastDramaDay: parsed.lastDramaDay ?? 0,
+      loansPaidOffCount: parsed.loansPaidOffCount ?? 0,
+      debtFreePrestigeBonus: parsed.debtFreePrestigeBonus ?? 0,
     };
 
     // Ensure starter Vintage Radio, Copper Tea Boiler & Prestige Plaque (if P1+) are owned

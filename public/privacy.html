@@ -3,68 +3,115 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gizlilik Politikası (Privacy Policy) — GSM Simulator</title>
+    <title>Gizlilik Politikası ve KVKK Aydınlatma Metni — GSM Simulator</title>
+    <meta
+      name="description"
+      content="GSM Simulator mobil ve web uygulaması için 6698 sayılı KVKK uyumlu Gizlilik Politikası, yerel veri saklama (localStorage) ve Google AdMob reklam kimliği bildirimleri."
+    />
     <style>
       :root {
         color-scheme: dark;
       }
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background: #0f141b;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: #0b1018;
         color: #e2e8f0;
-        line-height: 1.65;
+        line-height: 1.68;
       }
       main {
-        max-width: 780px;
+        max-width: 820px;
         margin: 0 auto;
         padding: 32px 20px 64px;
       }
+      .header-badge {
+        display: inline-block;
+        background: rgba(251, 191, 36, 0.14);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        color: #fbbf24;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 4px 10px;
+        border-radius: 6px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
       .card {
-        background: #141c27;
+        background: #131b26;
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px;
-        padding: 24px;
+        padding: 24px 26px;
         margin-top: 20px;
       }
       h1 {
         color: #f8fafc;
-        font-size: 1.75rem;
+        font-size: 1.8rem;
         margin: 0 0 8px;
+        line-height: 1.25;
       }
       h2 {
         color: #fbbf24;
-        font-size: 1.1rem;
-        margin: 22px 0 8px;
+        font-size: 1.08rem;
+        margin: 24px 0 8px;
       }
-      p, li {
+      h2:first-child {
+        margin-top: 0;
+      }
+      p,
+      li {
         color: #cbd5e1;
-        font-size: 0.95rem;
+        font-size: 0.94rem;
+      }
+      ul {
+        padding-left: 20px;
+      }
+      li {
+        margin-bottom: 6px;
+      }
+      code {
+        background: rgba(148, 163, 184, 0.14);
+        padding: 2px 6px;
+        border-radius: 5px;
+        font-size: 0.86rem;
+        color: #f1f5f9;
       }
       table {
         width: 100%;
         border-collapse: collapse;
         margin: 14px 0;
-        font-size: 0.9rem;
+        font-size: 0.89rem;
       }
-      th, td {
+      th,
+      td {
         text-align: left;
         padding: 10px 12px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        vertical-align: top;
       }
       th {
         color: #94a3b8;
         font-weight: 600;
+        width: 36%;
       }
       .ok {
         color: #34d399;
         font-weight: 700;
       }
+      .warn {
+        color: #fbbf24;
+        font-weight: 600;
+      }
       .nav {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 24px;
+        gap: 16px;
+        margin-top: 28px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
       }
       a {
         color: #38bdf8;
@@ -76,74 +123,189 @@
       }
       .muted {
         color: #94a3b8;
-        font-size: 0.85rem;
+        font-size: 0.86rem;
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Gizlilik Politikası / Privacy Policy</h1>
+      <span class="header-badge">6698 Sayılı KVKK · GDPR · Google Play &amp; App Store Uyumlu</span>
+      <h1>Gizlilik Politikası ve KVKK Aydınlatma Metni</h1>
       <p class="muted">
-        Uygulama: <strong>GSM Simulator</strong> · Son Güncelleme: 2026 · Yaş Derecelendirmesi: PEGI 3 / 4+
+        Uygulama: <strong>GSM Simulator</strong> (<code>com.esnafgsm.simulator</code>) ·
+        Geliştirici: <strong>EsOra Mobile Studio</strong> ·
+        Yürürlük / Son Güncelleme: <strong>2026</strong> · Yaş Derecelendirmesi: <strong>PEGI 3 / 4+</strong>
       </p>
 
       <section class="card">
-        <h2>1. Veri Güvenliği Özeti (Google Play Data Safety &amp; App Store Privacy)</h2>
+        <h2>Uygulama Hakkında &amp; Mağaza Tanıtım Referansı</h2>
+        <p>
+          <strong>GSM Simulator: Esnaf &amp; Tamir</strong>, 23 yaşında 5 yıllık çıraklığını tamamlayıp kendi
+          12 m² pasaj dükkanını açan genç bir telefon ustasının adım adım şehrin en büyük GSM imparatorluğunu kurma
+          hikayesini konu alan 2D illüstrasyonlu bir ticaret ve teknik servis simülasyonudur.
+        </p>
+        <ul>
+          <li><strong>Dedektif Ekspertiz &amp; Tuşlu IMEI Sorgu:</strong> Ekran, pil, sıvı bandı ve BTK/IMEI kontrolleriyle satıcı blöflerini yakala, pazarlık masasında koz kazan.</li>
+          <li><strong>Esprili Türk Esnaf Pazarlığı:</strong> Dostane, Profesyonel veya Sert pazarlık tonları, taze çay ikramı, bakır çay kazanı ve esnaf vecizeleriyle satış kapat.</li>
+          <li><strong>Mikro-Tamir Atölyesi &amp; Acil Servis:</strong> Kırık ekran, pil, anakart ve arka cam arızalarını kendi ESD tezgahında onarıp kârını katla.</li>
+          <li><strong>Canlı Dükkan Gelişimi &amp; İmparatorluk:</strong> 12 bölümlü hikâye, 42 kariyer hedefi, 20 ekipman/lisans (dükkanda canlı görünür), Pazar Esnaf Kermesi, gümrük ihaleleri, şube ağı, GSM Müzesi ve sonsuz Prestij dönemleri.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>1. Veri Güvenliği Özeti (Google Play Data Safety &amp; Apple App Privacy)</h2>
         <table>
           <thead>
             <tr>
-              <th>Kategori</th>
-              <th>Durum</th>
+              <th>Veri Kategorisi</th>
+              <th>Uygulama Politikası</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Toplanan Kişisel Veri (Data Collected)</td>
-              <td class="ok">Yok (Hiçbir kişisel veri toplanmaz)</td>
+              <td>Doğrudan Kimlik / İletişim Verisi</td>
+              <td class="ok">Toplanmaz (Ad, soyad, e-posta, telefon, konum veya hesap kaydı istenmez)</td>
             </tr>
             <tr>
-              <td>Üçüncü Taraflarla Paylaşım (Data Shared)</td>
-              <td class="ok">Yok</td>
+              <td>Yerel Oyun Kaydı (<code>localStorage</code>)</td>
+              <td>Yalnızca cihazınızda saklanır; geliştirici sunucularına aktarılmaz</td>
             </tr>
             <tr>
-              <td>Reklam / İzleme Kimliği (IDFA / AAID)</td>
-              <td class="ok">Kullanılmaz</td>
+              <td>Reklam Kimliği (Android AAID / iOS IDFA)</td>
+              <td class="warn">
+                Yalnızca mobil mağaza sürümlerinde Google AdMob aracılığıyla, açık kullanıcı onayı (UMP/GDPR &amp; Apple ATT) ile işlenebilir
+              </td>
             </tr>
             <tr>
-              <td>Oyun Kaydı Depolama</td>
-              <td>Yalnızca cihaz içi yerel depolama (localStorage)</td>
+              <td>Üçüncü Taraf Reklam Sağlayıcısı</td>
+              <td>Google LLC — Google AdMob (Ödüllü Video &amp; Düşük Frekanslı Gün Sonu Geçiş Reklamı)</td>
+            </tr>
+            <tr>
+              <td>Hassas Cihaz İzinleri</td>
+              <td class="ok">Kamera, mikrofon, rehber, SMS veya GPS konumu talep edilmez</td>
             </tr>
             <tr>
               <td>Veri Silme &amp; Dışa Aktarma</td>
-              <td>Uygulama içi Ayarlar → Gizlilik &amp; Veri sekmesinden anında tek tuşla</td>
+              <td>Uygulama içi <em>Ayarlar → Gizlilik &amp; Veri</em> sekmesinden anında tek tuşla</td>
             </tr>
           </tbody>
         </table>
+      </section>
 
-        <h2>2. Hangi Veriler Cihazınızda Saklanır?</h2>
+      <section class="card">
+        <h2>2. 6698 Sayılı KVKK Kapsamında Aydınlatma</h2>
         <p>
-          GSM Simulator çevrimdışı çalışabilen tek oyunculu bir simülasyon oyunudur. Oyun kariyeriniz (gün sayısı, sanal kasa, tamir edilen kurgusal cihazlar, dükkan yükseltmeleri, ses/titreşim ayarları ve sizin isteğinizle yazdığınız geri bildirim notları) yalnızca kendi cihazınızdaki tarayıcı/uygulama yerel deposunda (<code>localStorage</code>) saklanır. Bu veriler hiçbir uzak sunucuya iletilmez.
+          İşbu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("<strong>KVKK</strong>") uyarınca
+          <strong>GSM Simulator</strong> uygulaması kullanıcılarını, uygulama kapsamında cihazda tutulan veriler ve
+          üçüncü taraf reklam hizmetlerinin veri işleme süreçleri hakkında şeffaf biçimde bilgilendirmek amacıyla hazırlanmıştır.
         </p>
 
-        <h2>3. KVKK ve GDPR Kapsamındaki Haklarınız</h2>
+        <h2>3. Yerel Veri Saklama Politikası (<code>localStorage</code>)</h2>
+        <p>
+          GSM Simulator çevrimdışı çalışabilen tek oyunculu bir esnaf ve telefon tamir simülasyonudur. Oyun
+          ilerlemeniz (oyun günü, sanal kasa bakiyesi, stoktaki kurgusal cihazlar, tamir ve garanti kayıtları,
+          dükkan yükseltmeleri, ses/titreşim tercihleri, reklam çarpanı durumu ve kendi yazdığınız geri bildirim notları)
+          münhasıran kendi cihazınızdaki yerel tarayıcı/uygulama depolama alanında (<code>localStorage</code>) tutulur.
+          Geliştiriciye ait bir uzak veritabanı bulunmaz ve kayıtlarınız harici bir sunucuya gönderilmez.
+        </p>
+
+        <h2>4. Reklam Kimliği ve Google AdMob Veri Kullanımı</h2>
+        <p>
+          Uygulamayı ücretsiz sunabilmek amacıyla Android ve iOS mağaza sürümlerinde <strong>Google AdMob</strong>
+          reklam altyapısı entegre edilmiştir:
+        </p>
         <ul>
-          <li><strong>Erişim &amp; Taşınabilirlik:</strong> Uygulama içindeki <em>Gizlilik &amp; Veri</em> sekmesinden oyun yedeğinizi JSON formatında indirebilir veya panoya kopyalayabilirsiniz.</li>
-          <li><strong>Kalıcı Silme (Hesap / Kariyer Sıfırlama):</strong> Aynı ekrandaki <em>"Tüm Oyun Verilerini Sil"</em> butonuna basarak cihazınızdaki tüm yerel kayıtları anında ve geri döndürülemez şekilde temizleyebilirsiniz.</li>
+          <li>
+            <strong>Ödüllü Reklamlar (Rewarded Ads):</strong> Yalnızca kullanıcının açık onayıyla ("Onayla &amp; İzle")
+            tetiklenir (örneğin <em>2x Para Çarpanı</em>, <em>2x Çevrimdışı Gelir</em>, <em>2x Günlük Pasif Gelir</em> ve
+            <em>2x Günlük Giriş Ödülü</em>).
+          </li>
+          <li>
+            <strong>Düşük Frekanslı Geçiş Reklamları (Interstitial Ads):</strong> Kullanıcı deneyimini korumak için
+            ilk 4 oyun gününde hiç gösterilmez; sonrasında yalnızca 5–7 oyun günü bitiminde ve en az 4 dakikalık
+            gerçek zamanlı bekleme süresiyle sınırlı olarak gösterilir.
+          </li>
+          <li>
+            <strong>Reklam Kimliği ve Rıza (KVKK / GDPR / Apple ATT):</strong> Google AdMob; reklam sunumu, sahtecilik
+            önleme ve frekans sınırlaması amacıyla cihaz reklam kimliğini (Android <strong>AAID</strong> / iOS
+            <strong>IDFA</strong>), yaklaşık cihaz/IP bilgilerini ve reklam etkileşim tanılamalarını işleyebilir.
+            Kişiselleştirilmiş reklamlar yalnızca Google UMP rıza ekranı ve iOS App Tracking Transparency (ATT)
+            üzerinden açık rıza vermeniz hâlinde etkinleşir; rıza vermeseniz dahi kişiselleştirilmemiş reklamlarla
+            oyunu kesintisiz oynayabilirsiniz.
+          </li>
+          <li>
+            Google'ın reklam verilerini nasıl işlediğini incelemek için:
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">
+              Google Gizlilik Politikası
+            </a>
+            ·
+            <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">
+              Google Reklam Teknolojileri
+            </a>.
+          </li>
         </ul>
 
-        <h2>4. Çocukların Gizliliği (PEGI 3 / 4+ / COPPA)</h2>
+        <h2>5. Yurt Dışına Veri Aktarımı</h2>
         <p>
-          GSM Simulator 13 yaş altı çocuklar dahil hiçbir kullanıcıdan kişisel veri, konum, mikrofon, kamera veya rehber erişimi talep etmez. Uygulama içinde gerçek parayla kumar veya reklam amaçlı takip bulunmaz.
+          Oyun kayıtlarınız cihaz dışına aktarılmaz. Yalnızca mobil mağaza sürümlerinde Google AdMob reklam çağrıları
+          kapsamında, KVKK Madde 9 ve GDPR ilkeleri doğrultusunda ilgili reklam sağlayıcısının (Google LLC) küresel
+          sunucularıyla teknik reklam isteği iletişimi gerçekleşebilir.
+        </p>
+
+        <h2>6. KVKK Madde 11 Kapsamındaki Haklarınız ve Kontrol Araçları</h2>
+        <p>KVKK Madde 11 uyarınca veri sahibi olarak kişisel verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini veya silinmesini isteme haklarına sahipsiniz. Uygulama içinde şu araçları doğrudan kullanabilirsiniz:</p>
+        <ul>
+          <li>
+            <strong>Veri Dışa Aktarma &amp; Taşınabilirlik:</strong> <em>Ayarlar → Gizlilik &amp; Veri</em> ekranından
+            tüm yerel oyun verilerinizi JSON dosyası olarak indirebilir veya kopyalayabilirsiniz.
+          </li>
+          <li>
+            <strong>Kalıcı Silme:</strong> Aynı ekrandaki <em>"Tüm Oyun Verilerini Sil"</em> seçeneği ile cihazdaki tüm
+            yerel kayıtları anında ve kalıcı olarak temizleyebilirsiniz.
+          </li>
+          <li>
+            <strong>Reklam Tercihlerini Yönetme:</strong> Cihaz ayarlarınızdan (Android: <em>Ayarlar → Google → Reklamlar</em>;
+            iOS: <em>Ayarlar → Gizlilik ve Güvenlik → Takip</em>) reklam kimliğinizi dilediğiniz zaman sıfırlayabilir veya
+            kişiselleştirmeyi kapatabilirsiniz.
+          </li>
+        </ul>
+
+        <h2>7. Çocukların Gizliliği (COPPA &amp; PEGI 3 / 4+)</h2>
+        <p>
+          GSM Simulator her yaşa uygun, gerçek para ile kumar/bahis içermeyen bir simülasyon oyunudur. 13 yaş altındaki
+          kullanıcılardan bilerek kişisel veri toplanmaz.
+        </p>
+
+        <h2>8. İletişim ve Veri Sorumlusu</h2>
+        <p>
+          <strong>Geliştirici / Veri Sorumlusu:</strong> EsOra Mobile Studio<br />
+          <strong>Destek ve KVKK Başvuru E-postası:</strong>
+          <a href="mailto:esorastudiodestek@gmail.com">esorastudiodestek@gmail.com</a><br />
+          KVKK kapsamındaki bilgi talepleriniz, veri silme sorularınız veya teknik destek bildirimleriniz için
+          yukarıdaki destek e-posta adresi üzerinden bizimle iletişime geçebilirsiniz.
         </p>
       </section>
 
       <section class="card">
-        <h2>English Summary (For Google Play &amp; Apple App Store Review)</h2>
+        <h2>English Privacy Policy Summary (Google Play &amp; App Store Review)</h2>
         <p>
-          <strong>GSM Simulator</strong> does <strong>not</strong> collect, transmit, sell, or share any personal data, device identifiers, location data, analytics, or advertising IDs. All gameplay progress and preferences are stored strictly locally on the user's device via <code>localStorage</code>.
+          <strong>GSM Simulator</strong> (<code>com.esnafgsm.simulator</code>) is a single-player shop and smartphone
+          repair simulation game. All gameplay saves, inventory, settings, and career statistics are stored exclusively
+          locally on your device via <code>localStorage</code>. We do not collect names, emails, location, contacts, or
+          camera/microphone data, and we do not operate a personal-data backend server.
         </p>
         <p>
-          Users may export their local save file as JSON or permanently erase all local application data at any time from the in-app <em>Settings → Privacy &amp; Data</em> screen (accessible both from the title screen and during gameplay).
+          In native Android and iOS builds, <strong>Google AdMob</strong> may process Advertising IDs (AAID/IDFA),
+          coarse device diagnostics, and ad interaction metrics strictly to deliver optional user-confirmed Rewarded
+          Video Ads (e.g., 2x cash multiplier, 2x offline/daily passive income) and low-frequency end-of-day
+          Interstitial Ads (every 5–7 in-game days). Personalized advertising requires explicit consent via Google UMP
+          (GDPR/KVKK) and Apple App Tracking Transparency (ATT); non-personalized ads are served if consent is declined.
+        </p>
+        <p>
+          Players can export their full local save file as JSON or permanently erase all local application data at any
+          time via in-app <em>Settings → Privacy &amp; Data</em>. For privacy or support inquiries, contact
+          <strong>EsOra Mobile Studio</strong> at
+          <a href="mailto:esorastudiodestek@gmail.com">esorastudiodestek@gmail.com</a>.
         </p>
       </section>
 

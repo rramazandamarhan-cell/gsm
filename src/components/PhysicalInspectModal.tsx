@@ -10,6 +10,7 @@ import {
   Droplets,
   Flashlight,
   MessageSquareQuote,
+  Phone,
   RotateCw,
   ScanLine,
   Search,
@@ -112,6 +113,9 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
   const [imeiError, setImeiError] = useState<boolean>(false);
   const [imeiQuerying, setImeiQuerying] = useState<boolean>(false);
   const [imeiQueryPct, setImeiQueryPct] = useState<number>(0);
+  const [pressedKey, setPressedKey] = useState<string | null>(null);
+  const [lcdPulse, setLcdPulse] = useState<boolean>(false);
+  const pressedKeyTimerRef = useRef<number | null>(null);
   const [simEjected, setSimEjected] = useState<boolean>(false);
   const [lensLit, setLensLit] = useState<boolean>(false);
 
@@ -231,22 +235,45 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
     }
   }, [imeiQuerying, imeiQueryPct, device.inspected.imei, completeCategory]);
 
+  useEffect(() => {
+    return () => {
+      if (pressedKeyTimerRef.current !== null) {
+        window.clearTimeout(pressedKeyTimerRef.current);
+      }
+    };
+  }, []);
+
+  const flashKeypadKey = (keyId: string) => {
+    setPressedKey(keyId);
+    setLcdPulse(true);
+    if (pressedKeyTimerRef.current !== null) {
+      window.clearTimeout(pressedKeyTimerRef.current);
+    }
+    pressedKeyTimerRef.current = window.setTimeout(() => {
+      setPressedKey(null);
+      setLcdPulse(false);
+    }, 170);
+  };
+
   const handleImeiDigit = (digit: string) => {
     if (device.inspected.imei || imeiQuerying) return;
-    soundFX.playClick();
+    flashKeypadKey(digit);
+    soundFX.playKeypadTone(digit);
     setImeiError(false);
     setImeiInput((prev) => (prev.length < 15 ? prev + digit : prev));
   };
 
   const handleImeiBackspace = () => {
     if (imeiQuerying) return;
-    soundFX.playClick();
+    flashKeypadKey('DEL');
+    soundFX.playKeypadTone('*');
     setImeiError(false);
     setImeiInput((prev) => prev.slice(0, -1));
   };
 
   const handleSubmitImei = () => {
     if (device.inspected.imei || imeiQuerying) return;
+    flashKeypadKey('CALL');
     const cleaned = imeiInput.replace(/\D/g, '');
     if (cleaned === imeiLast4 || cleaned === cleanImei) {
       setImeiError(false);
@@ -1084,33 +1111,10 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   </button>
                 </div>
               ) : activeTool === 'imei' ? (
-                /* HANDS-ON 3: BTK IMEI SORGU PANELI & VERITABANI SIMULASYONU */
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-extrabold text-amber-400">
-                        {bi('BTK IMEI Sorgu Paneli', 'BTK IMEI Database Query')}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        {bi(
-                          'Kasa IMEI’sinin son 4 hanesini (veya tamamını) yazıp BTK veritabanında sorgula:',
-                          'Type the last 4 digits (or full IMEI) from the chassis to query BTK database:'
-                        )}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-amber-400/35 bg-[#0C121B] px-2 py-1 text-right font-mono tabular-nums shrink-0">
-                      <div className="text-[8.5px] text-slate-400">
-                        {bi('KASA / SIM IMEI', 'CHASSIS IMEI')}
-                      </div>
-                      <div className="text-[11px] font-bold text-slate-200">
-                        {imeiPrefix}
-                        <span className="text-amber-400">{imeiLast4}</span>
-                      </div>
-                    </div>
-                  </div>
-
+                /* HANDS-ON 3: BTK IMEI SORGU PANELI — KLASİK 3x4 TUŞLU TELEFON MANTIĞI */
+                <div className="h-full flex flex-col justify-between gap-2 min-h-0">
                   {imeiQuerying ? (
-                    <div className="rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 space-y-2 tabular-nums">
+                    <div className="my-auto rounded-xl border border-sky-400/40 bg-sky-500/10 p-3.5 space-y-2 tabular-nums">
                       <div className="flex items-center justify-between text-xs font-bold text-sky-200">
                         <span>
                           {imeiQueryPct < 50
@@ -1125,89 +1129,238 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           style={{ width: `${imeiQueryPct}%` }}
                         />
                       </div>
-                      <div className="font-mono text-[10px] text-slate-300">
+                      <div className="font-mono text-[10.5px] text-slate-300">
                         IMEI: {cleanImei} · {device.brand} {device.model}
                       </div>
                     </div>
                   ) : (
-                    <>
-                      {/* Manual Input + Compare + Query */}
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={15}
-                          value={imeiInput}
-                          onChange={(e) => {
-                            setImeiError(false);
-                            setImeiInput(e.target.value.replace(/\D/g, '').slice(0, 15));
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && imeiInput.length >= 4) {
-                              handleSubmitImei();
-                            }
-                          }}
-                          placeholder={bi(`Son 4 hane (${imeiLast4}) veya 15 hane...`, `Last 4 (${imeiLast4}) or 15 digits...`)}
-                          className={`flex-1 min-w-0 rounded-lg border px-2.5 py-1.5 font-mono text-xs font-extrabold tracking-wider tabular-nums outline-none ${
-                            imeiError
-                              ? 'border-rose-500 bg-rose-500/15 text-rose-200 placeholder:text-rose-300/60'
-                              : 'border-sky-400/35 bg-[#0A111A] text-sky-200 placeholder:text-slate-500 focus:border-amber-400'
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            soundFX.playClick();
-                            setImeiError(false);
-                            setImeiInput(cleanImei);
-                          }}
-                          className="rounded-lg border border-white/12 bg-[#1A2535] px-2 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-[#243348] cursor-pointer whitespace-nowrap"
-                          title={bi('Cihaz kasasındaki IMEI’yi al', 'Copy IMEI from chassis')}
-                        >
-                          {bi('Eşleştir', 'Match')}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={imeiInput.length < 4}
-                          onClick={handleSubmitImei}
-                          className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
-                        >
-                          {bi('BTK Sorgula', 'Query BTK')}
-                        </button>
-                      </div>
-
-                      {imeiError && (
-                        <div className="text-[10px] font-bold text-rose-400">
-                          {bi(
-                            `IMEI uyuşmuyor! Kasa üzerindeki son 4 hane (${imeiLast4}) veya tam 15 haneyi gir.`,
-                            `IMEI mismatch! Enter the chassis last 4 digits (${imeiLast4}) or full 15 digits.`
-                          )}
+                    <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 items-stretch">
+                      {/* Left: Chassis IMEI & Retro Phosphor LCD Screen */}
+                      <div className="col-span-5 flex flex-col justify-between gap-1.5 min-w-0">
+                        <div>
+                          <div className="text-xs font-extrabold text-amber-400 leading-tight">
+                            {bi('BTK IMEI Terminali', 'BTK IMEI Terminal')}
+                          </div>
+                          <div className="text-[9.5px] text-slate-400 leading-snug mt-0.5">
+                            {bi(
+                              'Son 4 haneyi tuşlu takımdan tuşla:',
+                              'Dial the last 4 digits on the keypad:'
+                            )}
+                          </div>
                         </div>
-                      )}
 
-                      {/* Compact Mobile-Friendly Numpad */}
-                      <div className="grid grid-cols-6 gap-1">
-                        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((d) => (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => handleImeiDigit(d)}
-                            className="rounded-lg border border-white/10 bg-[#1D2838] hover:bg-[#273549] active:scale-95 py-1 font-mono text-xs font-bold text-slate-100 cursor-pointer"
-                          >
-                            {d}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={handleImeiBackspace}
-                          aria-label={bi('Sil', 'Delete')}
-                          className="col-span-2 rounded-lg border border-rose-500/30 bg-rose-500/12 hover:bg-rose-500/20 py-1 text-[11px] font-bold text-rose-200 inline-flex items-center justify-center gap-1 cursor-pointer"
+                        <div className="rounded-xl border border-amber-400/35 bg-[#0C121B] px-2 py-1.5 font-mono tabular-nums">
+                          <div className="text-[8px] text-slate-400">
+                            {bi('KASA LAZER IMEI', 'CHASSIS IMEI')}
+                          </div>
+                          <div className="text-[11px] sm:text-xs font-extrabold text-slate-200 tracking-wide truncate">
+                            {imeiPrefix}
+                            <span className="text-amber-400 underline decoration-amber-400/60">
+                              {imeiLast4}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Retro Keypad Phone Green-Phosphor LCD Display with Live Key-Press Backlight */}
+                        <div
+                          className={`rounded-xl border-2 px-2 py-1.5 font-mono tabular-nums transition-all duration-150 ${
+                            imeiError
+                              ? 'border-rose-500 bg-rose-950/40 text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.35)]'
+                              : lcdPulse
+                              ? 'border-amber-400/80 bg-[#0D231C] text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.38)]'
+                              : 'border-emerald-500/45 bg-[#0A1814] text-emerald-300'
+                          }`}
                         >
-                          <Delete className="w-3.5 h-3.5" />
-                          <span>{bi('Sil', 'Del')}</span>
-                        </button>
+                          <div className="flex items-center justify-between text-[8px] opacity-80">
+                            <span className="inline-flex items-center gap-1">
+                              <span
+                                className={`inline-block w-1.5 h-1.5 rounded-full transition-colors ${
+                                  lcdPulse ? 'bg-amber-300' : 'bg-emerald-400/70'
+                                }`}
+                              />
+                              {pressedKey
+                                ? `${bi('TUŞ', 'KEY')}: ${pressedKey}`
+                                : bi('GİRİLEN KOD', 'DIALED')}
+                            </span>
+                            <span>{imeiInput.length}/4+</span>
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={15}
+                            value={imeiInput}
+                            onChange={(e) => {
+                              setImeiError(false);
+                              setImeiInput(e.target.value.replace(/\D/g, '').slice(0, 15));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && imeiInput.length >= 4) {
+                                handleSubmitImei();
+                              }
+                            }}
+                            placeholder={`_ _ _ _`}
+                            className="w-full bg-transparent text-base sm:text-lg font-extrabold tracking-[0.22em] outline-none placeholder:text-emerald-300/35 placeholder:tracking-widest"
+                          />
+                        </div>
+
+                        {imeiError && (
+                          <div className="text-[9.5px] font-bold text-rose-400 leading-tight">
+                            {bi(
+                              `Hatalı! Son 4: ${imeiLast4}`,
+                              `Mismatch! Last 4: ${imeiLast4}`
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              flashKeypadKey('AUTO');
+                              soundFX.playKeypadTone('#');
+                              setImeiError(false);
+                              setImeiInput(imeiLast4);
+                            }}
+                            className="min-h-[34px] rounded-xl border border-white/15 bg-[#1A2535] px-1.5 py-1 text-[10px] font-bold text-slate-200 hover:bg-[#243348] active:scale-95 transition-transform cursor-pointer touch-manipulation"
+                          >
+                            {bi('Otomatik', 'Auto Fill')}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={imeiInput.length < 4}
+                            onClick={() => {
+                              soundFX.playKeypadTone('#');
+                              handleSubmitImei();
+                            }}
+                            className="min-h-[34px] rounded-xl bg-emerald-500 px-1.5 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 active:scale-95 transition-transform cursor-pointer touch-manipulation"
+                          >
+                            {bi('Sorgula', 'Query')}
+                          </button>
+                        </div>
                       </div>
-                    </>
+
+                      {/* Right: Authentic Retro Tuşlu Telefon 3x4 Bezel Keypad with Tactile Backlight Feedback */}
+                      <div className="col-span-7 rounded-2xl border-2 border-slate-500/35 bg-gradient-to-b from-[#172233] via-[#101824] to-[#0B111A] p-2 flex flex-col justify-between gap-1.5 shadow-[inset_0_1px_4px_rgba(255,255,255,0.08),0_8px_22px_rgba(0,0,0,0.5)]">
+                        {/* Classic Phone Earpiece & Keypad Brand Strip */}
+                        <div className="flex items-center justify-between px-1">
+                          <div className="flex items-center gap-1">
+                            <span className="h-1 w-1 rounded-full bg-slate-500/80" />
+                            <span className="h-1 w-6 rounded-full bg-slate-600/80" />
+                            <span className="h-1 w-1 rounded-full bg-slate-500/80" />
+                          </div>
+                          <span className="font-mono text-[8px] font-bold uppercase tracking-widest text-slate-400">
+                            PASAJ-BTK T9
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5 flex-1">
+                          {[
+                            { k: '1', sub: '∞' },
+                            { k: '2', sub: 'ABC' },
+                            { k: '3', sub: 'DEF' },
+                            { k: '4', sub: 'GHI' },
+                            { k: '5', sub: 'JKL' },
+                            { k: '6', sub: 'MNO' },
+                            { k: '7', sub: 'PQRS' },
+                            { k: '8', sub: 'TUV' },
+                            { k: '9', sub: 'WXYZ' },
+                          ].map((btn) => {
+                            const isPressed = pressedKey === btn.k;
+                            return (
+                              <button
+                                key={btn.k}
+                                type="button"
+                                onClick={() => handleImeiDigit(btn.k)}
+                                className={`min-h-[42px] sm:min-h-[48px] rounded-xl border border-b-[3px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
+                                  isPressed
+                                    ? 'border-amber-300 border-b-amber-500 bg-gradient-to-b from-amber-400/35 to-amber-500/20 translate-y-[2px] scale-[0.95] shadow-[0_0_16px_rgba(251,191,36,0.55)]'
+                                    : 'border-white/18 border-b-black/75 bg-gradient-to-b from-[#2B3B52] to-[#1A2536] hover:from-[#344864] hover:to-[#223147] active:translate-y-[2px] active:scale-[0.95] shadow-sm'
+                                }`}
+                              >
+                                <span
+                                  className={`font-mono text-lg sm:text-xl font-extrabold transition-colors ${
+                                    isPressed ? 'text-amber-200' : 'text-slate-50'
+                                  }`}
+                                >
+                                  {btn.k}
+                                </span>
+                                <span
+                                  className={`text-[7.5px] font-mono font-bold tracking-wider mt-0.5 ${
+                                    isPressed ? 'text-amber-300' : 'text-slate-400'
+                                  }`}
+                                >
+                                  {btn.sub}
+                                </span>
+                              </button>
+                            );
+                          })}
+
+                          {/* Red Hang-Up / Backspace Key */}
+                          <button
+                            type="button"
+                            onClick={handleImeiBackspace}
+                            aria-label={bi('Sil', 'Delete')}
+                            className={`min-h-[42px] sm:min-h-[48px] rounded-xl border border-b-[3px] flex flex-col items-center justify-center transition-all duration-100 cursor-pointer touch-manipulation select-none ${
+                              pressedKey === 'DEL'
+                                ? 'border-rose-300 border-b-rose-500 bg-rose-500/40 text-white translate-y-[2px] scale-[0.95] shadow-[0_0_16px_rgba(244,63,94,0.55)]'
+                                : 'border-rose-500/45 border-b-black/75 bg-gradient-to-b from-rose-500/28 to-rose-950/55 hover:from-rose-500/38 text-rose-200 active:translate-y-[2px] active:scale-[0.95]'
+                            }`}
+                          >
+                            <Delete className="w-4 h-4" />
+                            <span className="text-[8px] font-extrabold tracking-wide mt-0.5">
+                              {bi('SİL', 'DEL')}
+                            </span>
+                          </button>
+
+                          {/* 0 Key */}
+                          <button
+                            type="button"
+                            onClick={() => handleImeiDigit('0')}
+                            className={`min-h-[42px] sm:min-h-[48px] rounded-xl border border-b-[3px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
+                              pressedKey === '0'
+                                ? 'border-amber-300 border-b-amber-500 bg-gradient-to-b from-amber-400/35 to-amber-500/20 translate-y-[2px] scale-[0.95] shadow-[0_0_16px_rgba(251,191,36,0.55)]'
+                                : 'border-white/18 border-b-black/75 bg-gradient-to-b from-[#2B3B52] to-[#1A2536] hover:from-[#344864] hover:to-[#223147] active:translate-y-[2px] active:scale-[0.95] shadow-sm'
+                            }`}
+                          >
+                            <span
+                              className={`font-mono text-lg sm:text-xl font-extrabold ${
+                                pressedKey === '0' ? 'text-amber-200' : 'text-slate-50'
+                              }`}
+                            >
+                              0
+                            </span>
+                            <span
+                              className={`text-[8px] font-mono font-bold mt-0.5 ${
+                                pressedKey === '0' ? 'text-amber-300' : 'text-slate-400'
+                              }`}
+                            >
+                              +
+                            </span>
+                          </button>
+
+                          {/* Green Call / BTK Verify Key */}
+                          <button
+                            type="button"
+                            disabled={imeiInput.length < 4}
+                            onClick={() => {
+                              soundFX.playKeypadTone('#');
+                              handleSubmitImei();
+                            }}
+                            aria-label={bi('Sorgula', 'Submit')}
+                            className={`min-h-[42px] sm:min-h-[48px] rounded-xl border border-b-[3px] flex flex-col items-center justify-center transition-all duration-100 disabled:opacity-35 cursor-pointer touch-manipulation select-none ${
+                              pressedKey === 'CALL'
+                                ? 'border-emerald-200 border-b-emerald-400 bg-emerald-400/45 text-white translate-y-[2px] scale-[0.95] shadow-[0_0_16px_rgba(16,185,129,0.6)]'
+                                : 'border-emerald-400/55 border-b-black/75 bg-gradient-to-b from-emerald-500/35 to-emerald-950/60 hover:from-emerald-500/48 text-emerald-200 active:translate-y-[2px] active:scale-[0.95]'
+                            }`}
+                          >
+                            <Phone className="w-4 h-4" />
+                            <span className="text-[8px] font-extrabold tracking-wide mt-0.5">
+                              {bi('ARA', 'CALL')}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -1278,8 +1431,38 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
               )}
             </div>
 
-            {/* Bottom Summary & Close CTA */}
-            <div className="shrink-0 space-y-1.5 pt-1 border-t border-white/10">
+            {/* Bottom Summary & Scrollable Revealed Defects List (Never Clipped!) */}
+            <div className="shrink-0 space-y-1.5 pt-1.5 border-t border-white/10">
+              {revealedDefects.length > 0 && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 px-2 py-1.5 space-y-1">
+                  <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wide text-rose-300">
+                    <span>
+                      {bi(
+                        `Tespit Edilen Kusurlar (${revealedDefects.length})`,
+                        `Detected Faults (${revealedDefects.length})`
+                      )}
+                    </span>
+                    {revealedDefects.length > 3 && (
+                      <span className="text-[8.5px] font-semibold text-rose-200/75 normal-case">
+                        {bi('Kaydır ↓', 'Scroll ↓')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1 max-h-[64px] overflow-y-auto pasaj-scroll overscroll-contain pr-0.5">
+                    {revealedDefects.map((d) => (
+                      <span
+                        key={d}
+                        title={getLocalizedDefect(d, lang).name}
+                        className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/18 px-1.5 py-0.5 text-[9.5px] font-bold text-rose-100 whitespace-nowrap"
+                      >
+                        <AlertTriangle className="w-2.5 h-2.5 text-rose-400 shrink-0" />
+                        {getLocalizedDefect(d, lang).shortLabel}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {allChecked && (
                 <div className="rounded-lg border border-emerald-500/35 bg-emerald-500/12 px-2.5 py-1 flex items-center justify-between gap-2 text-[11px]">
                   <span className="inline-flex items-center gap-1.5 font-bold text-emerald-300 truncate">

@@ -448,8 +448,9 @@ class SoundEngine {
   }
 
   public playCounterOffer(): void {
-    this.playNoiseBurst(0.03, 'bandpass', 1800, 1100, 0.032, 0, 1.5);
-    this.playTone(460, 0.06, 'triangle', 0.045, 0, 560);
+    this.playNoiseBurst(0.032, 'bandpass', 1950, 1150, 0.038, 0, 1.6);
+    this.playTone(440, 0.055, 'triangle', 0.05, 0, 587.33);
+    this.playTone(659.25, 0.055, 'sine', 0.032, 0.045, 620);
   }
 
   public playCashRegister(): void {
@@ -460,6 +461,16 @@ class SoundEngine {
     this.playTone(3951.07, 0.22, 'sine', 0.025, 0.145);
   }
 
+  public playBargainSuccess(): void {
+    // Crisp celebratory handshake slap + triumphant ascending brass/bell arpeggio + register chime
+    this.playNoiseBurst(0.045, 'lowpass', 720, 220, 0.085, 0, 1.0);
+    this.playTone(523.25, 0.09, 'triangle', 0.075, 0.03);
+    this.playTone(659.25, 0.1, 'triangle', 0.08, 0.095);
+    this.playTone(783.99, 0.12, 'triangle', 0.085, 0.16);
+    this.playTone(1046.5, 0.28, 'sine', 0.09, 0.22);
+    this.playTone(2093.0, 0.22, 'sine', 0.035, 0.24);
+  }
+
   public playMoneyBurst(): void {
     this.playNoiseBurst(0.045, 'highpass', 2800, 1600, 0.045, 0);
     this.playNoiseBurst(0.045, 'highpass', 3000, 1700, 0.045, 0.055);
@@ -467,16 +478,66 @@ class SoundEngine {
     this.playCashRegister();
   }
 
+  public playCustomerAngry(): void {
+    // Impatient desk knock + tense minor-second brassy grumble
+    this.playTone(150, 0.08, 'sine', 0.1, 0, 75);
+    this.playNoiseBurst(0.06, 'lowpass', 540, 160, 0.075, 0, 1.0);
+    this.playTone(311.13, 0.13, 'sawtooth', 0.048, 0.05, 277.18);
+    this.playTone(261.63, 0.19, 'sawtooth', 0.046, 0.14, 196.0);
+  }
+
   public playAngryLeave(): void {
-    this.playNoiseBurst(0.08, 'lowpass', 420, 90, 0.08, 0.04, 0.8);
-    this.playTone(320, 0.15, 'sawtooth', 0.04, 0, 210);
-    this.playTone(205, 0.24, 'sawtooth', 0.04, 0.13, 130);
+    // Heavy impatient huff + angry descending drop + shop door slam & rattling bell
+    this.playNoiseBurst(0.11, 'bandpass', 950, 320, 0.065, 0, 1.2);
+    this.playTone(330, 0.14, 'sawtooth', 0.05, 0.02, 220);
+    this.playTone(215, 0.22, 'sawtooth', 0.05, 0.13, 125);
+    this.playTone(110, 0.16, 'sine', 0.12, 0.24, 48);
+    this.playNoiseBurst(0.09, 'lowpass', 460, 85, 0.095, 0.24, 0.8);
+    this.playTone(1480, 0.11, 'sine', 0.025, 0.29, 1390);
   }
 
   public playTea(): void {
-    this.playTone(2680, 0.075, 'sine', 0.055, 0);
-    this.playTone(3420, 0.06, 'sine', 0.032, 0.015);
-    this.playTone(2950, 0.11, 'sine', 0.045, 0.09);
+    // Warm Turkish tea pouring into ince belli glass + iconic triple spoon clink (ting-ting-ting!)
+    this.playNoiseBurst(0.24, 'bandpass', 1100, 2650, 0.036, 0, 2.2);
+    this.playTone(1650, 0.045, 'sine', 0.02, 0.08, 2200);
+    // Crisp glass spoon clinks with bright harmonic shimmer
+    this.playTone(2720, 0.08, 'sine', 0.06, 0.18);
+    this.playTone(4120, 0.055, 'sine', 0.026, 0.185);
+    this.playTone(2860, 0.08, 'sine', 0.058, 0.28);
+    this.playTone(4320, 0.055, 'sine', 0.024, 0.285);
+    this.playTone(2980, 0.13, 'sine', 0.055, 0.38);
+    // Gentle saucer set-down tap
+    this.playTone(220, 0.05, 'triangle', 0.04, 0.45, 140);
+  }
+
+  public playKeypadTone(key: string): void {
+    // Authentic ITU-T DTMF dual-tone keypad phone beeps
+    const dtmf: Record<string, [number, number]> = {
+      '1': [697, 1209],
+      '2': [697, 1336],
+      '3': [697, 1477],
+      '4': [770, 1209],
+      '5': [770, 1336],
+      '6': [770, 1477],
+      '7': [852, 1209],
+      '8': [852, 1336],
+      '9': [852, 1477],
+      '*': [941, 1209],
+      '0': [941, 1336],
+      '#': [941, 1477],
+    };
+    const pair = dtmf[key] ?? [770, 1336];
+    this.playTone(pair[0], 0.075, 'sine', 0.048, 0);
+    this.playTone(pair[1], 0.075, 'sine', 0.042, 0);
+  }
+
+  public playDramaStinger(): void {
+    // Dramatic warm pasaj cinema chord swell for Esnaf Draması story arcs
+    this.playNoiseBurst(0.14, 'lowpass', 620, 200, 0.045, 0, 0.9);
+    this.playTone(220, 0.42, 'triangle', 0.065, 0);
+    this.playTone(261.63, 0.4, 'triangle', 0.055, 0.06);
+    this.playTone(329.63, 0.45, 'sine', 0.06, 0.13);
+    this.playTone(440, 0.52, 'sine', 0.055, 0.21);
   }
 
   public playRepair(): void {

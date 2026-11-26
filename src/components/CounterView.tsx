@@ -6,9 +6,12 @@ import {
   ArrowLeftRight,
   Award,
   BatteryCharging,
+  Building2,
   Check,
   ClipboardCheck,
+  CloudRain,
   Coffee,
+  Coins,
   Cpu,
   CreditCard,
   Database,
@@ -18,6 +21,7 @@ import {
   FolderOpen,
   Gavel,
   Handshake,
+  Music,
   Newspaper,
   Package,
   Radio,
@@ -31,6 +35,8 @@ import {
   Sparkles,
   Target,
   UserCog,
+  Video,
+  WifiOff,
   Wrench,
   X,
   Zap,
@@ -120,6 +126,7 @@ interface CounterViewProps {
   queueTotal: number;
   activeStoreEvent: RandomStoreEvent | null;
   nextCustomerEventEffect: NextCustomerEventEffect | null;
+  todayRentDiscountPct?: number;
   equippedOutfit: OutfitId;
   hiredStaff: StaffId[];
   staffLevels: Record<StaffId, number>;
@@ -139,7 +146,7 @@ interface CounterViewProps {
   onDismissDay1Guide?: () => void;
   onUnlockAllTabsEarly?: () => void;
   onClaimDailyQuest: (questId: string) => void;
-  onResolveStoreEventAction: () => void;
+  onResolveStoreEventAction: (choice?: 'PRIMARY' | 'ALT') => void;
   onDismissStoreEvent: () => void;
   onPlaceOnDeskReaction: (line: string) => void;
   onInspect: (category: InspectionCategory, silentOverlay?: boolean) => void;
@@ -328,6 +335,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
   queueIndex,
   queueTotal,
   activeStoreEvent,
+  todayRentDiscountPct = 0,
   hiredStaff,
   onCycleRadio,
   onTeaBoilerFresh,
@@ -570,12 +578,23 @@ export const CounterView: React.FC<CounterViewProps> = ({
     ? getLocalizedQuest(activeQuestRaw, lang)
     : null;
 
+  const totalAccessoryStock = useMemo(
+    () =>
+      Object.values(accessories).reduce(
+        (sum, entry) => sum + (entry?.quantity ?? 0),
+        0
+      ),
+    [accessories]
+  );
+
   if (!encounter) {
     return (
       <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center p-4 text-center overflow-hidden">
         <ShopDecorLayer
           shopTier={shopTier}
           activeDecorations={activeDecorations}
+          upgrades={upgrades}
+          totalAccessoryStock={totalAccessoryStock}
           activeEventVisual={activeEventVisual}
           listedPhones={listedPhones}
           prestigeLevel={prestigeLevel}
@@ -721,6 +740,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
       <ShopDecorLayer
         shopTier={shopTier}
         activeDecorations={activeDecorations}
+        upgrades={upgrades}
+        totalAccessoryStock={totalAccessoryStock}
         activeEventVisual={activeEventVisual}
         listedPhones={listedPhones}
         prestigeLevel={prestigeLevel}
@@ -883,6 +904,19 @@ export const CounterView: React.FC<CounterViewProps> = ({
             </span>
           )}
 
+          {todayRentDiscountPct > 0 && (
+            <span
+              title={bi(
+                `Pasaj yönetimi bugünkü kirada %${Math.round(todayRentDiscountPct * 100)} indirim uyguladı!`,
+                `Arcade management applied a ${Math.round(todayRentDiscountPct * 100)}% discount on today's rent!`
+              )}
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-emerald-300 whitespace-nowrap"
+            >
+              <Building2 className="w-2.5 h-2.5" />
+              {bi('Kira', 'Rent')} -%{Math.round(todayRentDiscountPct * 100)}
+            </span>
+          )}
+
           {/* Mini Queue Chips */}
           <div className="hidden sm:flex items-center gap-0.5">
             {queue.slice(0, 8).map((q, idx) => (
@@ -927,37 +961,97 @@ export const CounterView: React.FC<CounterViewProps> = ({
         </div>
       </div>
 
-      {/* COMPACT LIVE STORE EVENT STRIP */}
-      {activeStoreEvent && !activeStoreEvent.resolved && (
-        <div className="relative z-20 shrink-0 flex items-center justify-between gap-2 border-b border-amber-400/35 bg-amber-500/15 px-3 py-1 text-[10.5px]">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-            <strong className="text-amber-200 shrink-0">
-              {activeStoreEvent.title}:
-            </strong>
-            <span className="text-slate-100 truncate">
-              {activeStoreEvent.description}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={onResolveStoreEventAction}
-              className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
-            >
-              {activeStoreEvent.actionLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onDismissStoreEvent}
-              className="p-0.5 text-slate-300 hover:text-white cursor-pointer"
-              aria-label={bi('Kapat', 'Close')}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* LIVE PASAJ MINI-EVENT INTERACTIVE BANNER */}
+      {activeStoreEvent && !activeStoreEvent.resolved && (() => {
+        const primaryCost = activeStoreEvent.actionCost ?? 0;
+        const altCost = activeStoreEvent.altActionCost ?? 0;
+        const canAffordPrimary = cash >= primaryCost;
+        const canAffordAlt = cash >= altCost;
+        const EventIcon =
+          activeStoreEvent.visualKind === 'coin_jam'
+            ? Coins
+            : activeStoreEvent.visualKind === 'rent_meeting'
+            ? Building2
+            : activeStoreEvent.visualKind === 'wifi_outage'
+            ? WifiOff
+            : activeStoreEvent.visualKind === 'tea_war' ||
+              activeStoreEvent.visualKind === 'tea_aroma'
+            ? Coffee
+            : activeStoreEvent.visualKind === 'parcel_mixup'
+            ? Package
+            : activeStoreEvent.visualKind === 'music'
+            ? Music
+            : activeStoreEvent.visualKind === 'power_surge'
+            ? Zap
+            : activeStoreEvent.visualKind === 'rain'
+            ? CloudRain
+            : activeStoreEvent.visualKind === 'livestream'
+            ? Video
+            : activeStoreEvent.visualKind === 'inspection'
+            ? ShieldAlert
+            : Sparkles;
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative z-20 shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/45 bg-gradient-to-r from-[#261E11]/95 via-[#1C1822]/95 to-[#141D2A]/95 px-3 py-1.5 text-[10.5px] shadow-md"
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/40 bg-amber-500/20 text-amber-300 shrink-0">
+                <EventIcon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="rounded bg-amber-500/25 px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-wide text-amber-300">
+                    {activeStoreEvent.badgeLabel ?? bi('PASAJ OLAYI', 'ARCADE EVENT')}
+                  </span>
+                  <strong className="text-amber-100 font-bold truncate">
+                    {activeStoreEvent.title}
+                  </strong>
+                </div>
+                <div className="text-slate-200/90 text-[10px] leading-snug line-clamp-1">
+                  {activeStoreEvent.description}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+              {activeStoreEvent.actionLabel && (
+                <button
+                  type="button"
+                  disabled={!canAffordPrimary}
+                  onClick={() => onResolveStoreEventAction('PRIMARY')}
+                  title={activeStoreEvent.effectSummary}
+                  className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap transition-colors"
+                >
+                  {activeStoreEvent.actionLabel}
+                </button>
+              )}
+              {activeStoreEvent.altActionLabel && (
+                <button
+                  type="button"
+                  disabled={!canAffordAlt}
+                  onClick={() => onResolveStoreEventAction('ALT')}
+                  title={activeStoreEvent.effectSummary}
+                  className="rounded-lg border border-sky-400/45 bg-sky-500/18 px-2.5 py-1 text-[10px] font-extrabold text-sky-100 hover:bg-sky-500/28 disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap transition-colors"
+                >
+                  {activeStoreEvent.altActionLabel}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onDismissStoreEvent}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                aria-label={bi('Olayı geç', 'Dismiss event')}
+                title={bi('Görmezden gel', 'Ignore')}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        );
+      })()}
 
       {/* MAIN PLAYFIELD — ZERO VERTICAL SCROLL */}
       <AnimatePresence mode="wait">
@@ -1251,7 +1345,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
             </section>
 
             {/* COLUMN 2: INTERACTIVE PHONE MODEL VISUAL & INSPECTION MAT (4 cols) */}
-            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-2.5 gap-2 overflow-hidden">
+            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-2.5 gap-2 overflow-y-auto pasaj-scroll overscroll-contain">
               {encounter.type === 'ACCESSORY_BUYER' && encounter.accessoryOrder ? (
                 <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
                   <div className="shrink-0 flex items-center justify-between">
@@ -1464,7 +1558,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </div>
 
                   {/* LIVE INTERACTIVE SMARTPHONE VISUAL MODEL (FRONT / BACK + DEFECTS) */}
-                  <div className="relative flex-1 min-h-[116px] overflow-hidden">
+                  <div className="relative flex-1 min-h-[72px] sm:min-h-[104px] overflow-hidden">
                     <PhoneInspectSVG
                       device={inspectedTarget}
                       revealAll={
@@ -1480,7 +1574,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       <button
                         type="button"
                         onClick={() => openHandsOnInspect(undefined)}
-                        className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-lg border border-amber-400/55 bg-[#1B160E]/92 px-2.5 py-1 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap shadow-md"
+                        className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-lg border border-amber-400/55 bg-[#1B160E]/92 px-2 py-1 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap shadow-md"
                         title={bi('Elle Ekspertiz Masasını Aç', 'Open Hands-On Inspection Bench')}
                       >
                         <Search className="w-3 h-3 text-amber-400" />
@@ -1489,11 +1583,11 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     )}
                   </div>
 
-                  {/* SELLER / TRADE-IN: 2x2 HANDS-ON INSPECTION SLOTS + LEVERAGE BAR */}
+                  {/* SELLER / TRADE-IN: 2x2 HANDS-ON INSPECTION SLOTS + ALL DISCOVERED DEFECTS */}
                   {(encounter.type === 'SELLER' ||
                     (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (
-                    <div className="shrink-0 space-y-1.5">
-                      <div className="grid grid-cols-2 gap-1.5">
+                    <div className="shrink-0 space-y-1">
+                      <div className="grid grid-cols-2 gap-1">
                         {INSPECTION_ZONES.map((z) => {
                           const done = inspectedTarget.inspected[z.id];
                           const foundDefect = inspectedTarget.defects.find(
@@ -1507,7 +1601,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                               key={z.id}
                               type="button"
                               onClick={() => openHandsOnInspect(z.id)}
-                              className={`rounded-lg border px-2 py-1 flex items-center justify-between gap-1 text-[10px] font-bold transition-colors cursor-pointer ${
+                              className={`rounded-lg border px-1.5 py-1 flex items-center justify-between gap-1 text-[9.5px] sm:text-[10px] font-bold transition-colors cursor-pointer touch-manipulation ${
                                 !done
                                   ? 'border-white/12 bg-[#1B2534] text-slate-100 hover:border-amber-400/55 hover:bg-[#223044]'
                                   : foundDefect
@@ -1523,13 +1617,13 @@ export const CounterView: React.FC<CounterViewProps> = ({
                               </span>
                               {done ? (
                                 foundDefect ? (
-                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-rose-300 truncate max-w-[78px] shrink-0">
-                                    <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-rose-300 truncate max-w-[74px] shrink-0">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-rose-400 shrink-0" />
                                     <span className="truncate">{defectShort}</span>
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-emerald-300 shrink-0">
-                                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
                                     {bi('Temiz', 'Clean')}
                                   </span>
                                 )
@@ -1544,41 +1638,59 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       </div>
 
                       {discoveredDefects.length > 0 ? (
-                        <div className="space-y-1">
-                          {discoveredDefects.slice(0, 2).map((d) => {
-                            const locDef = getLocalizedDefect(d, lang);
-                            const used = encounter.usedLeverageDefects.includes(d);
-                            return (
-                              <div
-                                key={d}
-                                className="rounded-lg border border-rose-400/35 bg-rose-500/10 px-2 py-1 flex items-center justify-between gap-1.5"
-                              >
-                                <span className="text-[10px] font-bold text-rose-200 truncate">
-                                  ⚠ {locDef.shortLabel}
-                                </span>
-                                <button
-                                  type="button"
-                                  disabled={used || encounter.outcome !== 'ACTIVE'}
-                                  onClick={() => onUseLeverage(d)}
-                                  className="rounded bg-rose-500 px-2 py-0.5 text-[9.5px] font-extrabold text-white hover:bg-rose-400 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
+                        <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-1.5 space-y-1">
+                          <div className="flex items-center justify-between px-0.5 text-[9px] font-extrabold uppercase tracking-wide text-rose-300">
+                            <span>
+                              {bi(
+                                `Tespit Edilen Kusurlar (${discoveredDefects.length})`,
+                                `Detected Defects (${discoveredDefects.length})`
+                              )}
+                            </span>
+                            {discoveredDefects.length > 2 && (
+                              <span className="text-[8.5px] font-semibold text-rose-200/80 normal-case">
+                                {bi('Kaydır ↓', 'Scroll ↓')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-[110px] overflow-y-auto pasaj-scroll overscroll-contain pr-0.5">
+                            {discoveredDefects.map((d) => {
+                              const locDef = getLocalizedDefect(d, lang);
+                              const used = encounter.usedLeverageDefects.includes(d);
+                              return (
+                                <div
+                                  key={d}
+                                  className="rounded-lg border border-rose-400/40 bg-rose-500/14 px-2 py-1 flex items-center justify-between gap-1.5 min-w-0"
                                 >
-                                  {used
-                                    ? bi('Kullanıldı ✓', 'Used ✓')
-                                    : bi('Koz Vur!', 'Use Leverage')}
-                                </button>
-                              </div>
-                            );
-                          })}
+                                  <span
+                                    className="text-[9.5px] font-bold text-rose-100 truncate min-w-0"
+                                    title={locDef.name}
+                                  >
+                                    ⚠ {locDef.shortLabel}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={used || encounter.outcome !== 'ACTIVE'}
+                                    onClick={() => onUseLeverage(d)}
+                                    className="rounded bg-rose-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white hover:bg-rose-400 active:scale-95 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
+                                  >
+                                    {used
+                                      ? bi('OK ✓', 'Used ✓')
+                                      : bi('Koz Vur', 'Leverage')}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       ) : (
-                        <div className="rounded-lg border border-white/6 bg-[#0E141D] px-2 py-1 text-[10px] text-slate-400 text-center truncate">
+                        <div className="rounded-lg border border-white/6 bg-[#0E141D] px-2 py-1 text-[9.5px] text-slate-400 text-center truncate">
                           {all4Inspected
                             ? bi(
                                 '✓ 4 fiziksel kontrol temiz — gizli kusur bulunmadı.',
                                 '✓ All 4 physical checks clean — no hidden defects found.'
                               )
                             : bi(
-                                'Alttaki bölmelere dokunup cihazı elle kontrol et!',
+                                'Yukarıdaki bölmelere dokunup cihazı elle kontrol et!',
                                 'Tap any slot above to physically inspect the device!'
                               )}
                         </div>

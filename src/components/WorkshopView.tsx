@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Banknote,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   FolderOpen,
   Layers,
@@ -106,7 +104,6 @@ interface WorkshopViewProps {
 }
 
 export const BOX_KIT_COST = 600;
-const ITEMS_PER_PAGE = 5;
 
 export const WorkshopView: React.FC<WorkshopViewProps> = ({
   inventory,
@@ -142,7 +139,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   const [selectedUid, setSelectedUid] = useState<string | null>(
     inventory[0]?.uid ?? null
   );
-  const [listPage, setListPage] = useState(0);
+  const [listFilter, setListFilter] = useState<'ALL' | 'REPAIR' | 'LISTED'>('ALL');
   const [priceDraft, setPriceDraft] = useState<number>(0);
 
   const selected =
@@ -168,12 +165,21 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   }, [selected?.uid, selected?.askingPrice, selected?.defects.length]);
 
   const listedCount = inventory.filter((p) => p.listedForSale).length;
+  const repairNeededCount = inventory.filter(
+    (p) => p.defects.some((d) => DEFECT_CATALOG[d].repairable)
+  ).length;
   const maxShowcase = getShowcaseCapacity(shopTier, upgrades, showcaseUpgradeLevel);
-  const totalPages = Math.max(1, Math.ceil(inventory.length / ITEMS_PER_PAGE));
-  const safePage = Math.min(listPage, totalPages - 1);
-  const pageItems = inventory.slice(
-    safePage * ITEMS_PER_PAGE,
-    safePage * ITEMS_PER_PAGE + ITEMS_PER_PAGE
+  const filteredInventory = inventory.filter((p) => {
+    if (listFilter === 'LISTED') return p.listedForSale;
+    if (listFilter === 'REPAIR') {
+      return p.defects.some((d) => DEFECT_CATALOG[d].repairable);
+    }
+    return true;
+  });
+  const totalInventoryValue = inventory.reduce(
+    (sum, p) =>
+      sum + calculateMarketValue(p, false, dailyNews, upgrades, currentDay),
+    0
   );
 
   const hasRepairBench = upgrades.includes('repair_bench');
@@ -324,90 +330,110 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 py-1.5 overflow-hidden">
-          {pageItems.map((phone) => {
-            const isSel = phone.uid === selected.uid;
-            const cond = getConditionInfo(phone, false);
-            const val = calculateMarketValue(
-              phone,
-              false,
-              dailyNews,
-              upgrades,
-              currentDay
-            );
-            return (
-              <button
-                key={phone.uid}
-                type="button"
-                onClick={() => setSelectedUid(phone.uid)}
-                className={`w-full rounded-lg border px-2 py-1.5 flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                  isSel
-                    ? 'border-amber-400 bg-amber-500/15'
-                    : 'border-white/8 bg-[#0E141D] hover:bg-[#182231]'
-                }`}
-              >
-                <PhoneModelThumb
-                  device={phone}
-                  showBack
-                  className="w-7 h-11 shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-bold text-slate-100 truncate">
-                      {phone.brand} {phone.model}
-                    </span>
-                    <span
-                      className={`rounded px-1 py-0.2 text-[9px] font-bold shrink-0 ${
-                        phone.assignedToStaff
-                          ? 'bg-sky-500/20 text-sky-300'
-                          : phone.listedForSale
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : 'bg-slate-700/70 text-slate-300'
-                      }`}
-                    >
-                      {phone.assignedToStaff
-                        ? bi('Ustada', 'Tech')
-                        : phone.listedForSale
-                        ? bi('Vitrinde', 'Listed')
-                        : bi('Atölye', 'Bench')}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[9.5px] text-slate-400 mt-0.5 tabular-nums">
-                    <span className="truncate">
-                      {cond.label} · {phone.defects.length}{' '}
-                      {bi('kusur', 'flaw')}
-                    </span>
-                    <span className="font-mono font-bold text-amber-300 shrink-0">
-                      {formatTRY(val)}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+        {/* Quick Stock Filter Pills */}
+        <div className="shrink-0 grid grid-cols-3 gap-1 pt-1.5">
+          {(
+            [
+              { id: 'ALL', label: `${bi('Tümü', 'All')} (${inventory.length})` },
+              { id: 'REPAIR', label: `${bi('Tamir', 'Fix')} (${repairNeededCount})` },
+              { id: 'LISTED', label: `${bi('Vitrin', 'Shelf')} (${listedCount})` },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setListFilter(f.id)}
+              className={`rounded-md py-1 text-[9.5px] font-extrabold transition-colors cursor-pointer touch-manipulation truncate px-1 ${
+                listFilter === f.id
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-400/45'
+                  : 'bg-[#0E141D] text-slate-400 border border-white/6 hover:text-slate-200'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
-        {/* Pagination Controls */}
-        <div className="shrink-0 flex items-center justify-between pt-1 border-t border-white/8 text-[10px]">
-          <button
-            type="button"
-            disabled={safePage === 0}
-            onClick={() => setListPage((p) => Math.max(0, p - 1))}
-            className="inline-flex items-center gap-0.5 rounded bg-white/8 px-1.5 py-0.5 text-slate-200 disabled:opacity-30 cursor-pointer"
-          >
-            <ChevronLeft className="w-3 h-3" />
-          </button>
-          <span className="font-mono text-slate-400">
-            {safePage + 1} / {totalPages}
+        {/* Full-Height Scrollable Phone List — Zero Wasted Bottom Void */}
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 py-1.5 overflow-y-auto pasaj-scroll overscroll-contain pr-0.5">
+          {filteredInventory.length === 0 ? (
+            <div className="my-auto rounded-lg border border-white/6 bg-[#0E141D] px-3 py-4 text-center text-[10.5px] text-slate-400">
+              {listFilter === 'LISTED'
+                ? bi('Vitrinde sergilenen cihaz yok.', 'No devices currently listed.')
+                : bi('Tamir bekleyen arızalı cihaz yok.', 'No devices needing repair.')}
+            </div>
+          ) : (
+            filteredInventory.map((phone) => {
+              const isSel = phone.uid === selected.uid;
+              const cond = getConditionInfo(phone, false);
+              const val = calculateMarketValue(
+                phone,
+                false,
+                dailyNews,
+                upgrades,
+                currentDay
+              );
+              return (
+                <button
+                  key={phone.uid}
+                  type="button"
+                  onClick={() => setSelectedUid(phone.uid)}
+                  className={`w-full shrink-0 rounded-lg border px-2 py-1.5 flex items-center gap-2 text-left transition-colors cursor-pointer touch-manipulation ${
+                    isSel
+                      ? 'border-amber-400 bg-amber-500/15 shadow-[0_0_12px_rgba(251,191,36,0.12)]'
+                      : 'border-white/8 bg-[#0E141D] hover:bg-[#182231]'
+                  }`}
+                >
+                  <PhoneModelThumb
+                    device={phone}
+                    showBack
+                    className="w-7 h-11 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-bold text-slate-100 truncate">
+                        {phone.brand} {phone.model}
+                      </span>
+                      <span
+                        className={`rounded px-1 py-0.2 text-[9px] font-bold shrink-0 ${
+                          phone.assignedToStaff
+                            ? 'bg-sky-500/20 text-sky-300'
+                            : phone.listedForSale
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : 'bg-slate-700/70 text-slate-300'
+                        }`}
+                      >
+                        {phone.assignedToStaff
+                          ? bi('Ustada', 'Tech')
+                          : phone.listedForSale
+                          ? bi('Vitrinde', 'Listed')
+                          : bi('Atölye', 'Bench')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[9.5px] text-slate-400 mt-0.5 tabular-nums">
+                      <span className="truncate">
+                        {cond.label} · {phone.defects.length}{' '}
+                        {bi('kusur', 'flaw')}
+                      </span>
+                      <span className="font-mono font-bold text-amber-300 shrink-0">
+                        {formatTRY(val)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Pinned Inventory Valuation Footer */}
+        <div className="shrink-0 flex items-center justify-between gap-1.5 pt-1.5 border-t border-white/8 text-[10px] tabular-nums">
+          <span className="text-slate-400 truncate">
+            {bi('Toplam Stok Değeri', 'Total Stock Value')}
           </span>
-          <button
-            type="button"
-            disabled={safePage >= totalPages - 1}
-            onClick={() => setListPage((p) => Math.min(totalPages - 1, p + 1))}
-            className="inline-flex items-center gap-0.5 rounded bg-white/8 px-1.5 py-0.5 text-slate-200 disabled:opacity-30 cursor-pointer"
-          >
-            <ChevronRight className="w-3 h-3" />
-          </button>
+          <span className="font-mono font-extrabold text-emerald-300 shrink-0">
+            {formatTRY(totalInventoryValue)}
+          </span>
         </div>
       </aside>
 

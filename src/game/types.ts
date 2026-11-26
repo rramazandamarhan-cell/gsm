@@ -176,6 +176,13 @@ export interface StoryChapter {
     | 'totalAccessoriesSold'
     | 'totalPhonesRepaired'
     | 'totalBrandNewSold'
+    | 'totalDefectsExposed'
+    | 'totalProfitEarned'
+    | 'upgradesCount'
+    | 'branchesCount'
+    | 'museumCount'
+    | 'rivalBoughtOut'
+    | 'prestigeLevel'
     | 'shopTier'
     | 'level';
   target: number;
@@ -593,23 +600,57 @@ export type StoreEventVisualKind =
   | 'rain'
   | 'tea_aroma'
   | 'livestream'
-  | 'inspection';
+  | 'inspection'
+  | 'coin_jam'
+  | 'rent_meeting'
+  | 'wifi_outage'
+  | 'tea_war'
+  | 'parcel_mixup';
+
+export interface StoreEventRiskReward {
+  successChance: number;
+  successCashDelta: number;
+  failCashDelta: number;
+  successMoodDelta: number;
+  failMoodDelta: number;
+  successText: string;
+  failText: string;
+}
 
 export interface RandomStoreEvent {
   id: string;
   title: string;
+  badgeLabel?: string;
   description: string;
   effectSummary: string;
   visualKind: StoreEventVisualKind;
+  minShopTier?: ShopTier;
+  maxShopTier?: ShopTier;
   moodDelta: number;
   patienceDelta: number;
   budgetMultiplier: number;
   actionLabel?: string;
   actionCost?: number;
+  actionCashDelta?: number;
+  actionReputationDelta?: number;
+  actionRentDiscountPct?: number;
+  actionBonusAccessory?: { id: AccessoryId; quantity: number };
+  actionRiskReward?: StoreEventRiskReward;
   actionResultText?: string;
   actionMoodDelta?: number;
   actionPatienceDelta?: number;
   actionBudgetMultiplier?: number;
+  altActionLabel?: string;
+  altActionCost?: number;
+  altActionCashDelta?: number;
+  altActionReputationDelta?: number;
+  altActionRentDiscountPct?: number;
+  altActionBonusAccessory?: { id: AccessoryId; quantity: number };
+  altActionRiskReward?: StoreEventRiskReward;
+  altActionResultText?: string;
+  altActionMoodDelta?: number;
+  altActionPatienceDelta?: number;
+  altActionBudgetMultiplier?: number;
   resolved?: boolean;
 }
 
@@ -703,7 +744,14 @@ export interface CareerMilestone {
     | 'shopTier'
     | 'totalProfitEarned'
     | 'totalAccessoriesSold'
-    | 'totalBrandNewSold';
+    | 'totalBrandNewSold'
+    | 'totalTeasServed'
+    | 'upgradesCount'
+    | 'branchesCount'
+    | 'museumCount'
+    | 'loansPaidOffCount'
+    | 'day'
+    | 'prestigeLevel';
 }
 
 export interface LevelPerk {
@@ -954,6 +1002,105 @@ export interface StoreAchievementSpec {
   check: (state: ShopState) => boolean;
 }
 
+export type EsnafDramaTriggerKind =
+  | 'HIGH_DEBT'
+  | 'HIGH_PRESTIGE'
+  | 'RIVAL_WAR'
+  | 'CASH_EMPIRE'
+  | 'STAFF_CRISIS';
+
+export type EsnafDramaObjectiveKind =
+  | 'SELL_PHONES'
+  | 'REPAIR_PHONES'
+  | 'SERVE_TEAS'
+  | 'EARN_PROFIT';
+
+export interface EsnafDramaChoiceSpec {
+  id: string;
+  labelTr: string;
+  labelEn: string;
+  descTr: string;
+  descEn: string;
+  riskTagTr: string;
+  riskTagEn: string;
+  tone: 'heroic' | 'pragmatic' | 'risky';
+  immediateCashDelta?: number;
+  immediateRepDelta?: number;
+  immediateDebtCutRatio?: number;
+  immediateRivalShareDelta?: number;
+  quest?: {
+    durationDays: number;
+    objectiveKind: EsnafDramaObjectiveKind;
+    target: number;
+    objectiveLabelTr: string;
+    objectiveLabelEn: string;
+    successTitleTr: string;
+    successTitleEn: string;
+    successDescTr: string;
+    successDescEn: string;
+    successCashDelta: number;
+    successRepDelta: number;
+    successDebtCutRatio?: number;
+    successRivalShareDelta?: number;
+    failTitleTr: string;
+    failTitleEn: string;
+    failDescTr: string;
+    failDescEn: string;
+    failCashDelta: number;
+    failRepDelta: number;
+    failRivalShareDelta?: number;
+  };
+}
+
+export interface EsnafDramaState {
+  dramaId: string;
+  triggerKind: EsnafDramaTriggerKind;
+  triggerBadgeTr: string;
+  triggerBadgeEn: string;
+  titleTr: string;
+  titleEn: string;
+  characterName: string;
+  characterRoleTr: string;
+  characterRoleEn: string;
+  storyTr: string;
+  storyEn: string;
+  startedDay: number;
+  phase: 'CHOICE' | 'ACTIVE_QUEST' | 'RESOLVED_SUCCESS' | 'RESOLVED_FAIL';
+  chosenChoiceId?: string;
+  chosenLabelTr?: string;
+  chosenLabelEn?: string;
+  objectiveKind?: EsnafDramaObjectiveKind;
+  objectiveLabelTr?: string;
+  objectiveLabelEn?: string;
+  progress: number;
+  target: number;
+  daysLeft: number;
+  durationDays: number;
+  outcomeTitleTr?: string;
+  outcomeTitleEn?: string;
+  outcomeDescTr?: string;
+  outcomeDescEn?: string;
+  outcomeSummaryTr?: string;
+  outcomeSummaryEn?: string;
+}
+
+export interface AdMonetizationState {
+  /** Active cash/profit multiplier unlocked via Rewarded Ad (1 = normal, 2 = 2x active) */
+  cashMultiplier: 1 | 2;
+  /** Remaining customer sales / service deals covered by the active 2x cash multiplier */
+  cashMultiplierDealsLeft: number;
+  /** In-game day on which daily passive income (branches, museum, rival) pays 2x (0 = none) */
+  passiveIncome2xDay: number;
+  /** Next scheduled in-game day for low-frequency end-of-day interstitial (every 5-7 days) */
+  nextInterstitialDay: number;
+  /** Most recent completed day on which an end-of-day interstitial was displayed */
+  lastInterstitialDay: number;
+  /** Career total rewarded video ads completed */
+  totalRewardedAdsWatched: number;
+  /** Career total interstitial ads displayed */
+  totalInterstitialsShown: number;
+}
+
 export interface ShopState {
   day: number;
   cash: number;
@@ -976,6 +1123,10 @@ export interface ShopState {
   branches: BranchId[];
   museumItems: MuseumItemId[];
   activeLoans: ActiveLoan[];
+  /** Number of bank loans completely paid off by the player */
+  loansPaidOffCount?: number;
+  /** Permanent shop prestige bonus earned by clearing financial debt */
+  debtFreePrestigeBonus?: number;
   distributorLoyalty: Record<string, number>;
   rival: RivalMerchantState;
   soldHistory: SoldPhoneRecord[];
@@ -1003,6 +1154,8 @@ export interface ShopState {
   /** Event modifier affecting the next incoming customer */
   nextCustomerEventEffect: NextCustomerEventEffect | null;
   storeEventsTriggeredToday: number;
+  /** Temporary daily rent discount unlocked via Pasaj mini-events (0..0.5) */
+  todayRentDiscountPct?: number;
   /** Google Play / App Store compliance & user preferences */
   privacyAccepted: boolean;
   hapticsEnabled: boolean;
@@ -1057,6 +1210,12 @@ export interface ShopState {
   complaintHistory?: CustomerComplaintRecord[];
   /** Sunday-only random Esnaf Kermesi event in Piyasa (active every 7th day) */
   sundayKermes?: SundayKermesState | null;
+  /** Google AdMob rewarded multiplier & low-frequency interstitial state */
+  adState?: AdMonetizationState;
+  /** Multi-day fate-changing Esnaf Draması morning story quest */
+  activeDrama?: EsnafDramaState | null;
+  completedDramaIds?: string[];
+  lastDramaDay?: number;
 }
 
 export interface FloatingFeedback {

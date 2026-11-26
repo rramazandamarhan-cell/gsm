@@ -10,6 +10,7 @@ import {
   RadioStationId,
   ShopTier,
   StoreEventVisualKind,
+  UpgradeId,
 } from '../game/types';
 
 export interface WaitingCustomerPreview {
@@ -23,6 +24,8 @@ export interface WaitingCustomerPreview {
 interface ShopDecorLayerProps {
   shopTier: ShopTier;
   activeDecorations: DecorationId[];
+  upgrades?: UpgradeId[];
+  totalAccessoryStock?: number;
   activeEventVisual?: StoreEventVisualKind | null;
   listedPhones?: PhoneDevice[];
   prestigeLevel?: number;
@@ -111,6 +114,8 @@ const SteamingTeaGlassSVG: React.FC<{ size?: 'sm' | 'md'; delay?: number }> = ({
 export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
   shopTier,
   activeDecorations,
+  upgrades = [],
+  totalAccessoryStock = 0,
   activeEventVisual = null,
   listedPhones = [],
   prestigeLevel = 0,
@@ -134,6 +139,28 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
   const plaqueStyle = getPrestigePlaqueStyle(prestigeLevel);
   const radioPlaying = hasRadio && radioStation !== 'OFF';
   const isPlushLounge = hasVipLounge || shopTier >= 4;
+
+  // Visible Purchased Equipment & Business Licenses
+  const hasCctv = upgrades.includes('cctv_security');
+  const hasNeonPromo = upgrades.includes('neon_sign');
+  const hasBarcodeAuto = upgrades.includes('barcode_automation');
+  const hasProDiag = upgrades.includes('pro_diagnostic');
+  const hasSmartPos = upgrades.includes('smart_pos_zero');
+  const hasRepairBench = upgrades.includes('repair_bench');
+  const hasMicroSolder = upgrades.includes('micro_soldering');
+  const hasCleanRoom = upgrades.includes('clean_room_lab');
+  const hasEspressoBar = upgrades.includes('espresso_bar');
+  const hasCloudCrm = upgrades.includes('cloud_crm');
+  const ownedPermits: { id: UpgradeId; label: string; color: string }[] = [
+    { id: 'accessory_license', label: 'AKSESUAR', color: '#34D399' },
+    { id: 'classifieds_license', label: 'SARI İLAN', color: '#FBBF24' },
+    { id: 'auction_license', label: 'İHALE', color: '#F97316' },
+    { id: 'brand_new_license', label: 'RESMİ BAYİ', color: '#38BDF8' },
+  ].filter((p) => upgrades.includes(p.id as UpgradeId)) as {
+    id: UpgradeId;
+    label: string;
+    color: string;
+  }[];
 
   const spiritAmbientClass =
     shopSpirit === 'friendly'
@@ -212,6 +239,29 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
       )}
       {activeEventVisual === 'tea_aroma' && (
         <div className="absolute inset-0 bg-gradient-to-t from-amber-500/14 via-transparent to-emerald-400/8" />
+      )}
+      {activeEventVisual === 'coin_jam' && (
+        <motion.div
+          animate={{ opacity: [0.06, 0.18, 0.06] }}
+          transition={{ repeat: Infinity, duration: 1.1 }}
+          className="absolute inset-0 bg-gradient-to-t from-amber-500/16 via-transparent to-rose-500/10"
+        />
+      )}
+      {activeEventVisual === 'rent_meeting' && (
+        <div className="absolute inset-0 bg-gradient-to-tr from-sky-500/12 via-transparent to-amber-400/14" />
+      )}
+      {activeEventVisual === 'wifi_outage' && (
+        <motion.div
+          animate={{ opacity: [0.05, 0.2, 0.05] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+          className="absolute inset-0 bg-gradient-to-b from-cyan-500/14 via-transparent to-transparent"
+        />
+      )}
+      {activeEventVisual === 'tea_war' && (
+        <div className="absolute inset-0 bg-gradient-to-t from-orange-500/16 via-transparent to-amber-300/10" />
+      )}
+      {activeEventVisual === 'parcel_mixup' && (
+        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/12 via-transparent to-amber-400/12" />
       )}
 
       {/* DECORATION: Architectural LED Showcase Frame */}
@@ -340,7 +390,75 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
         </motion.svg>
       )}
 
-      {/* BOTTOM-LEFT COUNTER CORNER: Eski Pasaj Radyosu + Steaming Tulip Tea Glass(es) */}
+      {/* EQUIPMENT: 4K Security CCTV Camera (Top-Left Ceiling Mount) */}
+      {hasCctv && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 0.9, y: 0 }}
+          className={`flex absolute ${hasRetroShelf ? 'top-20' : 'top-8'} left-3 sm:left-5 items-center gap-1.5 rounded-lg border border-sky-400/35 bg-[#0F1724]/85 px-2 py-1 shadow-lg`}
+        >
+          <svg width="24" height="16" viewBox="0 0 28 18" fill="none" aria-hidden="true">
+            <rect x="2" y="4" width="17" height="10" rx="2.5" fill="#1E293B" stroke="#38BDF8" strokeWidth="1.2" />
+            <path d="M19 6 L26 3.5 L26 14.5 L19 12 Z" fill="#0F172A" stroke="#7DD3FC" strokeWidth="1.1" />
+            <circle cx="9" cy="9" r="2.2" fill="#0284C7" />
+          </svg>
+          <div className="flex items-center gap-1">
+            <motion.span
+              animate={{ opacity: [1, 0.2, 1] }}
+              transition={{ repeat: Infinity, duration: 1.2 }}
+              className="h-1.5 w-1.5 rounded-full bg-rose-500"
+            />
+            <span className="font-mono text-[8px] font-extrabold tracking-wider text-sky-300">
+              4K CCTV
+            </span>
+          </div>
+        </motion.div>
+      )}
+
+      {/* EQUIPMENT: Neon Promo Signboard Glow */}
+      {hasNeonPromo && (
+        <motion.div
+          animate={{ opacity: [0.68, 0.95, 0.68] }}
+          transition={{ repeat: Infinity, duration: 2.8 }}
+          className={`hidden sm:flex absolute ${hasSign ? 'top-16' : 'top-8'} left-1/2 -translate-x-1/2 items-center gap-1.5 rounded-full border border-fuchsia-400/50 bg-[#1B1026]/80 px-3 py-0.5 shadow-[0_0_18px_rgba(232,121,249,0.35)]`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#67E8F9]" />
+          <span className="font-mono text-[8.5px] font-extrabold tracking-[0.18em] text-fuchsia-200 uppercase">
+            VIP SERVİS · HIZLI ALIM · 7/24
+          </span>
+        </motion.div>
+      )}
+
+      {/* LICENSES: Framed Official Permits Wall Strip (Top-Right Wall) */}
+      {ownedPermits.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 0.88, x: 0 }}
+          className={`hidden md:flex absolute ${
+            hasPrestigePlaque ? 'top-20' : 'top-9'
+          } ${hasTeaCorner ? 'right-28' : 'right-4'} items-center gap-1.5`}
+        >
+          {ownedPermits.map((permit) => (
+            <div
+              key={permit.id}
+              className="rounded-md border border-amber-300/40 bg-[#141A24]/88 px-1.5 py-1 shadow-md flex flex-col items-center min-w-[46px]"
+            >
+              <span
+                className="h-1.5 w-5 rounded-full mb-0.5"
+                style={{ backgroundColor: permit.color }}
+              />
+              <span className="font-mono text-[7px] font-extrabold tracking-tight text-slate-200 whitespace-nowrap">
+                {permit.label}
+              </span>
+              <span className="font-mono text-[6px] text-emerald-400 uppercase">
+                ONAYLI
+              </span>
+            </div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* BOTTOM-LEFT COUNTER CORNER: Eski Pasaj Radyosu + Çay Kazanı + Installed Tech Equipment */}
       <div className="flex absolute bottom-2 left-2.5 sm:left-3.5 items-end gap-2">
         {hasRadio && (
           <motion.div
@@ -511,10 +629,126 @@ export const ShopDecorLayer: React.FC<ShopDecorLayerProps> = ({
             </motion.div>
           )}
         </motion.div>
+
+        {/* EQUIPMENT: Barcode & Auto-Stock Laser Terminal (Barkod & Otomatik Stok) */}
+        {hasBarcodeAuto && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 0.94, y: 0 }}
+            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-cyan-400/45 bg-[#0D1A24]/90 px-2 py-1 shadow-[0_0_16px_rgba(34,211,238,0.2)]"
+          >
+            <svg width="26" height="24" viewBox="0 0 30 28" fill="none" aria-hidden="true">
+              <rect x="2" y="3" width="26" height="18" rx="3" fill="#0F172A" stroke="#22D3EE" strokeWidth="1.3" />
+              <line x1="6" y1="8" x2="6" y2="16" stroke="#CBD5E1" strokeWidth="1.4" />
+              <line x1="9.5" y1="8" x2="9.5" y2="16" stroke="#CBD5E1" strokeWidth="0.9" />
+              <line x1="12.5" y1="8" x2="12.5" y2="16" stroke="#CBD5E1" strokeWidth="1.8" />
+              <line x1="16.5" y1="8" x2="16.5" y2="16" stroke="#CBD5E1" strokeWidth="1" />
+              <line x1="19.5" y1="8" x2="19.5" y2="16" stroke="#CBD5E1" strokeWidth="1.5" />
+              <line x1="23" y1="8" x2="23" y2="16" stroke="#CBD5E1" strokeWidth="1" />
+              {/* Sweeping Red Laser Scan Line */}
+              <motion.line
+                x1="4"
+                x2="26"
+                y1="12"
+                y2="12"
+                stroke="#F43F5E"
+                strokeWidth="1.6"
+                animate={{ y1: [7, 17, 7], y2: [7, 17, 7], opacity: [0.6, 1, 0.6] }}
+                transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+              />
+              <rect x="9" y="22" width="12" height="3" rx="1" fill="#334155" />
+            </svg>
+            <div className="leading-tight font-mono">
+              <div className="flex items-center gap-1 text-[8px] font-extrabold text-cyan-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                BARKOD OTO
+              </div>
+              <div className="text-[7.5px] text-slate-300 tabular-nums">
+                STOK:{totalAccessoryStock} · +%35
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* EQUIPMENT: Pro Diagnostic Waveform Monitor / Smart POS / ESD Lab Status */}
+        {(hasProDiag || hasSmartPos || hasRepairBench || hasMicroSolder || hasCleanRoom || hasCloudCrm) && (
+          <div className="hidden lg:flex items-center gap-1.5">
+            {hasProDiag && (
+              <div className="flex items-center gap-1 rounded-lg border border-sky-400/35 bg-[#0E1826]/88 px-2 py-1">
+                <svg width="20" height="16" viewBox="0 0 24 18" fill="none" aria-hidden="true">
+                  <rect x="1" y="2" width="22" height="14" rx="2" fill="#0B1220" stroke="#38BDF8" strokeWidth="1.2" />
+                  <motion.path
+                    d="M3 10 L7 10 L9 5 L12 13 L15 7 L17 10 L21 10"
+                    stroke="#34D399"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    animate={{ opacity: [0.55, 1, 0.55] }}
+                    transition={{ repeat: Infinity, duration: 1.4 }}
+                  />
+                </svg>
+                <span className="font-mono text-[7.5px] font-extrabold text-sky-300">
+                  PRO TARA
+                </span>
+              </div>
+            )}
+
+            {hasSmartPos && (
+              <div className="flex items-center gap-1 rounded-lg border border-emerald-400/35 bg-[#0E1D1A]/88 px-2 py-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34D399]" />
+                <span className="font-mono text-[7.5px] font-extrabold text-emerald-300">
+                  NFC POS %1
+                </span>
+              </div>
+            )}
+
+            {(hasCleanRoom || hasMicroSolder || hasRepairBench) && (
+              <div className="flex items-center gap-1 rounded-lg border border-amber-400/30 bg-[#1B1712]/88 px-2 py-1">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    hasCleanRoom
+                      ? 'bg-teal-300'
+                      : hasMicroSolder
+                      ? 'bg-indigo-400'
+                      : 'bg-amber-400'
+                  }`}
+                />
+                <span className="font-mono text-[7.5px] font-extrabold text-amber-200">
+                  {hasCleanRoom ? 'ISO-5 LAB' : hasMicroSolder ? 'BGA MİKRO' : 'ESD TEZGAH'}
+                </span>
+              </div>
+            )}
+
+            {hasCloudCrm && (
+              <div className="flex items-center gap-1 rounded-lg border border-indigo-400/35 bg-[#12162A]/88 px-2 py-1">
+                <span className="font-mono text-[7.5px] font-extrabold text-indigo-300">
+                  CRM BULUT
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* BOTTOM-RIGHT WAITING LOUNGE: Animated Customer Armchairs, Coffee Table & Sipping Waiting Customers */}
+      {/* BOTTOM-RIGHT WAITING LOUNGE: Espresso Bar (if owned) + Customer Armchairs & Waiting Customers */}
       <div className="flex absolute bottom-2 right-2.5 sm:right-4 items-end gap-2">
+        {hasEspressoBar && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 0.92, y: 0 }}
+            className="hidden md:flex flex-col items-center rounded-lg border border-orange-400/35 bg-[#201610]/88 px-2 py-1 shadow-lg"
+          >
+            <svg width="24" height="22" viewBox="0 0 28 24" fill="none" aria-hidden="true">
+              <rect x="4" y="3" width="20" height="7" rx="2" fill="#78350F" stroke="#FB923C" strokeWidth="1.2" />
+              <rect x="6" y="10" width="16" height="9" fill="#1C1917" stroke="#94A3B8" strokeWidth="1" />
+              <rect x="11" y="13" width="6" height="5" rx="1" fill="#F8FAFC" />
+              <rect x="3" y="19" width="22" height="3" rx="1" fill="#92400E" />
+            </svg>
+            <span className="font-mono text-[7px] font-extrabold text-orange-300 mt-0.5">
+              ESPRESSO
+            </span>
+          </motion.div>
+        )}
         <div
           className={`flex items-end gap-2 rounded-xl border px-2.5 pt-2 pb-1.5 backdrop-blur-[2px] shadow-xl ${
             isPlushLounge

@@ -296,6 +296,22 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 (p) => p.kind === 'UPGRADE' && p.targetId === up.id
               );
               const canBuy = !owned && !pending && cash >= up.cost;
+              const visibleInShop = [
+                'barcode_automation',
+                'pro_diagnostic',
+                'cctv_security',
+                'smart_pos_zero',
+                'repair_bench',
+                'micro_soldering',
+                'clean_room_lab',
+                'espresso_bar',
+                'neon_sign',
+                'cloud_crm',
+                'accessory_license',
+                'classifieds_license',
+                'auction_license',
+                'brand_new_license',
+              ].includes(up.id);
 
               return (
                 <div
@@ -329,18 +345,32 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                   </p>
 
                   <div className="flex items-center justify-between gap-1 pt-1 border-t border-white/8 tabular-nums">
-                    <span className="text-[9.5px] text-slate-400 font-mono">
-                      {up.installDays > 0
-                        ? `${up.installDays} ${bi('gün', 'd')}`
-                        : bi('Anında', 'Instant')}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[9.5px] text-slate-400 font-mono shrink-0">
+                        {up.installDays > 0
+                          ? `${up.installDays} ${bi('gün', 'd')}`
+                          : bi('Anında', 'Instant')}
+                      </span>
+                      {visibleInShop && (
+                        <span
+                          className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold truncate ${
+                            owned ? 'text-cyan-300' : 'text-slate-400'
+                          }`}
+                        >
+                          <Eye className="w-2.5 h-2.5 shrink-0" />
+                          {owned
+                            ? bi('Dükkanda Aktif', 'Live in Shop')
+                            : bi('Dükkanda Görünür', 'Shown in Shop')}
+                        </span>
+                      )}
+                    </div>
 
                     {owned ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-emerald-400">
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-emerald-400 shrink-0">
                         <Check className="w-3 h-3" /> {bi('Kurulu', 'Owned')}
                       </span>
                     ) : pending ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-300">
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-300 shrink-0">
                         <Clock className="w-3 h-3" /> {pending.daysRemaining}{' '}
                         {bi('gün', 'd')}
                       </span>
@@ -349,7 +379,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                         type="button"
                         disabled={!canBuy}
                         onClick={() => onBuyUpgrade(up.id)}
-                        className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                        className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
                       >
                         {formatTRY(up.cost)}
                       </button>

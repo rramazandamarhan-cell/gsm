@@ -12,6 +12,7 @@ import {
   Lock,
   Megaphone,
   Package,
+  PlayCircle,
   Receipt,
   Search,
   ShieldAlert,
@@ -87,6 +88,7 @@ interface EmpireViewProps {
   onBuyUpgrade: (upgradeId: UpgradeId) => void;
   onKermesSellPhone: (phoneUid: string) => void;
   onBuyKermesDeal: (dealId: string) => void;
+  onActivatePassive2xAd?: () => void;
   onGoToStaff: () => void;
   onBackToCounter: () => void;
 }
@@ -125,6 +127,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
   onBuyUpgrade,
   onKermesSellPhone,
   onBuyKermesDeal,
+  onActivatePassive2xAd,
   onGoToStaff,
   onBackToCounter,
 }) => {
@@ -1257,12 +1260,51 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-400 leading-snug">
-                {bi(
-                  'Şubeler her gün sonu net nakit getirir ve oyun kapalıyken bile kasana çevrimdışı gelir yazar.',
-                  'Branches pay net daily cash and keep generating offline income even while you are away.'
-                )}
-              </p>
+              {(() => {
+                const passive2xActiveToday =
+                  (shop.adState?.passiveIncome2xDay ?? 0) === shop.day;
+                const totalDailyPassive =
+                  totalBranchDailyIncome +
+                  totalMuseumDaily +
+                  (shop.rival.boughtOut ? 3500 : 0);
+                return onActivatePassive2xAd ? (
+                  passive2xActiveToday ? (
+                    <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2.5 py-1.5 text-center text-[10.5px] font-extrabold text-emerald-300 flex items-center justify-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {bi(
+                          `Gün ${shop.day} Pasif Gelir 2x Aktif!`,
+                          `Day ${shop.day} 2x Passive Income Active!`
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={totalDailyPassive <= 0}
+                      onClick={onActivatePassive2xAd}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+                    >
+                      <PlayCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {totalDailyPassive > 0
+                          ? bi(
+                              `Pasif Geliri 2x Yap (+${formatTRY(totalDailyPassive)})`,
+                              `2x Passive Today (+${formatTRY(totalDailyPassive)})`
+                            )
+                          : bi('Önce şube/müze aç', 'Unlock branch/museum first')}
+                      </span>
+                    </button>
+                  )
+                ) : (
+                  <p className="text-[10px] text-slate-400 leading-snug">
+                    {bi(
+                      'Şubeler her gün sonu net nakit getirir ve oyun kapalıyken bile kasana çevrimdışı gelir yazar.',
+                      'Branches pay net daily cash and keep generating offline income even while you are away.'
+                    )}
+                  </p>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1323,24 +1365,36 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
 
             <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col gap-2 overflow-hidden">
-              <div className="text-xs font-extrabold text-slate-100 flex items-center justify-between">
+              <div className="text-xs font-extrabold text-slate-100 flex items-center justify-between gap-1.5">
                 <span>
                   {bi('Aktif Krediler', 'Active Loans')} ({shop.activeLoans.length}/2)
                 </span>
-                <span className="font-mono text-[10px] text-slate-400">
-                  {bi(`Dükkan Kademesi: ${shop.shopTier}/6`, `Shop Tier: ${shop.shopTier}/6`)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {(shop.debtFreePrestigeBonus ?? 0) > 0 && (
+                    <span className="rounded border border-emerald-400/40 bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-emerald-300">
+                      +{shop.debtFreePrestigeBonus} {bi('Prestij', 'Prestige')}
+                    </span>
+                  )}
+                  <span className="font-mono text-[10px] text-slate-400">
+                    {bi(`Kademe ${shop.shopTier}/6`, `Tier ${shop.shopTier}/6`)}
+                  </span>
+                </div>
               </div>
               {shop.activeLoans.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-1 px-4">
-                  <Landmark className="w-7 h-7 text-slate-600" />
-                  <div className="text-xs font-semibold text-slate-400">
-                    {bi('Şu an aktif kredi borcun yok.', 'No active bank loans.')}
+                  <Landmark className="w-7 h-7 text-emerald-400/75" />
+                  <div className="text-xs font-semibold text-slate-200">
+                    {(shop.loansPaidOffCount ?? 0) > 0
+                      ? bi(
+                          `Mali Borç Sıfır! (${shop.loansPaidOffCount} kredi kapatıldı)`,
+                          `Debt Free! (${shop.loansPaidOffCount} loan(s) cleared)`
+                        )
+                      : bi('Şu an aktif kredi borcun yok.', 'No active bank loans.')}
                   </div>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-slate-400">
                     {bi(
-                      'Aynı anda en fazla 2 ticari kredi kullanabilirsin. Taksitler her gün sonu otomatik tahsil edilir.',
-                      'Hold up to 2 commercial loans at once. Daily installments are deducted at end of day.'
+                      'Her kapatılan kredi dükkanına kalıcı prestij bonusu (+4, tüm borç sıfırlanırsa +8) kazandırır.',
+                      'Each cleared loan grants permanent shop prestige (+4, or +8 when debt hits zero).'
                     )}
                   </p>
                 </div>
