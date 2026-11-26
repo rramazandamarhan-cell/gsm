@@ -191,13 +191,19 @@ jobs:
               print(f"Patched {ma_path} for Sticky Immersive Fullscreen OK")
           PYEOF
 
-          # Stamp semantic versionName and auto-incrementing versionCode for Google Play Console
+          # Stamp semantic versionName, auto-incrementing versionCode, and minSdkVersion >= 24 (Google Play Automatic Protection)
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
             VERSION_CODE="${{ github.run_number }}"
             sed -i "s/versionCode [0-9]\+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
             sed -i 's/versionName "[^"]*"/versionName "1.0.0"/' "$GRADLE_FILE"
             echo "Stamped versionCode=${VERSION_CODE} versionName=1.0.0"
+          fi
+
+          VARS_FILE="android/variables.gradle"
+          if [ -f "$VARS_FILE" ]; then
+            sed -i "s/minSdkVersion = [0-9]\+/minSdkVersion = 24/" "$VARS_FILE"
+            echo "Set minSdkVersion = 24 in android/variables.gradle"
           fi
 
           # Copy custom GSM Simulator 512px icon into Android mipmap launcher resources
