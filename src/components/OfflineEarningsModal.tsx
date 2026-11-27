@@ -16,7 +16,6 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
 }) => {
   const { bi } = useLanguage();
   const [watchingAd, setWatchingAd] = useState(false);
-  const [adNotice, setAdNotice] = useState<string | null>(null);
 
   const hours = Math.floor(summary.minutesAway / 60);
   const mins = summary.minutesAway % 60;
@@ -27,7 +26,6 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
 
   const handleRewardedDoubleClaim = async () => {
     setWatchingAd(true);
-    setAdNotice(null);
     const completed = await showRewardedAd({
       placement: 'OFFLINE_2X_REWARDED',
       rewardLabelTr: `Çevrimdışı Pasif Gelir 2x (+${formatTRY(summary.baseCash * 2)})`,
@@ -39,13 +37,6 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
     setWatchingAd(false);
     if (completed) {
       onClaim(summary.baseCash * 2, true);
-    } else {
-      setAdNotice(
-        bi(
-          'Reklam izlenmedi veya iptal edildi — dilersen tekrar onaylayabilir ya da normal tutarı alabilirsin.',
-          'Ad was cancelled or skipped — watch again for 2x or claim your base amount.'
-        )
-      );
     }
   };
 
@@ -89,12 +80,6 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
             </div>
           ))}
         </div>
-
-        {adNotice && (
-          <div className="mb-1.5 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-[9.5px] text-amber-200 text-center">
-            {adNotice}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           <button

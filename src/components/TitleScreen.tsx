@@ -12,6 +12,7 @@ import { OfflineIndicator } from './OfflineIndicator';
 
 interface TitleScreenProps {
   savedState: ShopState | null;
+  bannerBottomInset?: number;
   onStartNew: () => void;
   onContinue: () => void;
   onOpenCompliance: (
@@ -22,6 +23,7 @@ interface TitleScreenProps {
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   savedState,
+  bannerBottomInset = 0,
   onStartNew,
   onContinue,
   onOpenCompliance,
@@ -212,7 +214,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </main>
 
       {/* Clean Non-Overlapping Legal Footer (In-app modal triggers for Android/iOS WebView safety) */}
-      <footer className="relative z-10 pb-1 [@media(min-height:660px)]:pb-2 safe-px safe-pb text-center shrink-0">
+      <footer
+        className="relative z-10 pb-1 [@media(min-height:660px)]:pb-2 safe-px safe-pb text-center shrink-0 transition-[margin] duration-150"
+        style={bannerBottomInset > 0 ? { marginBottom: `${bannerBottomInset}px` } : undefined}
+      >
         <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[9.5px] [@media(min-height:660px)]:text-[10px] text-slate-300/85">
           <span>PEGI 3 / 4+</span>
           <span aria-hidden="true" className="text-slate-600">

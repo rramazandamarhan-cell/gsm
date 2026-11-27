@@ -173,12 +173,15 @@ import {
 import {
   AD_PACING_RULES,
   ActiveWebAdSession,
+  hideBannerAd,
   initializeAdService,
   maybeShowEndOfDayInterstitial,
   normalizeAdState,
   registerAdStatusListener,
   registerWebAdOverlayListener,
+  showBannerAd,
   showRewardedAd,
+  subscribeBannerHeight,
 } from './game/adService';
 import {
   advanceDramaProgress,
@@ -332,14 +335,30 @@ export default function App() {
     setInspectingActiveDrama(false);
   };
 
+  const [bannerHeight, setBannerHeight] = useState(0);
+
   useEffect(() => {
     registerWebAdOverlayListener(setActiveWebAd);
+    const unsubBanner = subscribeBannerHeight(setBannerHeight);
     void initNativeAppChrome();
     void initializeAdService();
     return () => {
       registerWebAdOverlayListener(null);
+      unsubBanner();
+      void hideBannerAd();
     };
   }, []);
+
+  // Native Banner lifecycle: show ONLY on clean Title Menu (never overlapping gameplay HUD or modals)
+  useEffect(() => {
+    const shouldDisplayBanner =
+      screen === 'TITLE_MENU' && !showSplash && !showComplianceModal && !activeWebAd;
+    if (shouldDisplayBanner) {
+      void showBannerAd();
+    } else {
+      void hideBannerAd();
+    }
+  }, [screen, showSplash, showComplianceModal, activeWebAd]);
 
   const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(() =>
     typeof window !== 'undefined'
@@ -477,13 +496,12 @@ export default function App() {
   );
 
   useEffect(() => {
-    registerAdStatusListener((notice) => {
-      pushFeedback(lang === 'en' ? notice.messageEn : notice.messageTr, 'amber');
-    });
+    // Keep ad failures silent so players never see intrusive error notices when an ad cannot fill
+    registerAdStatusListener(null);
     return () => {
       registerAdStatusListener(null);
     };
-  }, [lang, pushFeedback]);
+  }, []);
 
   const applyXpGain = useCallback(
     (state: ShopState, xpDelta: number): ShopState => {
@@ -4954,6 +4972,7 @@ export default function App() {
         {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
         <TitleScreen
           savedState={savedSnapshot}
+          bannerBottomInset={bannerHeight}
           onStartNew={handleStartNew}
           onContinue={handleContinue}
           onOpenCompliance={(tab = 'SETTINGS', legal = 'privacy') => {

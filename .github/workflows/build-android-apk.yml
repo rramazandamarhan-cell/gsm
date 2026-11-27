@@ -2,10 +2,26 @@ name: Build Android APK & Play Store AAB
 
 on:
   workflow_dispatch:
+    inputs:
+      admob_mode:
+        description: 'AdMob environment mode (test = Google official test IDs, production = live AdMob IDs)'
+        required: false
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - production
   push:
     branches:
       - main
       - master
+
+env:
+  # Safe default: 'test' uses Google official Test App ID & Test Ad Unit IDs until you explicitly switch to 'production'.
+  ADMOB_MODE: ${{ github.event.inputs.admob_mode || 'test' }}
+  ADMOB_TEST_APP_ID: 'ca-app-pub-3940256099942544~3347511713'
+  # Preserved real production Android App ID (used ONLY when ADMOB_MODE == 'production'):
+  ADMOB_PROD_APP_ID: 'ca-app-pub-9402241323787415~3281325258'
 
 jobs:
   build-android:
@@ -31,6 +47,7 @@ jobs:
 
       - name: Build web app for Debug Test APK (Google AdMob Test Ads)
         env:
+          VITE_ADMOB_MODE: 'test'
           VITE_ADMOB_TESTING: 'true'
         run: npm run build
 
@@ -47,17 +64,22 @@ jobs:
           grep -i "admob" android/capacitor.settings.gradle
           grep -i "AdMob" android/app/src/main/assets/capacitor.plugins.json
 
-      - name: Configure Landscape Fullscreen, Store Icons & Version Stamping
+      - name: Configure Landscape Fullscreen, Store Icons, AdMob Manifest & Version Stamping
+        env:
+          ACTIVE_ADMOB_APP_ID: ${{ env.ADMOB_TEST_APP_ID }}
         run: |
           python3 - << 'PYEOF'
           import glob, os, re
           import xml.etree.ElementTree as ET
 
-          # 1. Patch AndroidManifest.xml for sensorLandscape, network & AD_ID permissions, game category & Google AdMob App ID
+          # 1. Patch AndroidManifest.xml for sensorLandscape, INTERNET / ACCESS_NETWORK_STATE / AD_ID permissions,
+          #    game category & Google AdMob APPLICATION_ID (Test App ID for Debug APK)
           manifest_path = "android/app/src/main/AndroidManifest.xml"
+          app_id = os.environ["ACTIVE_ADMOB_APP_ID"]
           if os.path.exists(manifest_path):
               txt = open(manifest_path, encoding="utf-8").read()
               extra_perms = [
+                  '<uses-permission android:name="android.permission.INTERNET"/>',
                   '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
                   '<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>',
               ]
@@ -69,12 +91,16 @@ jobs:
                   txt = txt.replace('<application', '<application android:appCategory="game"', 1)
               if 'android:screenOrientation' not in txt:
                   txt = txt.replace('<activity', '<activity android:screenOrientation="sensorLandscape"', 1)
-              admob_meta = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9402241323787415~3281325258"/>'
-              if 'com.google.android.gms.ads.APPLICATION_ID' not in txt and '</application>' in txt:
+
+              admob_meta = f'<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="{app_id}"/>'
+              pattern = r'<meta-data\s+android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^>]*/>'
+              if re.search(pattern, txt):
+                  txt = re.sub(pattern, admob_meta, txt, count=1)
+              elif '</application>' in txt:
                   txt = txt.replace('</application>', f'    {admob_meta}\n    </application>', 1)
               open(manifest_path, "w", encoding="utf-8").write(txt)
               ET.parse(manifest_path)
-              print("Configured AndroidManifest.xml ACCESS_NETWORK_STATE + AD_ID + game category + sensorLandscape + AdMob App ID OK")
+              print(f"Configured AndroidManifest.xml (INTERNET + ACCESS_NETWORK_STATE + AD_ID + sensorLandscape + APPLICATION_ID={app_id}) OK")
 
           # 2. Patch res/values/styles.xml for dark edge-to-edge fullscreen & notch cutout coverage
           styles_path = "android/app/src/main/res/values/styles.xml"
@@ -254,7 +280,7 @@ jobs:
             "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" || true
           fi
 
-      - name: Compile Debug APK (Instant Phone Testing)
+      - name: Compile Debug APK (Instant Phone Testing with Google Test Ads)
         working-directory: android
         run: |
           chmod +x gradlew
@@ -278,13 +304,34 @@ jobs:
             echo "has_keystore=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Rebuild Production Web Assets for Play Store AAB (Live AdMob Ads)
+      - name: Rebuild Web Assets & Sync AdMob Manifest for Play Store AAB (${{ env.ADMOB_MODE }} mode)
         if: steps.signing_check.outputs.has_keystore == 'true'
         env:
-          VITE_ADMOB_TESTING: 'false'
+          VITE_ADMOB_MODE: ${{ env.ADMOB_MODE }}
+          VITE_ADMOB_TESTING: ${{ env.ADMOB_MODE == 'production' && 'false' || 'true' }}
+          ACTIVE_ADMOB_APP_ID: ${{ env.ADMOB_MODE == 'production' && env.ADMOB_PROD_APP_ID || env.ADMOB_TEST_APP_ID }}
         run: |
+          echo "=== Building Play Store AAB in AdMob mode: ${VITE_ADMOB_MODE} (APPLICATION_ID=${ACTIVE_ADMOB_APP_ID}) ==="
           npm run build
           npx cap sync android
+          python3 - << 'PYEOF'
+          import os, re
+          import xml.etree.ElementTree as ET
+
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          app_id = os.environ["ACTIVE_ADMOB_APP_ID"]
+          txt = open(manifest_path, encoding="utf-8").read()
+          admob_meta = f'<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="{app_id}"/>'
+          pattern = r'<meta-data\s+android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^>]*/>'
+          if re.search(pattern, txt):
+              txt = re.sub(pattern, admob_meta, txt, count=1)
+          elif '</application>' in txt:
+              txt = txt.replace('</application>', f'    {admob_meta}\n    </application>', 1)
+          open(manifest_path, "w", encoding="utf-8").write(txt)
+          ET.parse(manifest_path)
+          print(f"Verified AndroidManifest.xml APPLICATION_ID={app_id}")
+          PYEOF
+          grep -i "APPLICATION_ID" android/app/src/main/AndroidManifest.xml
           grep -i "AdMob" android/app/src/main/assets/capacitor.plugins.json
 
       - name: Build Signed Google Play Release AAB (when Keystore Secrets are configured)
