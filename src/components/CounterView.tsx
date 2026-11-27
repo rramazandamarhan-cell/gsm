@@ -2106,35 +2106,41 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 3: Slider + Quick Adjust */}
-                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2 space-y-1.5 tabular-nums">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-slate-400">
+                    {/* Block 3: Slider + Ergonomic Quick Adjust Buttons (Separated to prevent accidental slider drags) */}
+                    <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2.5 tabular-nums">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-[10.5px] font-semibold text-slate-400">
                           {bi('Senin Teklifin', 'Your Offer')}
                         </span>
                         <span className="font-mono text-sm font-extrabold text-slate-50">
                           {formatTRY(offerPrice)}
                         </span>
                       </div>
-                      <input
-                        type="range"
-                        min={sliderBounds.min}
-                        max={sliderBounds.max}
-                        step={sliderBounds.step}
-                        value={Math.min(
-                          sliderBounds.max,
-                          Math.max(sliderBounds.min, offerPrice)
-                        )}
-                        onChange={(e) => setOfferPrice(Number(e.target.value))}
-                        className="pasaj-slider w-full"
-                      />
-                      <div className="grid grid-cols-4 gap-1 font-mono text-[10px]">
+                      <div className="py-1 mb-2.5 pb-2.5 border-b border-white/8">
+                        <input
+                          type="range"
+                          min={sliderBounds.min}
+                          max={sliderBounds.max}
+                          step={sliderBounds.step}
+                          value={Math.min(
+                            sliderBounds.max,
+                            Math.max(sliderBounds.min, offerPrice)
+                          )}
+                          onChange={(e) => setOfferPrice(Number(e.target.value))}
+                          className="pasaj-slider w-full touch-pan-x"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 font-mono text-[11px]">
                         {[-1000, -250, 250, 1000].map((d) => (
                           <button
                             key={d}
                             type="button"
                             onClick={() => adjustOffer(d)}
-                            className="rounded bg-[#17202D] border border-white/10 py-1 font-bold text-slate-200 hover:bg-[#223044] cursor-pointer"
+                            className={`min-h-[34px] rounded-lg border py-1.5 font-extrabold transition-all active:scale-95 cursor-pointer touch-manipulation ${
+                              d < 0
+                                ? 'bg-[#17202D] border-white/12 text-slate-100 hover:bg-[#223044] active:bg-rose-500/20'
+                                : 'bg-[#17202D] border-white/12 text-slate-100 hover:bg-[#223044] active:bg-emerald-500/20'
+                            }`}
                           >
                             {d > 0 ? `+${d}` : d}
                           </button>

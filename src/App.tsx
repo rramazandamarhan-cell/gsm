@@ -4976,16 +4976,16 @@ export default function App() {
 
   return (
     <div className="h-dvh w-screen overflow-hidden flex flex-col bg-[#0F141B] text-slate-100 select-none">
-      {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Clean breathing room for all 6 tabs on mobile landscape */}
-      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(4px,env(safe-area-inset-top))] pb-[4px] min-h-[44px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[6px] lg:gap-2.5">
-        <div className="flex items-center gap-[6px] lg:gap-2 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
-          <div className="hidden xl:flex items-center shrink-0">
+      {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Logo + all 6 tabs visible side-by-side without horizontal scroll */}
+      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(4px,env(safe-area-inset-top))] pb-[4px] min-h-[42px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[4px] lg:gap-2">
+        <div className="flex items-center gap-[5px] lg:gap-2 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
+          <div className="flex items-center shrink-0">
             <BrandLogo size="compact" />
           </div>
 
           <nav
             aria-label="Dükkan bölümleri"
-            className="grid grid-cols-6 sm:flex sm:items-center gap-[4px] lg:gap-1.5 rounded-lg bg-[#0D1219] p-[3px] border border-white/10 w-full sm:w-auto sm:max-w-full overflow-x-auto no-scrollbar"
+            className="grid grid-cols-6 sm:flex sm:items-center gap-[2px] md:gap-[4px] lg:gap-1.5 rounded-lg bg-[#0D1219] p-[2px] md:p-[3px] border border-white/10 w-full sm:w-auto shrink-0"
           >
             <button
               type="button"
@@ -4993,13 +4993,13 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('COUNTER');
               }}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'COUNTER'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Users className="w-[14px] h-[14px] shrink-0" />
+              <Users className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
               <span>{bi('Tezgah', 'Counter')}</span>
             </button>
 
@@ -5009,13 +5009,13 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('WORKSHOP');
               }}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WORKSHOP'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Wrench className="w-[14px] h-[14px] shrink-0" />
+              <Wrench className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
               <span>
                 {bi('Atölye', 'Workshop')}
                 {shop.inventory.length > 0 ? ` (${shop.inventory.length})` : ''}
@@ -5029,13 +5029,13 @@ export default function App() {
                 setActiveTab('WHOLESALE');
               }}
               title={bi('Toptancı, Aksesuar & Sıfır Bayilik', 'Wholesale, Accessories & Flagship Supply')}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WHOLESALE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Package className="w-[14px] h-[14px] shrink-0" />
+              <Package className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
               <span>{bi('Toptan', 'Supply')}</span>
             </button>
 
@@ -5046,21 +5046,21 @@ export default function App() {
                 setActiveTab('EMPIRE');
               }}
               title={bi('Sarı İlan, İhale, Şube, Banka & Müze', 'Classifieds, Auctions, Branches, Bank & Museum')}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'EMPIRE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Building2 className="w-[14px] h-[14px] shrink-0" />
+              <Building2 className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
               <span>{bi('Piyasa', 'Market')}</span>
               {getWeekdayInfo(shop.day).isSunday && (
-                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                <span className="font-mono text-[9px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                   {bi('Kermes', 'Fair')}
                 </span>
               )}
               {shop.weeklyTaxDue > 0 && (
-                <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-rose-500 text-white">
+                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-rose-500 text-white">
                   !
                 </span>
               )}
@@ -5072,16 +5072,16 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('MISSIONS');
               }}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'MISSIONS'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Target className="w-[14px] h-[14px] shrink-0" />
+              <Target className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
               <span>{bi('Görev', 'Quests')}</span>
               {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
-                <span className="font-mono text-[10px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                   +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
                 </span>
               )}
@@ -5094,20 +5094,20 @@ export default function App() {
                 setActiveTab('UPGRADES');
               }}
               title={bi('Ekipman, Dükkan, Dekor, Ekip & Gardırop', 'Equipment, Shops, Decor, Staff & Wardrobe')}
-              className={`inline-flex items-center justify-center gap-1 min-h-[34px] rounded-md px-[9px] lg:px-3 py-[4px] text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'UPGRADES'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Sparkles className="w-[14px] h-[14px] shrink-0" />
+              <Sparkles className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
               <span>{bi('Büyüt', 'Upgrade')}</span>
             </button>
           </nav>
         </div>
 
-        {/* Compact Tabular HUD Readouts — Day, Infinite Level & Shop Tier */}
-        <div className="flex items-center justify-between sm:justify-end gap-[6px] sm:gap-2 lg:gap-3 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
+        {/* Compact Tabular HUD Readouts — Day, Infinite Level, Cash & Pause Menu */}
+        <div className="flex items-center justify-between sm:justify-end gap-[4px] md:gap-2 lg:gap-2.5 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
           <button
             type="button"
             onClick={() => {
@@ -5118,32 +5118,35 @@ export default function App() {
               `Gün ${shop.day} · Sv.${shop.level} · Dükkan Kademesi ${shop.shopTier}/6`,
               `Day ${shop.day} · Lv.${shop.level} · Shop Tier ${shop.shopTier}/6`
             )}
-            className="inline-flex items-center gap-1.5 min-h-[32px] rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
+            className="inline-flex items-center gap-1 min-h-[30px] rounded-md border border-amber-400/30 bg-amber-500/10 px-1.5 lg:px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
           >
             <span
-              className={`font-mono text-[11px] font-extrabold whitespace-nowrap ${
+              className={`font-mono text-[10px] lg:text-[11px] font-extrabold whitespace-nowrap ${
                 getWeekdayInfo(shop.day).isSunday ? 'text-emerald-300' : 'text-amber-300'
               }`}
             >
-              {bi(
-                `Gün ${shop.day} · ${getWeekdayInfo(shop.day).shortTr}`,
-                `Day ${shop.day} · ${getWeekdayInfo(shop.day).shortEn}`
-              )}
+              <span className="lg:hidden">{bi(`G${shop.day}`, `D${shop.day}`)}</span>
+              <span className="hidden lg:inline">
+                {bi(
+                  `Gün ${shop.day} · ${getWeekdayInfo(shop.day).shortTr}`,
+                  `Day ${shop.day} · ${getWeekdayInfo(shop.day).shortEn}`
+                )}
+              </span>
             </span>
             <span aria-hidden="true" className="text-amber-300/40">·</span>
-            <span className="font-mono text-[10.5px] font-extrabold text-emerald-300 whitespace-nowrap">
+            <span className="font-mono text-[10px] lg:text-[10.5px] font-extrabold text-emerald-300 whitespace-nowrap">
               {bi(`Sv.${shop.level}`, `Lv.${shop.level}`)}
             </span>
             {(shop.prestigeLevel ?? 0) > 0 && (
               <>
                 <span aria-hidden="true" className="text-amber-300/40">·</span>
-                <span className="font-mono text-[10.5px] font-extrabold text-purple-300 whitespace-nowrap">
+                <span className="font-mono text-[10px] font-extrabold text-purple-300 whitespace-nowrap">
                   P{shop.prestigeLevel}
                 </span>
               </>
             )}
-            <span aria-hidden="true" className="hidden md:inline text-amber-300/40">·</span>
-            <span className="hidden md:inline font-mono text-[10.5px] font-bold text-slate-200 whitespace-nowrap">
+            <span aria-hidden="true" className="hidden xl:inline text-amber-300/40">·</span>
+            <span className="hidden xl:inline font-mono text-[10.5px] font-bold text-slate-200 whitespace-nowrap">
               {bi(`Dük.${shop.shopTier}/6`, `T${shop.shopTier}/6`)}
             </span>
           </button>
@@ -5160,7 +5163,7 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1 md:gap-1.5">
                 {(() => {
                   const adBoostActive =
                     (shop.adState?.cashMultiplier ?? 1) === 2 &&
@@ -5180,7 +5183,7 @@ export default function App() {
                               'Watch Rewarded Ad · Unlock 2x Cash Multiplier for next 3 deals'
                             )
                       }
-                      className={`inline-flex items-center gap-1 min-h-[30px] rounded-md border px-2 py-0.5 font-mono text-[10.5px] font-extrabold transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation ${
+                      className={`inline-flex items-center gap-1 min-h-[28px] lg:min-h-[30px] rounded-md border px-1.5 lg:px-2 py-0.5 font-mono text-[10px] lg:text-[10.5px] font-extrabold transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation ${
                         adBoostActive
                           ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.22)]'
                           : 'border-amber-400/45 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
@@ -5213,7 +5216,7 @@ export default function App() {
                         ? shop.activeDrama.objectiveLabelEn
                         : shop.activeDrama.objectiveLabelTr
                     }
-                    className="inline-flex items-center gap-1 min-h-[30px] rounded-md border border-rose-400/55 bg-rose-500/20 px-2 py-0.5 font-mono text-[10.5px] font-extrabold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation"
+                    className="inline-flex items-center gap-1 min-h-[28px] lg:min-h-[30px] rounded-md border border-rose-400/55 bg-rose-500/20 px-1.5 lg:px-2 py-0.5 font-mono text-[10px] lg:text-[10.5px] font-extrabold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation"
                   >
                     <Flame className="w-3 h-3 text-amber-300 shrink-0" />
                     <span>
@@ -5225,13 +5228,13 @@ export default function App() {
                   </button>
                 )}
 
-                <div className="inline-flex items-center gap-0.5 text-[11px] lg:text-xs font-semibold text-amber-400">
-                  <Star className="w-[13px] h-[13px] fill-amber-400" />
+                <div className="inline-flex items-center gap-0.5 text-[10.5px] lg:text-xs font-semibold text-amber-400">
+                  <Star className="w-[12px] h-[12px] lg:w-[13px] lg:h-[13px] fill-amber-400" />
                   <span className="font-mono">{shop.reputation.toFixed(1)}</span>
                 </div>
 
                 <div className="text-right">
-                  <div className="font-mono text-[13px] sm:text-sm lg:text-base font-extrabold text-emerald-400 leading-none">
+                  <div className="font-mono text-[12px] sm:text-[13px] lg:text-base font-extrabold text-emerald-400 leading-none">
                     {formatTRY(shop.cash)}
                   </div>
                   {!shop.endlessMode && (
@@ -5259,47 +5262,11 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     soundFX.playClick();
-                    setShowAnalyticsModal(true);
-                  }}
-                  aria-label={bi('Haftalık satış, kâr ve başarım grafikleri', 'Weekly sales, profit & achievements charts')}
-                  title={bi('Haftalık Satış/Kâr Grafiği & Başarımlar', 'Weekly Sales/Profit Charts & Achievements')}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/12 text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/22 transition-colors cursor-pointer touch-manipulation"
-                >
-                  <BarChart3 className="w-[15px] h-[15px]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playClick();
-                    setShowNewspaperReview(true);
-                  }}
-                  aria-label={bi('Pasaj Postası gazetesini oku', 'Read Arcade Gazette')}
-                  title={bi('Pasaj Postası & Günlük Görevler', 'Daily Gazette & Quests')}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-amber-300 hover:text-amber-200 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
-                >
-                  <Newspaper className="w-[15px] h-[15px]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToggleMute}
-                  aria-label={muted ? bi('Sesi aç', 'Unmute') : bi('Sesi kapat', 'Mute')}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
-                >
-                  {muted ? (
-                    <VolumeX className="w-[15px] h-[15px]" />
-                  ) : (
-                    <Volume2 className="w-[15px] h-[15px]" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playClick();
                     setScreen('PAUSED');
                   }}
-                  aria-label={bi('Oyunu duraklat, ayarlar ve başarımlar', 'Pause game, settings & achievements')}
-                  title={bi('Duraklat, Ayarlar, Başarımlar & İstatistikler', 'Pause, Settings, Achievements & Analytics')}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-white/10 bg-[#1B2432] text-slate-300 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
+                  aria-label={bi('Duraklat, Pasaj Postası, İstatistikler ve Ses', 'Pause, Daily Gazette, Analytics & Sound')}
+                  title={bi('Menü: Pasaj Postası, İstatistikler, Ses & Ayarlar', 'Menu: Gazette, Analytics, Sound & Settings')}
+                  className="flex h-[30px] w-[30px] lg:h-[32px] lg:w-[32px] items-center justify-center rounded-lg border border-white/15 bg-[#1B2432] text-slate-200 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
                 >
                   <Pause className="w-[15px] h-[15px]" />
                 </button>
@@ -5706,6 +5673,11 @@ export default function App() {
             soundFX.playClick();
             setScreen('PLAYING');
           }}
+          onOpenNewspaper={() => {
+            soundFX.playClick();
+            setScreen('PLAYING');
+            setShowNewspaperReview(true);
+          }}
           onOpenAnalytics={() => {
             soundFX.playClick();
             setScreen('PLAYING');
@@ -5721,6 +5693,8 @@ export default function App() {
             setScreen('PLAYING');
             openComplianceModal('SETTINGS');
           }}
+          muted={muted}
+          onToggleMute={handleToggleMute}
           onRestart={handleStartNew}
           onTitle={() => {
             soundFX.playClick();

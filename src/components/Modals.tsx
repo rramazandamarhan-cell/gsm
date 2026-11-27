@@ -20,6 +20,8 @@ import {
   Star,
   TrendingUp,
   Trophy,
+  Volume2,
+  VolumeX,
   Wrench,
   X,
 } from 'lucide-react';
@@ -48,7 +50,10 @@ interface PauseModalProps {
   onTitle: () => void;
   onOpenCompliance?: () => void;
   onOpenAnalytics?: () => void;
+  onOpenNewspaper?: () => void;
   onOpenLegacy?: () => void;
+  muted?: boolean;
+  onToggleMute?: () => void;
 }
 
 export const PauseModal: React.FC<PauseModalProps> = ({
@@ -57,12 +62,15 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   onTitle,
   onOpenCompliance,
   onOpenAnalytics,
+  onOpenNewspaper,
   onOpenLegacy,
+  muted = false,
+  onToggleMute,
 }) => {
   const { lang, setLang, bi } = useLanguage();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-2.5">
-      <div className="w-full max-w-md max-h-[94dvh] overflow-hidden rounded-2xl border border-white/10 bg-[#171F2A] p-4 shadow-2xl flex flex-col gap-3">
+      <div className="w-full max-w-md max-h-[94dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-3.5 sm:p-4 shadow-2xl flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <BrandLogo size="compact" />
@@ -119,6 +127,17 @@ export const PauseModal: React.FC<PauseModalProps> = ({
         )}
 
         <div className="grid grid-cols-2 gap-2">
+          {onOpenNewspaper && (
+            <button
+              type="button"
+              onClick={onOpenNewspaper}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-400/35 bg-amber-500/12 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Newspaper className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span>{bi('Pasaj Postası', 'Daily Gazette')}</span>
+            </button>
+          )}
+
           {onOpenAnalytics && (
             <button
               type="button"
@@ -127,6 +146,25 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             >
               <BarChart3 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>{bi('İstatistikler', 'Analytics')}</span>
+            </button>
+          )}
+
+          {onToggleMute && (
+            <button
+              type="button"
+              onClick={onToggleMute}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-[#1B2432] px-3 py-2 text-xs font-bold text-slate-200 hover:bg-[#243042] transition-colors whitespace-nowrap cursor-pointer"
+            >
+              {muted ? (
+                <VolumeX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              )}
+              <span>
+                {muted
+                  ? bi('Ses: Kapalı', 'Sound: Off')
+                  : bi('Ses: Açık', 'Sound: On')}
+              </span>
             </button>
           )}
 

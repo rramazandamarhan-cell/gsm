@@ -25,7 +25,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           src="/brand-logo.png"
           alt={altText}
           draggable={false}
-          className="h-7 lg:h-9 w-auto object-contain drop-shadow-[0_2px_10px_rgba(245,158,11,0.28)]"
+          className="h-[26px] md:h-[30px] lg:h-9 w-auto object-contain drop-shadow-[0_2px_10px_rgba(245,158,11,0.28)]"
         />
       </div>
     );
