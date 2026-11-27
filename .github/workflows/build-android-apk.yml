@@ -201,8 +201,8 @@ jobs:
           if [ -f "$GRADLE_FILE" ]; then
             VERSION_CODE="${{ github.run_number }}"
             sed -i "s/versionCode [0-9]\+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
-            sed -i 's/versionName "[^"]*"/versionName "1.0.1"/' "$GRADLE_FILE"
-            echo "Stamped versionCode=${VERSION_CODE} versionName=1.0.1"
+            sed -i 's/versionName "[^"]*"/versionName "1.0.0"/' "$GRADLE_FILE"
+            echo "Stamped versionCode=${VERSION_CODE} versionName=1.0.0"
           fi
 
           VARS_FILE="android/variables.gradle"

@@ -36,7 +36,7 @@ const PUBLIC_SITE_ORIGIN = (
 
 export const STORE_RELEASE_META = {
   appId: 'com.esnafgsm.simulator',
-  versionName: '1.0.1',
+  versionName: '1.0.0',
   channelLabel: 'Play Store AAB & App Store Hazır',
   developerName: 'EsOra Mobile Studio',
   developerEmail: 'esoramobilestudio@gmail.com',
