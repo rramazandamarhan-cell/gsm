@@ -137,10 +137,10 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-2 lg:p-3 gap-2">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
       {/* COMPACT SINGLE-ROW TOOLBAR */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1.5">
-        <div className="flex items-center gap-1">
+      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
           <button
             type="button"
             onClick={() => setSubTab('ACCESSORIES')}
@@ -252,9 +252,9 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
       {/* TAB 1: ALL 6 ACCESSORIES WITH HERO PRODUCT SHOWCASE (3x2 ZERO SCROLL) */}
       {subTab === 'ACCESSORIES' && (
         !accLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3">
-            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
-              <ShoppingBag className="w-6 h-6 text-amber-400" />
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-3 [@media(min-height:540px)]:p-5 gap-1.5 [@media(min-height:540px)]:gap-3 overflow-hidden">
+            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <ShoppingBag className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
             </div>
             <div className="space-y-1 max-w-md">
               <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
@@ -295,7 +295,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             )}
           </div>
         ) : (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {ACCESSORY_CATALOG.map((spec) => {
             const loc = getLocalizedAccessory(spec.id, lang);
             const stock = shop.accessories[spec.id];
@@ -310,75 +310,69 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             return (
               <div
                 key={spec.id}
-                className={`relative rounded-xl border p-2.5 flex flex-col gap-2 min-h-0 overflow-hidden ${
+                className={`relative rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden ${
                   unlocked
                     ? 'border-white/10 bg-[#151D28]'
                     : 'border-white/5 bg-[#121821]/85'
                 }`}
               >
                 {/* Top Header: Title + Category + Stock/Level */}
-                <div className="shrink-0 flex items-start justify-between gap-2">
+                <div className="shrink-0 flex items-start justify-between gap-1.5">
                   <div className="min-w-0">
-                    <div className="text-xs font-extrabold text-slate-100 truncate">
+                    <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate leading-tight">
                       {loc.name}
                     </div>
-                    <div className="text-[10px] text-slate-400 truncate">
+                    <div className="hidden [@media(min-height:520px)]:block text-[10px] text-slate-400 truncate">
                       {loc.category}
                     </div>
                   </div>
                   {unlocked ? (
-                    <span className="font-mono text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-emerald-500/15 text-emerald-300 shrink-0 tabular-nums">
+                    <span className="font-mono text-[9.5px] font-extrabold rounded px-1.5 py-0.5 bg-emerald-500/15 text-emerald-300 shrink-0 tabular-nums">
                       {bi('Stok', 'Qty')}: {stock?.quantity ?? 0}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-extrabold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-300 shrink-0">
+                    <span className="inline-flex items-center gap-0.5 font-mono text-[9.5px] font-extrabold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-300 shrink-0">
                       <Lock className="w-2.5 h-2.5" />
-                      {bi(`Dükkan ${spec.minShopTier}`, `Tier ${spec.minShopTier}`)}
+                      {bi(`Dük.${spec.minShopTier}`, `T${spec.minShopTier}`)}
                     </span>
                   )}
                 </div>
 
-                {/* Center Product Art Showcase Stage — fills the middle cleanly! */}
-                <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0D131C] px-3 py-1.5 flex items-center justify-center gap-3 overflow-hidden">
+                {/* Center Product Art Showcase Stage — scales proportionally inside grid row */}
+                <div className="flex-1 min-h-0 rounded-lg border border-white/8 bg-[#0D131C] px-2 py-1 flex items-center justify-center gap-2 overflow-hidden">
                   <AccessoryProductArt
                     id={spec.id}
-                    className={`h-full max-h-16 lg:max-h-20 w-auto shrink-0 drop-shadow-[0_6px_14px_rgba(0,0,0,0.55)] ${
+                    className={`h-full max-h-9 [@media(min-height:540px)]:max-h-16 lg:max-h-20 w-auto shrink-0 drop-shadow-[0_6px_14px_rgba(0,0,0,0.55)] ${
                       !unlocked ? 'opacity-45' : ''
                     }`}
                   />
 
                   {unlocked ? (
-                    <div className="min-w-0 space-y-1 text-[10.5px] tabular-nums">
-                      <div className="text-slate-400">
-                        {bi('Toptan Alış', 'Wholesale')}:{' '}
+                    <div className="min-w-0 space-y-0.5 text-[9.5px] [@media(min-height:560px)]:text-[10.5px] tabular-nums leading-tight">
+                      <div className="text-slate-400 truncate">
+                        {bi('Alış', 'Cost')}:{' '}
                         <strong className="font-mono text-slate-100">
                           {formatTRY(unitCost)}
                         </strong>
                       </div>
-                      <div className="text-slate-400">
-                        {bi('Birim Kâr', 'Unit Profit')}:{' '}
+                      <div className="text-slate-400 truncate">
+                        {bi('Kâr', 'Net')}:{' '}
                         <strong className="font-mono text-emerald-400">
                           +{formatTRY(unitMargin)}
                         </strong>
                       </div>
-                      <div className="text-[9.5px] text-slate-500">
+                      <div className="hidden [@media(min-height:540px)]:block text-[9.5px] text-slate-500 truncate">
                         {bi('Önerilen', 'MSRP')}: {formatTRY(spec.recommendedPrice)}
                       </div>
                     </div>
                   ) : (
                     <div className="min-w-0 text-left space-y-0.5">
-                      <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-200">
-                        <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        {bi(
-                          `${spec.minShopTier}. Dükkan ile Açılır`,
-                          `Unlocks at Shop Tier ${spec.minShopTier}`
-                        )}
+                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-200 truncate">
+                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                        {bi(`${spec.minShopTier}. Dükkan`, `Shop Tier ${spec.minShopTier}`)}
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        {bi(
-                          `Şu an ${shop.shopTier}. Dükkan · Büyüt sekmesinden genişle`,
-                          `Currently Tier ${shop.shopTier} · Expand in Grow tab`
-                        )}
+                      <div className="hidden [@media(min-height:520px)]:block text-[9.5px] text-slate-400 truncate">
+                        {bi(`Şu an ${shop.shopTier}. Dükkan`, `Currently Tier ${shop.shopTier}`)}
                       </div>
                     </div>
                   )}
@@ -386,8 +380,8 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
 
                 {/* Bottom Controls */}
                 {unlocked ? (
-                  <div className="shrink-0 space-y-1.5 tabular-nums">
-                    <div className="flex items-center justify-between gap-1 rounded-lg bg-[#0E141D] border border-white/8 px-2 py-1">
+                  <div className="shrink-0 space-y-1 [@media(min-height:560px)]:space-y-1.5 tabular-nums">
+                    <div className="flex items-center justify-between gap-1 rounded-lg bg-[#0E141D] border border-white/8 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1">
                       <span className="text-[10px] text-slate-400 whitespace-nowrap">
                         {bi('Reyon Etiketi', 'Shelf Tag')}
                       </span>
@@ -465,9 +459,9 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
       {/* TAB 2: FACTORY-SEALED BRAND DISTRIBUTORS WITH LARGE BOX + PHONE MODEL VISUALS */}
       {subTab === 'BRAND_NEW' && (
         !brandNewLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3">
-            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-amber-400" />
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-3 [@media(min-height:540px)]:p-5 gap-1.5 [@media(min-height:540px)]:gap-3 overflow-hidden">
+            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
             </div>
             <div className="space-y-1 max-w-md">
               <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
@@ -591,7 +585,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             </div>
           ) : (
             <div className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
-              <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-4 gap-2 overflow-hidden">
+              <div className="flex-1 min-h-0 grid grid-cols-4 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
                 {visibleModels.map((spec) => {
                   const baseWholesale = getDistributorWholesalePrice(
                     spec,
@@ -624,7 +618,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                   return (
                     <div
                       key={spec.id}
-                      className={`rounded-xl border p-2.5 flex flex-col gap-2 min-h-0 overflow-hidden ${
+                      className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden ${
                         isFlashBrand
                           ? 'border-rose-400/50 bg-[#1B1722]'
                           : 'border-white/10 bg-[#151D28]'
@@ -764,13 +758,13 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             </span>
           </div>
 
-          <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {SPARE_PARTS_CATALOG.map((part) => {
               const qty = shop.spareParts?.[part.id] ?? 0;
               return (
                 <div
                   key={part.id}
-                  className="rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between gap-2 min-h-0 overflow-hidden"
+                  className="rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -847,11 +841,11 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {pendingOrders.slice(0, 6).map((ord) => (
                 <div
                   key={ord.id}
-                  className="rounded-xl border border-sky-400/25 bg-[#151D28] p-2.5 flex flex-col justify-between gap-1.5"
+                  className="rounded-xl border border-sky-400/25 bg-[#151D28] p-2 flex flex-col justify-between gap-1 min-h-0 overflow-hidden"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-xs font-bold text-slate-100 truncate">

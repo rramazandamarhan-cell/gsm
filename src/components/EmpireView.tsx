@@ -5,6 +5,8 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Gavel,
   Gift,
@@ -142,6 +144,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
   const [selectedMuseumId, setSelectedMuseumId] = useState<MuseumItemId | null>(null);
   const [justBoughtMuseumId, setJustBoughtMuseumId] = useState<MuseumItemId | null>(null);
   const [wonMysteryLot, setWonMysteryLot] = useState<CustomsAuctionLot | null>(null);
+  const [kermesPage, setKermesPage] = useState(0);
 
   const classifiedsLicensed = hasClassifiedsLicense(shop.upgrades);
   const auctionLicensed = hasAuctionLicense(shop.upgrades);
@@ -309,7 +312,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
     return (
       <div
         key={item.id}
-        className={`rounded-xl border p-2.5 flex flex-col justify-between gap-2 min-h-0 overflow-hidden ${
+        className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden ${
           status === 'BOUGHT'
             ? 'border-emerald-400/25 bg-[#12201C]/75'
             : status === 'REJECTED'
@@ -318,42 +321,42 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         }`}
       >
         {/* Header */}
-        <div className="shrink-0 flex items-start justify-between gap-2">
+        <div className="shrink-0 flex items-start justify-between gap-1.5">
           <div className="min-w-0">
-            <div className="text-xs font-extrabold text-slate-100 truncate">
+            <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
               {item.device.brand} {item.device.model}{' '}
-              <span className="text-[10px] font-mono text-slate-400">
+              <span className="text-[9.5px] font-mono text-slate-400">
                 {item.device.storage}
               </span>
             </div>
-            <div className="text-[10px] text-slate-400 truncate">
+            <div className="text-[9.5px] text-slate-400 truncate">
               {item.sellerName} · {item.district} ·{' '}
               <span className={`font-bold ${riskColor}`}>
                 {item.riskTag === 'Kelepir Fırsat'
-                  ? bi('Kelepir Fırsat', 'Bargain')
+                  ? bi('Kelepir', 'Bargain')
                   : item.riskTag === 'Şüpheli İlan'
-                  ? bi('Şüpheli İlan', 'Risky Listing')
-                  : bi('Temiz İlan', 'Clean Listing')}
+                  ? bi('Şüpheli', 'Risky')
+                  : bi('Temiz', 'Clean')}
               </span>
             </div>
           </div>
           <div className="text-right shrink-0 tabular-nums">
-            <div className="font-mono text-xs sm:text-sm font-extrabold text-amber-300">
+            <div className="font-mono text-[11px] [@media(min-height:560px)]:text-sm font-extrabold text-amber-300">
               {formatTRY(currentPrice)}
             </div>
-            <div className="text-[9.5px] font-mono text-slate-400">
+            <div className="text-[9px] font-mono text-slate-400">
               {bi('Piyasa ~', 'Mkt ~')}
               {formatTRY(estMarket)}
             </div>
           </div>
         </div>
 
-        {/* Rich Center Stage — Phone Thumb + Spec Dossier (NO EMPTY VOID!) */}
-        <div className="flex-1 min-h-0 rounded-lg border border-white/8 bg-[#0E141D] p-2 flex items-center gap-2.5 overflow-hidden">
+        {/* Rich Center Stage — Phone Thumb + Spec Dossier */}
+        <div className="flex-1 min-h-0 rounded-lg border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex items-center gap-2 overflow-hidden">
           <PhoneModelThumb
             device={item.device}
             showBack
-            className="h-full max-h-24 w-auto shrink-0"
+            className="h-full max-h-12 [@media(min-height:540px)]:max-h-24 w-auto shrink-0"
           />
 
           <div className="flex-1 min-w-0 flex flex-col justify-between h-full gap-1">
@@ -419,7 +422,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     </strong>
                   </div>
                 </div>
-                <p className="text-[10px] italic text-slate-300 line-clamp-2 leading-snug border-t border-white/6 pt-1">
+                <p className="hidden [@media(min-height:540px)]:block text-[9.5px] italic text-slate-300 line-clamp-1 [@media(min-height:600px)]:line-clamp-2 leading-tight border-t border-white/6 pt-1">
                   "{item.sellerNote}"
                 </p>
               </>
@@ -450,15 +453,15 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 type="button"
                 disabled={shop.cash < 250}
                 onClick={() => onInspectClassifiedOnsite(item.id)}
-                className="rounded-lg bg-amber-500/15 border border-amber-400/35 py-1.5 text-[10.5px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                className="rounded-lg bg-amber-500/15 border border-amber-400/35 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
               >
-                {bi('Yerinde Bak (250 ₺)', 'Inspect Onsite (250 ₺)')}
+                {bi('Yerinde Bak (250 ₺)', 'Onsite (250 ₺)')}
               </button>
               <button
                 type="button"
                 disabled={shop.cash < 350}
                 onClick={() => onOrderClassifiedCod(item.id)}
-                className="rounded-lg bg-sky-500/15 border border-sky-400/35 py-1.5 text-[10.5px] font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                className="rounded-lg bg-sky-500/15 border border-sky-400/35 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
               >
                 {bi('Kapıda Kargo (350 ₺)', 'COD Cargo (350 ₺)')}
               </button>
@@ -524,10 +527,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
     : null;
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-2 lg:p-3 gap-2">
+    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
       {/* COMPACT TOOLBAR */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1.5">
-        <div className="flex items-center gap-1 flex-wrap">
+      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
           {(
             [
               ['CLASSIFIEDS', Search, bi('Sarı İlan & Kargo', 'Classifieds')],
@@ -584,43 +587,43 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       {/* SUB-TAB 1: CLASSIFIEDS & INTERCITY SHIPPING */}
       {subTab === 'CLASSIFIEDS' && (
         !classifiedsLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3">
-            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
-              <Search className="w-6 h-6 text-amber-400" />
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-5 gap-1.5 [@media(min-height:560px)]:gap-3 overflow-hidden">
+            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Search className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
             </div>
-            <div className="space-y-1 max-w-lg">
-              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 [@media(min-height:540px)]:space-y-1 max-w-lg">
+              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi('YENİ İŞ KOLU · SARI İLAN & KARGO AĞI', 'NEW BUSINESS LINE · CLASSIFIEDS & CARGO')}
               </div>
-              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-sm [@media(min-height:540px)]:text-lg font-extrabold text-slate-50">
                 {bi('Sarı İlan & Şehir Dışı Kargo Yetkisi', 'Classifieds & Intercity Cargo Permit')}
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-[10.5px] [@media(min-height:540px)]:text-xs text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {bi(
                   'Şehir içindeki kelepir 2. el ilanları yerinde ekspertiz veya kapıda kontrollü kargo ile kapat; temiz cihazlarını şehir dışındaki alıcılara ekstra kâr marjıyla gönder!',
                   'Hunt underpriced local listings with onsite inspection or COD cargo, and ship clean devices nationwide for extra profit margins!'
                 )}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 max-w-lg w-full text-[10.5px]">
-              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2">
+            <div className="hidden [@media(min-height:430px)]:grid grid-cols-3 gap-1.5 [@media(min-height:540px)]:gap-2 max-w-lg w-full text-[10px]">
+              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:540px)]:p-2">
                 <div className="font-bold text-amber-300">{bi('Günlük 4 İlan', '4 Daily Listings')}</div>
-                <div className="text-slate-400 text-[10px] mt-0.5">{bi('Kelepir & pazarlık şansı', 'Bargains & haggling')}</div>
+                <div className="text-slate-400 text-[9.5px] mt-0.5 truncate">{bi('Kelepir & pazarlık', 'Bargains & haggling')}</div>
               </div>
-              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2">
+              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:540px)]:p-2">
                 <div className="font-bold text-sky-300">{bi('Kapıda Kontrol', 'COD Inspection')}</div>
-                <div className="text-slate-400 text-[10px] mt-0.5">{bi('Kusur çıkarsa fiyat kır', 'Slash price on defects')}</div>
+                <div className="text-slate-400 text-[9.5px] mt-0.5 truncate">{bi('Kusur çıkarsa fiyat kır', 'Slash price on defects')}</div>
               </div>
-              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2">
+              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:540px)]:p-2">
                 <div className="font-bold text-emerald-300">{bi('Şehir Dışı Kargo', 'Intercity Orders')}</div>
-                <div className="text-slate-400 text-[10px] mt-0.5">{bi('+%15 kârlı toplu alıcılar', '+15% margin buyers')}</div>
+                <div className="text-slate-400 text-[9.5px] mt-0.5 truncate">{bi('+%15 kârlı alıcılar', '+15% margin buyers')}</div>
               </div>
             </div>
             <button
               type="button"
               disabled={shop.cash < classifiedsSpec.cost}
               onClick={() => onBuyUpgrade('classifieds_license')}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+              className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-1.5 [@media(min-height:540px)]:px-5 [@media(min-height:540px)]:py-2.5 text-[11px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
             >
               <Search className="w-4 h-4" />
               {shop.cash < classifiedsSpec.cost
@@ -629,13 +632,13 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </button>
           </div>
         ) : (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           <div className="shrink-0 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setClassifiedView('LISTINGS')}
-                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold cursor-pointer ${
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10.5px] font-bold cursor-pointer ${
                   classifiedView === 'LISTINGS'
                     ? 'bg-amber-500 text-slate-950'
                     : 'bg-[#151D28] text-slate-300 border border-white/10'
@@ -647,7 +650,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               <button
                 type="button"
                 onClick={() => setClassifiedView('SHIPPING')}
-                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold cursor-pointer ${
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10.5px] font-bold cursor-pointer ${
                   classifiedView === 'SHIPPING'
                     ? 'bg-sky-500 text-slate-950'
                     : 'bg-[#151D28] text-slate-300 border border-white/10'
@@ -657,7 +660,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 {bi('Şehir Dışı Kargo', 'Shipping Orders')} ({shop.shippingOrders.length})
               </button>
             </div>
-            <span className="text-[10.5px] text-slate-400 hidden sm:inline">
+            <span className="text-[10px] text-slate-400 hidden md:inline truncate">
               {bi(
                 'İlanı yerinde kontrol et veya kapıda kargo ile açıp kusur çıkarsa fiyat kır!',
                 'Inspect onsite or order COD cargo and negotiate down if hidden defects appear!'
@@ -666,11 +669,11 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
           </div>
 
           {classifiedView === 'LISTINGS' ? (
-            <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2 overflow-hidden">
+            <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {shop.onlineListings.slice(0, 4).map(renderListingCard)}
             </div>
           ) : (
-            <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
+            <div className="flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {shop.shippingOrders.slice(0, 3).map((order) => {
                 const eligible: PhoneDevice[] = (
                   order.requireClean ? cleanInventory : allInventory
@@ -679,80 +682,82 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 return (
                   <div
                     key={order.id}
-                    className={`rounded-xl border p-3 flex flex-col justify-between gap-2 overflow-hidden ${
+                    className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden ${
                       order.fulfilled
                         ? 'border-emerald-400/30 bg-[#12201C]/80'
                         : 'border-white/10 bg-[#151D28]'
                     }`}
                   >
-                    <div className="space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
+                    <div className="min-h-0 space-y-1 overflow-hidden">
+                      <div className="flex items-start justify-between gap-1.5">
                         <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-slate-100 truncate">
+                          <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
                             {order.buyerName} · {order.city}
                           </div>
-                          <div className="text-[10px] text-sky-300 font-semibold">
+                          <div className="text-[9.5px] text-sky-300 font-semibold truncate">
                             {order.requestedTier.toUpperCase()} ·{' '}
                             {order.requireClean
-                              ? bi('Sadece Kusursuz', 'Clean Only')
-                              : bi('Her Durum', 'Any Condition')}
+                              ? bi('Kusursuz', 'Clean Only')
+                              : bi('Her Durum', 'Any')}
                           </div>
                         </div>
-                        <span className="font-mono text-xs font-extrabold text-emerald-400 shrink-0">
+                        <span className="font-mono text-[11px] font-extrabold text-emerald-400 shrink-0">
                           +{Math.round((order.bonusMultiplier - 1) * 100)}%
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-white/8 bg-[#0E141D] p-2 space-y-1 text-[10.5px]">
+                      <div className="rounded-lg border border-white/8 bg-[#0E141D] p-1.5 space-y-0.5 text-[10px]">
                         <div className="flex justify-between text-slate-400">
-                          <span>{bi('Kargo Ücreti', 'Shipping Fee')}</span>
+                          <span>{bi('Kargo', 'Ship Fee')}</span>
                           <span className="font-mono text-slate-200">{formatTRY(order.shippingFee)}</span>
                         </div>
                         <div className="flex justify-between text-slate-400">
-                          <span>{bi('Uygun Stoğun', 'Matching Stock')}</span>
+                          <span>{bi('Stok', 'Stock')}</span>
                           <span className="font-mono font-bold text-amber-300">
                             {eligible.length} {bi('cihaz', 'unit(s)')}
                           </span>
                         </div>
                       </div>
 
-                      <p className="text-[10.5px] italic text-slate-300 leading-snug">
+                      <p className="text-[9.5px] [@media(min-height:540px)]:text-[10.5px] italic text-slate-300 leading-tight line-clamp-2">
                         "{order.note}"
                       </p>
                     </div>
 
-                    {order.fulfilled ? (
-                      <div className="rounded-lg bg-emerald-500/20 py-1.5 text-center text-[11px] font-bold text-emerald-300">
-                        ✓ {bi('Kargolandı', 'Shipped')}
-                      </div>
-                    ) : eligible.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-white/10 py-2 text-center text-[10.5px] text-slate-400">
-                        {bi(
-                          `Stokta uygun ${order.requestedTier.toUpperCase()} cihaz yok`,
-                          `No matching ${order.requestedTier.toUpperCase()} phone in stock`
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {eligible.slice(0, 2).map((dev) => {
-                          const payout = Math.round(
-                            calculateMarketValue(dev, false, shop.dailyNews, shop.upgrades) *
-                              order.bonusMultiplier -
-                              order.shippingFee
-                          );
-                          return (
-                            <button
-                              key={dev.uid}
-                              type="button"
-                              onClick={() => onFulfillShipping(order.id, dev.uid)}
-                              className="w-full rounded-lg bg-sky-500 py-1.5 px-2 text-[10.5px] font-extrabold text-slate-950 hover:bg-sky-400 cursor-pointer truncate tabular-nums"
-                            >
-                              {bi('Gönder', 'Ship')}: {dev.brand} {dev.model} ({formatTRY(payout)})
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <div className="shrink-0">
+                      {order.fulfilled ? (
+                        <div className="rounded-lg bg-emerald-500/20 py-1 text-center text-[10.5px] font-bold text-emerald-300">
+                          ✓ {bi('Kargolandı', 'Shipped')}
+                        </div>
+                      ) : eligible.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-white/10 py-1.5 text-center text-[10px] text-slate-400 truncate px-1">
+                          {bi(
+                            `Uygun ${order.requestedTier.toUpperCase()} cihaz yok`,
+                            `No ${order.requestedTier.toUpperCase()} phone in stock`
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {eligible.slice(0, 2).map((dev) => {
+                            const payout = Math.round(
+                              calculateMarketValue(dev, false, shop.dailyNews, shop.upgrades) *
+                                order.bonusMultiplier -
+                                order.shippingFee
+                            );
+                            return (
+                              <button
+                                key={dev.uid}
+                                type="button"
+                                onClick={() => onFulfillShipping(order.id, dev.uid)}
+                                className="w-full rounded-lg bg-sky-500 py-1 px-2 text-[10px] font-extrabold text-slate-950 hover:bg-sky-400 cursor-pointer truncate tabular-nums"
+                              >
+                                {bi('Gönder', 'Ship')}: {dev.brand} {dev.model} ({formatTRY(payout)})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -762,46 +767,46 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         )
       )}
 
-      {/* SUB-TAB 2: 6-TIER DAILY CUSTOMS & LIQUIDATION AUCTION HALL */}
+      {/* SUB-TAB 2: 6-TIER DAILY CUSTOMS & LIQUIDATION AUCTION HALL (STRICT ZERO SCROLL) */}
       {subTab === 'AUCTION' && (
         !auctionLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3">
-            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
-              <Gavel className="w-6 h-6 text-amber-400" />
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-5 gap-1.5 [@media(min-height:560px)]:gap-3 overflow-hidden">
+            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Gavel className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
             </div>
-            <div className="space-y-1 max-w-lg">
-              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 [@media(min-height:540px)]:space-y-1 max-w-lg">
+              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi('YENİ İŞ KOLU · RESMİ İHALE SALONU', 'NEW BUSINESS LINE · OFFICIAL AUCTION HALL')}
               </div>
-              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-sm [@media(min-height:540px)]:text-lg font-extrabold text-slate-50">
                 {bi('Resmi Gümrük & İcra İhale Kartı', 'Official Customs & Liquidation Auction Pass')}
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-[10.5px] [@media(min-height:540px)]:text-xs text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {bi(
-                  'Her gün 6 farklı kademede mühürlü koli ihalesine katıl! Pasaj icra kolisinden Havalimanı VIP konteynerine kadar rakip esnaflarla canlı pey yarıştır, toplu cihaz ve bonus aksesuarları ucuza kapat.',
-                  'Enter 6 progressive sealed-crate auctions daily — from arcade liquidation boxes to VIP airport containers! Outbid rival merchants for bulk devices and bonus accessory crates.'
+                  'Her gün 6 farklı kademede mühürlü koli ihalesine katıl! Rakip esnaflarla canlı pey yarıştır, toplu cihaz ve bonus aksesuarları ucuza kapat.',
+                  'Enter 6 progressive sealed-crate auctions daily! Outbid rival merchants for bulk devices and bonus accessory crates.'
                 )}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 max-w-lg w-full text-[10px]">
-              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2">
+            <div className="hidden [@media(min-height:430px)]:grid grid-cols-3 gap-1.5 [@media(min-height:540px)]:gap-2 max-w-lg w-full text-[9.5px]">
+              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:540px)]:p-2">
                 <div className="font-bold text-amber-300">{bi('6 Günlük Mezat', '6 Daily Lots')}</div>
-                <div className="text-slate-400 mt-0.5">{bi('Dükkan büyüdükçe VIP kasalar', 'VIP tiers unlock with shops')}</div>
+                <div className="text-slate-400 mt-0.5 truncate">{bi('VIP kasalar', 'VIP tiers')}</div>
               </div>
-              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2">
-                <div className="font-bold text-emerald-300">{bi('Toplu Cihaz & Aksesuar', 'Bulk Phones + Gear')}</div>
-                <div className="text-slate-400 mt-0.5">{bi('2–4 cihaz + bonus koli', '2–4 phones + bonus box')}</div>
+              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:540px)]:p-2">
+                <div className="font-bold text-emerald-300">{bi('Toplu Cihaz', 'Bulk Phones')}</div>
+                <div className="text-slate-400 mt-0.5 truncate">{bi('2–4 cihaz + koli', '2–4 phones + box')}</div>
               </div>
-              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2">
-                <div className="font-bold text-rose-300">{bi('Canlı Rakip Rekabeti', 'Live Rival Sharks')}</div>
-                <div className="text-slate-400 mt-0.5">{bi('Yüksek risk, dev marj', 'High stakes, huge margins')}</div>
+              <div className="rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:540px)]:p-2">
+                <div className="font-bold text-rose-300">{bi('Canlı Rekabet', 'Live Sharks')}</div>
+                <div className="text-slate-400 mt-0.5 truncate">{bi('Yüksek risk, dev marj', 'Huge margins')}</div>
               </div>
             </div>
             <button
               type="button"
               disabled={shop.cash < auctionSpec.cost}
               onClick={() => onBuyUpgrade('auction_license')}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+              className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-1.5 [@media(min-height:540px)]:px-5 [@media(min-height:540px)]:py-2.5 text-[11px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
             >
               <Gavel className="w-4 h-4" />
               {shop.cash < auctionSpec.cost
@@ -810,9 +815,9 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </button>
           </div>
         ) : activeLot && (
-        <div className="flex-1 min-h-0 flex gap-2 overflow-hidden">
-          {/* Left: All 6 Dynamic Cash-Unlocked Auction Tiers */}
-          <div className="w-[244px] lg:w-[294px] shrink-0 grid grid-rows-6 gap-1.5 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 flex gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* Left: All 6 Dynamic Cash-Unlocked Auction Tiers — Strict 6-Row Zero Scroll */}
+          <div className="w-[185px] lg:w-[294px] shrink-0 grid grid-rows-6 gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden">
             {auctionLots.slice(0, 6).map((lot, idx) => {
               const selected = idx === selectedLotIdx;
               const reqCash = lot.requiredCash ?? 0;
@@ -824,7 +829,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   type="button"
                   disabled={auctionActive && !selected}
                   onClick={() => selectLot(idx)}
-                  className={`rounded-xl border px-2.5 py-1.5 text-left transition-colors cursor-pointer disabled:opacity-40 flex flex-col justify-center ${
+                  className={`min-h-0 rounded-xl border px-2 py-0.5 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5 text-left transition-colors cursor-pointer disabled:opacity-40 flex flex-col justify-center overflow-hidden ${
                     selected
                       ? 'border-amber-400 bg-amber-500/12'
                       : locked
@@ -833,34 +838,34 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-bold text-slate-100 truncate">
+                    <span className="text-[10px] [@media(min-height:560px)]:text-[11px] font-bold text-slate-100 truncate">
                       #{idx + 1} · {lot.sessionLabel ?? lot.lotTitle}
                     </span>
                     {lot.resolved ? (
                       <span
-                        className={`text-[9.5px] font-extrabold shrink-0 ${
+                        className={`text-[9px] font-extrabold shrink-0 ${
                           lot.wonByPlayer ? 'text-emerald-300' : 'text-slate-500'
                         }`}
                       >
                         {lot.wonByPlayer ? bi('Kazanıldı', 'Won') : bi('Kapandı', 'Closed')}
                       </span>
                     ) : locked ? (
-                      <span className="inline-flex items-center gap-0.5 font-mono text-[9.5px] font-bold text-amber-300 shrink-0 tabular-nums">
+                      <span className="inline-flex items-center gap-0.5 font-mono text-[9px] font-bold text-amber-300 shrink-0 tabular-nums">
                         <Lock className="w-2.5 h-2.5" />
                         {formatTRY(reqCash)}
                       </span>
                     ) : (
-                      <span className="font-mono text-[10.5px] font-extrabold text-amber-300 shrink-0 tabular-nums">
+                      <span className="font-mono text-[9.5px] [@media(min-height:560px)]:text-[10.5px] font-extrabold text-amber-300 shrink-0 tabular-nums">
                         {formatTRY(lot.startingBid)}
                       </span>
                     )}
                   </div>
-                  <div className="text-[9.5px] text-slate-400 truncate mt-0.5 tabular-nums flex items-center gap-1.5">
+                  <div className="text-[8.5px] [@media(min-height:560px)]:text-[9.5px] text-slate-400 truncate tabular-nums flex items-center gap-1">
                     <span>
                       {lot.devices.length} {bi('cihaz', 'phones')}
                     </span>
-                    <span className="text-fuchsia-300 font-semibold">
-                      · {boxCount} {bi('Gizemli Kutu', 'Mystery')}
+                    <span className="text-fuchsia-300 font-semibold truncate">
+                      · {boxCount} {bi('Kutu', 'Box')}
                     </span>
                   </div>
                 </button>
@@ -868,48 +873,48 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             })}
           </div>
 
-          {/* Right: Rich Auction Hall Stage (ZERO DEAD SPACE!) */}
-          <div className="flex-1 min-w-0 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between gap-2 overflow-hidden">
+          {/* Right: Rich Auction Hall Stage — Strict Zero Scroll */}
+          <div className="flex-1 min-w-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {/* Stage Header */}
             <div className="shrink-0 flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  {activeLot.difficultyTag ?? bi('GÜMRÜK & TASFİYE MEZATI', 'CUSTOMS AUCTION')} ·{' '}
+                <div className="text-[9.5px] font-bold uppercase tracking-wider text-amber-400 truncate">
+                  {activeLot.difficultyTag ?? bi('GÜMRÜK MEZATI', 'CUSTOMS AUCTION')} ·{' '}
                   {activeLot.riskTag ?? bi('Standart', 'Standard')}
                 </div>
-                <h3 className="text-sm font-extrabold text-slate-100 truncate">
+                <h3 className="text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-100 truncate">
                   {activeLot.lotTitle}
                 </h3>
-                <div className="text-[10.5px] text-slate-400 truncate mt-0.5">
+                <div className="hidden [@media(min-height:480px)]:block text-[10px] text-slate-400 truncate">
                   {activeLot.manifestHint ?? activeLot.description}
                 </div>
               </div>
 
               <div className="text-right shrink-0 tabular-nums">
-                <div className="text-[10px] text-slate-400">
+                <div className="text-[9.5px] text-slate-400">
                   {bi('Güncel Pey', 'Current Bid')}
                 </div>
-                <div className="font-mono text-base sm:text-lg font-extrabold text-amber-300">
+                <div className="font-mono text-sm [@media(min-height:560px)]:text-lg font-extrabold text-amber-300 leading-tight">
                   {formatTRY(activeLot.resolved ? activeLot.winningBid : currentBid)}
                 </div>
-                <div className="text-[10px] text-emerald-400 font-mono font-bold">
-                  {bi('Tahmini Değer', 'Est. Value')}: {formatTRY(lotValue)}
+                <div className="text-[9.5px] text-emerald-400 font-mono font-bold">
+                  {bi('Değer', 'Est.')}: {formatTRY(lotValue)}
                 </div>
               </div>
             </div>
 
             {/* Sealed Crate Manifest + Mystery Boxes + Bonus Accessories */}
-            <div className="shrink-0 grid grid-cols-12 gap-2">
-              <div className="col-span-7 rounded-xl border border-white/8 bg-[#0E141D] p-2 flex items-center justify-around gap-1">
+            <div className="shrink-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2">
+              <div className="col-span-7 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex items-center justify-around gap-1 overflow-hidden">
                 {activeLot.devices.map((d) => (
                   <div key={d.uid} className="flex flex-col items-center gap-0.5 min-w-0">
-                    <div className="w-8 h-12 rounded-lg border border-white/15 bg-[#1B2432] flex flex-col items-center justify-center relative">
-                      <div className="w-3 h-3 rounded bg-black/50 absolute top-1 left-1 flex items-center justify-center">
+                    <div className="w-6 h-9 [@media(min-height:540px)]:w-8 [@media(min-height:540px)]:h-12 rounded-lg border border-white/15 bg-[#1B2432] flex flex-col items-center justify-center relative">
+                      <div className="w-2.5 h-2.5 rounded bg-black/50 absolute top-0.5 left-0.5 flex items-center justify-center">
                         <span className="w-1 h-1 rounded-full bg-slate-500" />
                       </div>
-                      <span className="text-[10px] font-extrabold text-amber-300/80 mt-2">?</span>
+                      <span className="text-[9px] font-extrabold text-amber-300/80 mt-1.5">?</span>
                     </div>
-                    <span className="text-[8.5px] font-mono text-slate-300 uppercase truncate max-w-[54px]">
+                    <span className="text-[8px] font-mono text-slate-300 uppercase truncate max-w-[48px]">
                       {activeLot.resolved && activeLot.wonByPlayer ? d.model : d.tier}
                     </span>
                   </div>
@@ -917,44 +922,44 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 {/* Mystery Boxes visual inside the crate */}
                 {Array.from({ length: activeLot.mysteryBoxCount ?? 1 }).map((_, mIdx) => (
                   <div key={`mb-${mIdx}`} className="flex flex-col items-center gap-0.5 min-w-0">
-                    <div className="w-9 h-12 rounded-lg border border-fuchsia-400/50 bg-fuchsia-500/15 flex flex-col items-center justify-center relative">
-                      <Gift className="w-4 h-4 text-fuchsia-300" />
-                      <span className="text-[8px] font-mono font-extrabold text-amber-300 mt-0.5">
+                    <div className="w-7 h-9 [@media(min-height:540px)]:w-9 [@media(min-height:540px)]:h-12 rounded-lg border border-fuchsia-400/50 bg-fuchsia-500/15 flex flex-col items-center justify-center relative">
+                      <Gift className="w-3.5 h-3.5 text-fuchsia-300" />
+                      <span className="text-[7.5px] font-mono font-extrabold text-amber-300">
                         ???
                       </span>
                     </div>
-                    <span className="text-[8.5px] font-mono text-fuchsia-300 font-bold uppercase truncate max-w-[54px]">
+                    <span className="text-[8px] font-mono text-fuchsia-300 font-bold uppercase truncate max-w-[48px]">
                       {bi('KUTU', 'BOX')} #{mIdx + 1}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="col-span-5 rounded-xl border border-white/8 bg-[#0E141D] p-2 flex flex-col justify-between text-[10px] tabular-nums">
+              <div className="col-span-5 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between text-[9.5px] tabular-nums overflow-hidden">
                 <div className="font-bold text-slate-200 flex items-center justify-between gap-1">
                   <span className="inline-flex items-center gap-1 truncate">
-                    <Package className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    {bi('Koli + Gizemli Kutu', 'Crate + Mystery')}
+                    <Package className="w-3 h-3 text-amber-400 shrink-0" />
+                    {bi('Koli + Kutu', 'Crate + Box')}
                   </span>
-                  <span className="font-mono text-[9.5px] text-fuchsia-300 shrink-0">
+                  <span className="font-mono text-[9px] text-fuchsia-300 shrink-0">
                     ×{activeLot.mysteryBoxCount ?? 1}
                   </span>
                 </div>
-                <div className="text-slate-300 space-y-0.5">
-                  {activeLot.bonusAccessories.map((ba) => {
+                <div className="text-slate-300 space-y-0.5 overflow-hidden">
+                  {activeLot.bonusAccessories.slice(0, 2).map((ba) => {
                     const accLoc = getLocalizedAccessory(ba.id, lang);
                     return (
-                      <div key={ba.id} className="flex justify-between text-[9.5px]">
+                      <div key={ba.id} className="flex justify-between text-[9px]">
                         <span className="truncate text-slate-400">{accLoc.name}</span>
-                        <span className="font-mono font-bold text-amber-300">×{ba.quantity}</span>
+                        <span className="font-mono font-bold text-amber-300 shrink-0">×{ba.quantity}</span>
                       </div>
                     );
                   })}
                 </div>
-                <div className="flex justify-between border-t border-white/8 pt-1 text-[10px]">
-                  <span className="text-slate-400">{bi('Olası Kâr Marjı', 'Est. Upside')}</span>
+                <div className="flex justify-between border-t border-white/8 pt-0.5 text-[9.5px]">
+                  <span className="text-slate-400 truncate">{bi('Olası Kâr', 'Upside')}</span>
                   <span
-                    className={`font-mono font-extrabold ${
+                    className={`font-mono font-extrabold shrink-0 ${
                       lotValue - currentBid >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
@@ -966,22 +971,22 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
 
             {/* Live Bidding Arena OR Pre-Start Intelligence Panel */}
-            <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0E141D] p-2.5 flex flex-col justify-between overflow-hidden">
+            <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between overflow-hidden">
               {auctionLog.length > 0 ? (
-                <div className="space-y-1.5 overflow-hidden">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 border-b border-white/6 pb-1">
+                <div className="space-y-1 overflow-hidden">
+                  <div className="flex items-center justify-between text-[9.5px] text-slate-400 border-b border-white/6 pb-0.5">
                     <span className="font-bold text-amber-300">
-                      {bi('CANLI PEY AKIŞI', 'LIVE BIDDING FEED')} · {bi('Tur', 'Round')} {auctionRound}/6
+                      {bi('CANLI PEY', 'LIVE BID')} · {bi('Tur', 'Rd')} {auctionRound}/6
                     </span>
-                    <span>
-                      {bi('Önde Olan', 'Leader')}: <strong className="text-slate-100">{highestBidder}</strong>
+                    <span className="truncate">
+                      {bi('Önde', 'Leader')}: <strong className="text-slate-100">{highestBidder}</strong>
                     </span>
                   </div>
-                  {auctionLog.slice(-4).map((line, i) => (
+                  {auctionLog.slice(-3).map((line, i, arr) => (
                     <div
                       key={i}
-                      className={`text-[11px] leading-snug ${
-                        i === auctionLog.slice(-4).length - 1
+                      className={`text-[10px] [@media(min-height:560px)]:text-[11px] leading-tight line-clamp-1 [@media(min-height:540px)]:line-clamp-2 ${
+                        i === arr.length - 1
                           ? 'text-amber-200 font-semibold'
                           : 'text-slate-400'
                       }`}
@@ -991,30 +996,32 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col justify-between gap-2">
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="flex-1 min-h-0 flex flex-col justify-between gap-1 overflow-hidden">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {AUCTION_RIVALS.slice(0, 3).map((r) => (
                       <div
                         key={r.name}
-                        className="rounded-lg border border-white/6 bg-[#141C27] p-2 text-[10px]"
+                        className="rounded-lg border border-white/6 bg-[#141C27] p-1.5 text-[9.5px] overflow-hidden"
                       >
                         <div className="font-bold text-slate-100 truncate">{r.name}</div>
-                        <div className="text-slate-400 truncate mt-0.5">{r.style}</div>
+                        <div className="text-slate-400 truncate">{r.style}</div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between gap-2 text-[10.5px] text-slate-300 border-t border-white/6 pt-1.5">
-                    <span className="inline-flex items-center gap-1.5 text-slate-300">
+                  <div className="flex items-center justify-between gap-2 text-[9.5px] [@media(min-height:560px)]:text-[10.5px] text-slate-300 border-t border-white/6 pt-1">
+                    <span className="inline-flex items-center gap-1 text-slate-300 truncate">
                       <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      {bi(
-                        'Gizemli kutulardan sürpriz telefon, nakit çek veya toptan aksesuar çıkar!',
-                        'Mystery boxes hide bonus phones, cash envelopes, or bulk accessories!'
-                      )}
+                      <span className="truncate">
+                        {bi(
+                          'Gizemli kutulardan sürpriz telefon, nakit çek veya aksesuar çıkar!',
+                          'Mystery boxes hide bonus phones, cash, or accessories!'
+                        )}
+                      </span>
                     </span>
-                    <span className="font-mono text-[10px] text-amber-300 shrink-0 tabular-nums">
+                    <span className="font-mono text-[9.5px] text-amber-300 shrink-0 tabular-nums">
                       {lotReqCash > 0
-                        ? bi(`Kasa Eşiği: ${formatTRY(lotReqCash)}`, `Cash Gate: ${formatTRY(lotReqCash)}`)
-                        : bi('Açık Giriş', 'Open Entry')}
+                        ? bi(`Eşik: ${formatTRY(lotReqCash)}`, `Gate: ${formatTRY(lotReqCash)}`)
+                        : bi('Açık Giriş', 'Open')}
                     </span>
                   </div>
                 </div>
@@ -1024,24 +1031,26 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             {/* Action Footer */}
             <div className="shrink-0">
               {activeLot.resolved ? (
-                <div className="rounded-lg bg-white/5 py-2 text-center text-xs font-bold text-slate-300">
+                <div className="rounded-lg bg-white/5 py-1.5 text-center text-[11px] font-bold text-slate-300 truncate px-2">
                   {activeLot.wonByPlayer
                     ? bi(
-                        `Bu ihaleyi ${formatTRY(activeLot.winningBid)} ile kazandın — cihazlar & gizemli ganimet eklendi!`,
-                        `Won for ${formatTRY(activeLot.winningBid)} — devices & mystery loot added!`
+                        `Bu ihaleyi ${formatTRY(activeLot.winningBid)} ile kazandın!`,
+                        `Won for ${formatTRY(activeLot.winningBid)}!`
                       )
-                    : bi('Bu ihale kapandı; diğer seanslara göz atabilirsin.', 'Lot closed — try another session.')}
+                    : bi('Bu ihale kapandı; diğer seanslara geç.', 'Lot closed — try another session.')}
                 </div>
               ) : lotCashLocked ? (
-                <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 py-2 px-3 flex items-center justify-between text-xs tabular-nums">
-                  <span className="inline-flex items-center gap-1.5 font-bold text-amber-200">
+                <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 py-1.5 px-2.5 flex items-center justify-between gap-2 text-[11px] tabular-nums">
+                  <span className="inline-flex items-center gap-1.5 font-bold text-amber-200 truncate">
                     <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    {bi(
-                      `Bu özel ihaleye katılmak için kasanda en az ${formatTRY(lotReqCash)} nakit birikmeli!`,
-                      `Accumulate at least ${formatTRY(lotReqCash)} cash to unlock this exclusive lot!`
-                    )}
+                    <span className="truncate">
+                      {bi(
+                        `En az ${formatTRY(lotReqCash)} nakit birikmeli!`,
+                        `Need at least ${formatTRY(lotReqCash)} cash!`
+                      )}
+                    </span>
                   </span>
-                  <span className="font-mono text-[10.5px] text-slate-300 shrink-0">
+                  <span className="font-mono text-[10px] text-slate-300 shrink-0">
                     {formatTRY(shop.cash)} / {formatTRY(lotReqCash)}
                   </span>
                 </div>
@@ -1050,7 +1059,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   type="button"
                   disabled={shop.cash < activeLot.startingBid}
                   onClick={startAuction}
-                  className="w-full rounded-lg bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+                  className="w-full rounded-lg bg-amber-500 py-1.5 [@media(min-height:560px)]:py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
                 >
                   {shop.cash < activeLot.startingBid
                     ? bi(`Yetersiz Nakit (${formatTRY(activeLot.startingBid)} Gerekli)`, `Need ${formatTRY(activeLot.startingBid)}`)
@@ -1067,7 +1076,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                       type="button"
                       disabled={shop.cash < currentBid + step}
                       onClick={() => placePlayerBid(step)}
-                      className={`rounded-lg py-2 text-[11px] font-extrabold cursor-pointer disabled:opacity-35 ${
+                      className={`rounded-lg py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] font-extrabold cursor-pointer disabled:opacity-35 ${
                         idx === 2
                           ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                           : 'bg-amber-500/20 border border-amber-400/40 text-amber-200 hover:bg-amber-500/30'
@@ -1079,7 +1088,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   <button
                     type="button"
                     onClick={passAuction}
-                    className="rounded-lg bg-rose-500/20 border border-rose-400/35 py-2 text-[11px] font-bold text-rose-200 hover:bg-rose-500/30 cursor-pointer"
+                    className="rounded-lg bg-rose-500/20 border border-rose-400/35 py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] font-bold text-rose-200 hover:bg-rose-500/30 cursor-pointer"
                   >
                     {bi('Çekil', 'Fold')}
                   </button>
@@ -1091,23 +1100,23 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         )
       )}
 
-      {/* SUB-TAB 3: BRANCHES & RIVAL (3x2 SYMMETRICAL GRID — ZERO VOID!) */}
+      {/* SUB-TAB 3: BRANCHES & RIVAL (3x2 SYMMETRICAL GRID — STRICT ZERO SCROLL) */}
       {subTab === 'BRANCHES' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Compact Rival Strip */}
-          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#151D28] px-3 py-1.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <Store className="w-4 h-4 text-rose-400 shrink-0" />
-              <span className="text-xs font-bold text-slate-100 truncate">
+          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 overflow-hidden">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Store className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="text-[11px] font-bold text-slate-100 truncate">
                 {shop.rival.name}
               </span>
-              <span className="text-[11px] text-slate-400 tabular-nums">
+              <span className="text-[10px] text-slate-400 tabular-nums truncate">
                 {shop.rival.boughtOut
-                  ? bi('✓ Rakip devralındı · Pazarın %100 hakimi sensin!', '✓ Rival acquired · 100% market share!')
-                  : bi(`Rakip Payı %${shop.rival.marketShare} · Senin Payın %${100 - shop.rival.marketShare}`, `Rival ${shop.rival.marketShare}% · Yours ${100 - shop.rival.marketShare}%`)}
+                  ? bi('✓ Devralındı · %100 Hakim', '✓ Acquired · 100% Share')
+                  : bi(`Rakip %${shop.rival.marketShare} · Sen %${100 - shop.rival.marketShare}`, `Rival ${shop.rival.marketShare}% · You ${100 - shop.rival.marketShare}%`)}
               </span>
               {!shop.rival.boughtOut && (
-                <div className="w-24 h-2 rounded-full bg-emerald-500/30 overflow-hidden hidden sm:block">
+                <div className="w-20 h-1.5 rounded-full bg-emerald-500/30 overflow-hidden hidden md:block shrink-0">
                   <div
                     className="h-full bg-rose-500"
                     style={{ width: `${shop.rival.marketShare}%` }}
@@ -1117,30 +1126,30 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
 
             {!shop.rival.boughtOut && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
                   disabled={shop.rival.promoUsedToday || shop.cash < 4500}
                   onClick={onRunRivalPromo}
-                  className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 border border-amber-400/35 px-2.5 py-1 text-[10.5px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 border border-amber-400/35 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[10px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                 >
                   <Megaphone className="w-3 h-3" />
-                  {bi('Reklam Kampanyası (4.500 ₺)', 'Promo Blitz (4,500 ₺)')}
+                  {bi('Reklam (4.500 ₺)', 'Promo (4.5k)')}
                 </button>
                 <button
                   type="button"
                   disabled={shop.cash < shop.rival.buyoutCost}
                   onClick={onBuyoutRival}
-                  className="rounded-lg bg-rose-500/20 border border-rose-400/40 px-2.5 py-1 text-[10.5px] font-bold text-rose-200 hover:bg-rose-500/30 disabled:opacity-35 cursor-pointer whitespace-nowrap tabular-nums"
+                  className="rounded-lg bg-rose-500/20 border border-rose-400/40 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-500/30 disabled:opacity-35 cursor-pointer whitespace-nowrap tabular-nums"
                 >
-                  {bi('Rakibi Satın Al', 'Buyout Rival')} ({formatTRY(shop.rival.buyoutCost)})
+                  {bi('Devral', 'Buyout')} ({formatTRY(shop.rival.buyoutCost)})
                 </button>
               </div>
             )}
           </div>
 
-          {/* 5 Branches + 6th Empire Portfolio Card = Perfect 3x2 Grid */}
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+          {/* 5 Branches + 6th Empire Portfolio Card = Perfect 3x2 Zero-Scroll Grid */}
+          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {CITY_BRANCHES.map((raw) => {
               const b = getLocalizedBranch(raw.id, lang);
               const owned = shop.branches.includes(b.id);
@@ -1154,72 +1163,72 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               return (
                 <div
                   key={b.id}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 min-h-0 overflow-hidden ${
                     owned
                       ? 'border-emerald-400/30 bg-[#13221D]'
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-1.5">
+                  <div className="flex items-start justify-between gap-1 min-w-0">
                     <div className="min-w-0">
-                      <div className="text-xs font-extrabold text-slate-100 truncate">
+                      <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
                         {b.name}
                       </div>
-                      <div className="text-[10px] text-amber-300/90 truncate">
-                        {b.district} · +{b.prestigeBonus} {bi('Prestij', 'Prestige')}
+                      <div className="text-[9px] text-amber-300/90 truncate">
+                        {b.district} · +{b.prestigeBonus}P
                       </div>
                     </div>
-                    <span className="font-mono text-[11px] font-extrabold text-emerald-400 shrink-0 tabular-nums">
+                    <span className="font-mono text-[10px] [@media(min-height:560px)]:text-[11px] font-extrabold text-emerald-400 shrink-0 tabular-nums">
                       +{formatTRY(b.dailyNetIncome)}/{bi('g', 'd')}
                     </span>
                   </div>
 
-                  <p className="text-[10px] text-slate-300 line-clamp-2 leading-snug">
+                  <p className="hidden [@media(min-height:560px)]:block text-[9.5px] text-slate-300 line-clamp-2 leading-tight">
                     {b.description}
                   </p>
 
                   {/* Rich Financial Metrics Strip */}
-                  <div className="rounded-lg border border-white/8 bg-[#0E141D] px-2 py-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9.5px] tabular-nums">
-                    <div className="text-slate-400">
-                      {bi('Amorti', 'Payback')}:{' '}
-                      <strong className="font-mono text-slate-100">~{roiDays} {bi('gün', 'd')}</strong>
+                  <div className="rounded-lg border border-white/8 bg-[#0E141D] px-1.5 py-1 grid grid-cols-2 gap-x-1.5 gap-y-0.5 text-[9px] tabular-nums">
+                    <div className="text-slate-400 truncate">
+                      {bi('Amorti', 'ROI')}:{' '}
+                      <strong className="font-mono text-slate-100">~{roiDays}{bi('g', 'd')}</strong>
                     </div>
-                    <div className="text-slate-400 text-right">
-                      {bi('Çevrimdışı', 'Offline')}:{' '}
+                    <div className="text-slate-400 text-right truncate">
+                      {bi('Çevrimdışı', 'Off')}:{' '}
                       <strong className="font-mono text-sky-300">+{formatTRY(b.offlineHourlyRate)}/s</strong>
                     </div>
-                    <div className="text-slate-400">
-                      {bi('Kurulum', 'Build')}:{' '}
-                      <strong className="font-mono text-slate-200">{b.buildDays} {bi('gün', 'd')}</strong>
+                    <div className="text-slate-400 truncate">
+                      {bi('Süre', 'Build')}:{' '}
+                      <strong className="font-mono text-slate-200">{b.buildDays}{bi('g', 'd')}</strong>
                     </div>
-                    <div className="text-slate-400 text-right">
-                      {bi('Gereken', 'Min Rep')}:{' '}
+                    <div className="text-slate-400 text-right truncate">
+                      {bi('İtibar', 'Rep')}:{' '}
                       <strong className={meetsRep ? 'text-emerald-400' : 'text-amber-300'}>
                         {b.minReputation.toFixed(1)}★
                       </strong>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <div className="shrink-0">
                     {owned ? (
-                      <div className="w-full rounded-lg bg-emerald-500/15 py-1 text-center text-[10.5px] font-bold text-emerald-300">
-                        ✓ {bi('Aktif Şube · Gelir Akıyor', 'Active Branch · Earning')}
+                      <div className="w-full rounded-lg bg-emerald-500/15 py-1 text-center text-[9.5px] font-bold text-emerald-300 truncate">
+                        ✓ {bi('Aktif Şube', 'Active Branch')}
                       </div>
                     ) : pending ? (
-                      <div className="w-full rounded-lg bg-sky-500/15 py-1 text-center text-[10.5px] font-bold text-sky-300">
+                      <div className="w-full rounded-lg bg-sky-500/15 py-1 text-center text-[9.5px] font-bold text-sky-300 truncate">
                         <Clock className="w-3 h-3 inline mr-1" />
-                        {bi(`İnşaatta (${pending.daysRemaining}g kaldı)`, `Building (${pending.daysRemaining}d left)`)}
+                        {bi(`İnşaatta (${pending.daysRemaining}g)`, `Building (${pending.daysRemaining}d)`)}
                       </div>
                     ) : (
                       <button
                         type="button"
                         disabled={!canBuy}
                         onClick={() => onUnlockBranch(b.id)}
-                        className="w-full rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer tabular-nums"
+                        className="w-full rounded-lg bg-amber-500 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer tabular-nums truncate px-1"
                       >
                         {!meetsRep
-                          ? bi(`${b.minReputation.toFixed(1)}★ İtibar Gerekli`, `Requires ${b.minReputation.toFixed(1)}★ Rep`)
-                          : bi(`Şube Aç · ${formatTRY(b.unlockCost)}`, `Open Branch · ${formatTRY(b.unlockCost)}`)}
+                          ? bi(`${b.minReputation.toFixed(1)}★ Gerekli`, `Need ${b.minReputation.toFixed(1)}★`)
+                          : bi(`Aç · ${formatTRY(b.unlockCost)}`, `Open · ${formatTRY(b.unlockCost)}`)}
                       </button>
                     )}
                   </div>
@@ -1228,33 +1237,33 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             })}
 
             {/* 6th Card: Empire Passive Cashflow Summary */}
-            <div className="rounded-xl border border-amber-400/25 bg-[#161D2A] p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-extrabold text-amber-300 flex items-center gap-1.5">
-                  <TrendingUp className="w-4 h-4" />
-                  {bi('Şube Ağı Özeti', 'Branch Network Summary')}
+            <div className="rounded-xl border border-amber-400/25 bg-[#161D2A] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between gap-1">
+                <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-amber-300 flex items-center gap-1 truncate">
+                  <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{bi('Şube Ağı', 'Branch Net')}</span>
                 </div>
-                <span className="font-mono text-[10.5px] font-bold text-slate-300">
-                  {shop.branches.length} / {CITY_BRANCHES.length}
+                <span className="font-mono text-[10px] font-bold text-slate-300 shrink-0">
+                  {shop.branches.length}/{CITY_BRANCHES.length}
                 </span>
               </div>
 
-              <div className="rounded-lg border border-white/8 bg-[#0E141D] p-2 space-y-1.5 text-[10.5px] tabular-nums">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">{bi('Günlük Şube Geliri', 'Daily Branch Income')}</span>
-                  <span className="font-mono font-extrabold text-emerald-400">
+              <div className="rounded-lg border border-white/8 bg-[#0E141D] p-1.5 space-y-0.5 text-[9.5px] [@media(min-height:560px)]:text-[10.5px] tabular-nums">
+                <div className="flex justify-between gap-1">
+                  <span className="text-slate-400 truncate">{bi('Günlük Gelir', 'Daily Income')}</span>
+                  <span className="font-mono font-extrabold text-emerald-400 shrink-0">
                     +{formatTRY(totalBranchDailyIncome)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">{bi('Saatlik Çevrimdışı', 'Offline Hourly')}</span>
-                  <span className="font-mono font-bold text-sky-300">
+                <div className="flex justify-between gap-1">
+                  <span className="text-slate-400 truncate">{bi('Çevrimdışı', 'Offline')}</span>
+                  <span className="font-mono font-bold text-sky-300 shrink-0">
                     +{formatTRY(totalBranchOfflineHourly)}/s
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">{bi('Pazar Hakimiyetin', 'Your Market Share')}</span>
-                  <span className="font-mono font-bold text-amber-300">
+                <div className="flex justify-between gap-1">
+                  <span className="text-slate-400 truncate">{bi('Pazar Payı', 'Share')}</span>
+                  <span className="font-mono font-bold text-amber-300 shrink-0">
                     %{shop.rival.boughtOut ? 100 : 100 - shop.rival.marketShare}
                   </span>
                 </div>
@@ -1269,13 +1278,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   (shop.rival.boughtOut ? 3500 : 0);
                 return onActivatePassive2xAd ? (
                   passive2xActiveToday ? (
-                    <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2.5 py-1.5 text-center text-[10.5px] font-extrabold text-emerald-300 flex items-center justify-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>
-                        {bi(
-                          `Gün ${shop.day} Pasif Gelir 2x Aktif!`,
-                          `Day ${shop.day} 2x Passive Income Active!`
-                        )}
+                    <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2 py-1 text-center text-[9.5px] font-extrabold text-emerald-300 flex items-center justify-center gap-1 truncate">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
+                        {bi(`Gün ${shop.day} 2x Aktif!`, `Day ${shop.day} 2x Active!`)}
                       </span>
                     </div>
                   ) : (
@@ -1283,24 +1289,21 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                       type="button"
                       disabled={totalDailyPassive <= 0}
                       onClick={onActivatePassive2xAd}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+                      className="w-full inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 px-2 py-1 [@media(min-height:560px)]:py-1.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums truncate"
                     >
-                      <PlayCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>
+                      <PlayCircle className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
                         {totalDailyPassive > 0
-                          ? bi(
-                              `Pasif Geliri 2x Yap (+${formatTRY(totalDailyPassive)})`,
-                              `2x Passive Today (+${formatTRY(totalDailyPassive)})`
-                            )
-                          : bi('Önce şube/müze aç', 'Unlock branch/museum first')}
+                          ? bi(`Pasif 2x (+${formatTRY(totalDailyPassive)})`, `2x Passive (+${formatTRY(totalDailyPassive)})`)
+                          : bi('Önce şube aç', 'Unlock branch')}
                       </span>
                     </button>
                   )
                 ) : (
-                  <p className="text-[10px] text-slate-400 leading-snug">
+                  <p className="text-[9.5px] text-slate-400 leading-tight line-clamp-2">
                     {bi(
-                      'Şubeler her gün sonu net nakit getirir ve oyun kapalıyken bile kasana çevrimdışı gelir yazar.',
-                      'Branches pay net daily cash and keep generating offline income even while you are away.'
+                      'Şubeler her gün sonu net nakit ve çevrimdışı gelir üretir.',
+                      'Branches pay daily net cash and offline income.'
                     )}
                   </p>
                 );
@@ -1310,28 +1313,28 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB 4: BANK LOANS & TAX (ZERO DEAD SPACE, NO Sv.X!) */}
+      {/* SUB-TAB 4: BANK LOANS & TAX (STRICT ZERO SCROLL) */}
       {subTab === 'FINANCE' && (
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Left: Tax & Active Loans */}
-          <div className="col-span-5 flex flex-col gap-2 min-h-0 overflow-hidden">
-            <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-3 space-y-2">
+          <div className="col-span-5 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+            <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-100 flex items-center gap-1.5">
-                  <Receipt className="w-4 h-4 text-emerald-400" />
+                <span className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   {bi('Vergi & Muhasebe', 'Tax & Accounting')}
                 </span>
-                <span className="font-mono text-[11px] font-bold text-amber-300">
+                <span className="font-mono text-[10.5px] font-bold text-amber-300">
                   {bi('KDV', 'VAT')}: %{taxPct}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg bg-[#0E141D] border border-white/8 px-2.5 py-2 tabular-nums">
+              <div className="flex items-center justify-between rounded-lg bg-[#0E141D] border border-white/8 px-2 py-1.5 tabular-nums">
                 <div>
-                  <div className="text-[10px] text-slate-400">
-                    {bi('Ödenecek Vergi Borcu', 'Weekly Tax Due')}
+                  <div className="text-[9.5px] text-slate-400">
+                    {bi('Ödenecek Vergi', 'Weekly Tax')}
                   </div>
-                  <div className="font-mono text-sm font-extrabold text-emerald-400">
+                  <div className="font-mono text-xs [@media(min-height:560px)]:text-sm font-extrabold text-emerald-400">
                     {formatTRY(shop.weeklyTaxDue)}
                   </div>
                 </div>
@@ -1340,13 +1343,13 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     type="button"
                     disabled={shop.cash < shop.weeklyTaxDue}
                     onClick={onPayWeeklyTax}
-                    className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                    className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
                   >
-                    {bi('Vergiyi Öde', 'Pay Tax')}
+                    {bi('Öde', 'Pay Tax')}
                   </button>
                 ) : (
-                  <span className="text-[11px] font-bold text-emerald-400">
-                    ✓ {bi('Borç Yok', 'All Clear')}
+                  <span className="text-[10.5px] font-bold text-emerald-400">
+                    ✓ {bi('Borç Yok', 'Clear')}
                   </span>
                 )}
               </div>
@@ -1354,74 +1357,74 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               <button
                 type="button"
                 onClick={onGoToStaff}
-                className="w-full rounded-lg bg-[#0E141D] border border-sky-400/25 px-2.5 py-1.5 text-[10px] text-sky-300 hover:bg-sky-500/10 flex items-center justify-between cursor-pointer text-left"
+                className="w-full rounded-lg bg-[#0E141D] border border-sky-400/25 px-2 py-1 text-[9.5px] text-sky-300 hover:bg-sky-500/10 flex items-center justify-between cursor-pointer text-left"
               >
                 <span className="truncate">
                   {shop.staff.includes('accountant')
-                    ? bi('Mali Müşavir Selma aktif — vergi ve kredi faizi optimize edildi.', 'CPA Selma active — taxes & loan rates optimized.')
-                    : bi('Mali Müşavir Selma’yı tutarak KDV’yi %6’ya düşür →', 'Hire CPA Selma to cut VAT down to 6% →')}
+                    ? bi('Mali Müşavir Selma aktif — vergi/faiz optimize.', 'CPA Selma active — tax & APR optimized.')
+                    : bi('Mali Müşavir Selma ile KDV’yi %6’ya düşür →', 'Hire CPA Selma to cut VAT to 6% →')}
                 </span>
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col gap-2 overflow-hidden">
-              <div className="text-xs font-extrabold text-slate-100 flex items-center justify-between gap-1.5">
+            <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col gap-1.5 overflow-hidden">
+              <div className="shrink-0 text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 flex items-center justify-between gap-1">
                 <span>
                   {bi('Aktif Krediler', 'Active Loans')} ({shop.activeLoans.length}/2)
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   {(shop.debtFreePrestigeBonus ?? 0) > 0 && (
-                    <span className="rounded border border-emerald-400/40 bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-emerald-300">
-                      +{shop.debtFreePrestigeBonus} {bi('Prestij', 'Prestige')}
+                    <span className="rounded border border-emerald-400/40 bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[9px] font-extrabold text-emerald-300">
+                      +{shop.debtFreePrestigeBonus}P
                     </span>
                   )}
-                  <span className="font-mono text-[10px] text-slate-400">
-                    {bi(`Kademe ${shop.shopTier}/6`, `Tier ${shop.shopTier}/6`)}
+                  <span className="font-mono text-[9.5px] text-slate-400">
+                    {bi(`Dük. ${shop.shopTier}/6`, `T${shop.shopTier}/6`)}
                   </span>
                 </div>
               </div>
               {shop.activeLoans.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center gap-1 px-4">
-                  <Landmark className="w-7 h-7 text-emerald-400/75" />
-                  <div className="text-xs font-semibold text-slate-200">
+                <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-1 px-2 overflow-hidden">
+                  <Landmark className="w-5 h-5 [@media(min-height:540px)]:w-7 [@media(min-height:540px)]:h-7 text-emerald-400/75 shrink-0" />
+                  <div className="text-[11px] font-semibold text-slate-200">
                     {(shop.loansPaidOffCount ?? 0) > 0
                       ? bi(
-                          `Mali Borç Sıfır! (${shop.loansPaidOffCount} kredi kapatıldı)`,
-                          `Debt Free! (${shop.loansPaidOffCount} loan(s) cleared)`
+                          `Borç Sıfır! (${shop.loansPaidOffCount} kapatıldı)`,
+                          `Debt Free! (${shop.loansPaidOffCount} cleared)`
                         )
-                      : bi('Şu an aktif kredi borcun yok.', 'No active bank loans.')}
+                      : bi('Aktif kredi borcun yok.', 'No active bank loans.')}
                   </div>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="hidden [@media(min-height:480px)]:block text-[9.5px] text-slate-400 line-clamp-2">
                     {bi(
-                      'Her kapatılan kredi dükkanına kalıcı prestij bonusu (+4, tüm borç sıfırlanırsa +8) kazandırır.',
-                      'Each cleared loan grants permanent shop prestige (+4, or +8 when debt hits zero).'
+                      'Her kapatılan kredi kalıcı prestij bonusu (+4/+8) kazandırır.',
+                      'Cleared loans grant permanent shop prestige (+4/+8).'
                     )}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {shop.activeLoans.map((ln) => (
+                <div className="flex-1 min-h-0 grid grid-rows-2 gap-1.5 overflow-hidden">
+                  {shop.activeLoans.slice(0, 2).map((ln) => (
                     <div
                       key={ln.id}
-                      className="rounded-lg bg-[#0E141D] border border-white/8 p-2.5 text-[11px] tabular-nums space-y-1.5"
+                      className="min-h-0 rounded-lg bg-[#0E141D] border border-white/8 p-1.5 [@media(min-height:560px)]:p-2.5 text-[10.5px] tabular-nums flex flex-col justify-center gap-1 overflow-hidden"
                     >
-                      <div className="flex justify-between font-bold text-slate-100">
+                      <div className="flex justify-between font-bold text-slate-100 gap-1">
                         <span className="truncate">{ln.name}</span>
-                        <span className="font-mono text-rose-300">
+                        <span className="font-mono text-rose-300 shrink-0">
                           {formatTRY(ln.remainingBalance)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span>
+                      <div className="flex items-center justify-between text-[9.5px] text-slate-400 gap-1">
+                        <span className="truncate">
                           {bi('Günlük', 'Daily')}: {formatTRY(ln.dailyPayment)} · {ln.daysLeft}{bi('g', 'd')}
                         </span>
                         <button
                           type="button"
                           disabled={shop.cash < ln.remainingBalance}
                           onClick={() => onRepayLoanEarly(ln.id)}
-                          className="rounded bg-emerald-500/15 border border-emerald-400/35 px-2 py-0.5 text-[9.5px] font-bold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-35 cursor-pointer"
+                          className="rounded bg-emerald-500/15 border border-emerald-400/35 px-2 py-0.5 text-[9px] font-bold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-35 cursor-pointer shrink-0"
                         >
-                          {bi('Erken Kapat', 'Pay Off')}
+                          {bi('Kapat', 'Pay Off')}
                         </button>
                       </div>
                     </div>
@@ -1431,8 +1434,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
           </div>
 
-          {/* Right: 6 Bank Loan Offers with Rich Financial Details */}
-          <div className="col-span-7 grid grid-cols-3 grid-rows-2 gap-2 min-h-0 overflow-hidden">
+          {/* Right: 6 Bank Loan Offers — Strict 3x2 Zero Scroll */}
+          <div className="col-span-7 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
             {BANK_LOANS.map((raw) => {
               const ln = getLocalizedLoan(raw.id, lang);
               const unlocked = shop.shopTier >= ln.minShopTier;
@@ -1450,66 +1453,70 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               return (
                 <div
                   key={ln.id}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 min-h-0 overflow-hidden ${
                     unlocked
                       ? 'border-white/10 bg-[#151D28]'
                       : 'border-white/5 bg-[#121821]/85'
                   }`}
                 >
-                  <div className="space-y-0.5">
-                    <div className="text-[11px] font-extrabold text-slate-100 leading-tight truncate">
+                  <div className="min-w-0">
+                    <div className="text-[10.5px] font-extrabold text-slate-100 leading-tight truncate">
                       {ln.name}
                     </div>
-                    <div className="font-mono text-sm font-extrabold text-emerald-400 tabular-nums">
+                    <div className="font-mono text-xs [@media(min-height:560px)]:text-sm font-extrabold text-emerald-400 tabular-nums">
                       {formatTRY(terms.effectivePrincipal)}
                     </div>
                   </div>
 
-                  <p className="text-[9.5px] text-slate-400 line-clamp-2 leading-snug">
+                  <p className="hidden [@media(min-height:580px)]:block text-[9.5px] text-slate-400 line-clamp-2 leading-tight">
                     {ln.description}
                   </p>
 
                   {/* Structured Financial Breakdown */}
-                  <div className="rounded-lg border border-white/8 bg-[#0E141D] p-1.5 space-y-0.5 text-[9.5px] tabular-nums">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">{bi('Faiz / Vade', 'APR / Term')}</span>
-                      <span className="font-mono text-amber-300">
+                  <div className="rounded-lg border border-white/8 bg-[#0E141D] p-1 [@media(min-height:560px)]:p-1.5 space-y-0.5 text-[9px] tabular-nums">
+                    <div className="flex justify-between gap-1">
+                      <span className="text-slate-400 truncate">{bi('Faiz', 'APR')}</span>
+                      <span className="font-mono text-amber-300 shrink-0">
                         %{Math.round(terms.effectiveRate * 100)} · {ln.termDays}{bi('g', 'd')}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">{bi('Toplam Ödeme', 'Total Repay')}</span>
-                      <span className="font-mono text-slate-200">{formatTRY(terms.totalRepay)}</span>
+                    <div className="flex justify-between gap-1">
+                      <span className="text-slate-400 truncate">{bi('Toplam', 'Total')}</span>
+                      <span className="font-mono text-slate-200 shrink-0">{formatTRY(terms.totalRepay)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">{bi('Günlük Taksit', 'Daily Pay')}</span>
-                      <span className="font-mono font-bold text-rose-300">
+                    <div className="flex justify-between gap-1">
+                      <span className="text-slate-400 truncate">{bi('Taksit', 'Daily')}</span>
+                      <span className="font-mono font-bold text-rose-300 shrink-0">
                         {formatTRY(terms.dailyPayment)}/{bi('g', 'd')}
                       </span>
                     </div>
-                    <div className="flex justify-between text-[9px] text-slate-500">
+                    <div className="hidden [@media(min-height:540px)]:flex justify-between text-[8.5px] text-slate-500">
                       <span>{bi('Faiz Maliyeti', 'Interest')}</span>
                       <span className="font-mono">+{formatTRY(interestCost)}</span>
                     </div>
                   </div>
 
-                  {unlocked ? (
-                    <button
-                      type="button"
-                      disabled={!canTake}
-                      onClick={() => onTakeLoan(raw)}
-                      className="w-full rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
-                    >
-                      {shop.activeLoans.length >= 2
-                        ? bi('Limit Dolu (2/2)', 'Max 2 Loans')
-                        : bi('Kredi Çek', 'Take Loan')}
-                    </button>
-                  ) : (
-                    <div className="w-full rounded-lg bg-white/5 py-1.5 px-1.5 text-center text-[10px] font-bold text-amber-300/90 inline-flex items-center justify-center gap-1 truncate">
-                      <Lock className="w-3 h-3 shrink-0" />
-                      {bi(`${ln.minShopTier}. Dükkan`, `Shop Tier ${ln.minShopTier}`)} ({tierInfo.name.split(' ')[0]})
-                    </div>
-                  )}
+                  <div className="shrink-0">
+                    {unlocked ? (
+                      <button
+                        type="button"
+                        disabled={!canTake}
+                        onClick={() => onTakeLoan(raw)}
+                        className="w-full rounded-lg bg-amber-500 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                      >
+                        {shop.activeLoans.length >= 2
+                          ? bi('Limit (2/2)', 'Max 2')
+                          : bi('Kredi Çek', 'Take Loan')}
+                      </button>
+                    ) : (
+                      <div className="w-full rounded-lg bg-white/5 py-1 px-1 text-center text-[9.5px] font-bold text-amber-300/90 inline-flex items-center justify-center gap-1 truncate">
+                        <Lock className="w-2.5 h-2.5 shrink-0" />
+                        <span className="truncate">
+                          {bi(`${ln.minShopTier}. Dükkan`, `Tier ${ln.minShopTier}`)} ({tierInfo.name.split(' ')[0]})
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1517,32 +1524,32 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB 5: NOSTALGIA MUSEUM WITH DEEP STORIES & ARCHIVE PLAQUE MODAL */}
+      {/* SUB-TAB 5: NOSTALGIA MUSEUM (5-COL STRICT ZERO SCROLL) */}
       {subTab === 'MUSEUM' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Museum Collection Header Bar */}
-          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#151D28] px-3 py-1.5 text-[11px] tabular-nums">
-            <div className="flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="font-extrabold text-slate-100">
+          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 text-[10.5px] tabular-nums">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="font-extrabold text-slate-100 truncate">
                 {bi('GSM Nostalji & Efsaneler Müzesi', 'GSM Nostalgia & Legends Museum')}
               </span>
-              <span className="text-slate-400">
-                · {shop.museumItems.length}/5 {bi('Sergileniyor', 'Displayed')}
+              <span className="text-slate-400 whitespace-nowrap shrink-0">
+                · {shop.museumItems.length}/5
               </span>
             </div>
-            <div className="flex items-center gap-3 font-mono text-[10.5px]">
-              <span className="text-amber-300 font-bold">
-                +{totalMuseumPrestige} {bi('Prestij', 'Prestige')}
+            <div className="flex items-center gap-2 font-mono text-[10px] shrink-0">
+              <span className="text-amber-300 font-bold whitespace-nowrap">
+                +{totalMuseumPrestige}P
               </span>
-              <span className="text-emerald-400 font-bold">
-                +{formatTRY(totalMuseumDaily)}/{bi('gün', 'day')}
+              <span className="text-emerald-400 font-bold whitespace-nowrap">
+                +{formatTRY(totalMuseumDaily)}/{bi('g', 'd')}
               </span>
             </div>
           </div>
 
-          {/* 5 Museum Cards — Compact Story Box + Click to Read + Auto-Open Story on Buy */}
-          <div className="flex-1 min-h-0 grid grid-cols-5 gap-2 overflow-hidden">
+          {/* 5 Museum Cards — Strict 5-Col Zero Scroll */}
+          <div className="flex-1 min-h-0 grid grid-cols-5 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {MUSEUM_ITEMS.map((raw) => {
               const item = getLocalizedMuseumItem(raw.id, lang);
               const owned = shop.museumItems.includes(item.id);
@@ -1553,48 +1560,46 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     setJustBoughtMuseumId(null);
                     setSelectedMuseumId(item.id);
                   }}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden cursor-pointer transition-colors ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 min-h-0 overflow-hidden cursor-pointer transition-colors ${
                     owned
                       ? 'border-amber-400/45 bg-[#1C1A14] hover:border-amber-300'
                       : 'border-white/10 bg-[#151D28] hover:border-amber-400/40'
                   }`}
                 >
                   {/* Top Title & Era */}
-                  <div className="shrink-0 space-y-0.5">
-                    <div className="flex items-center justify-between gap-1 text-[9.5px]">
-                      <span
-                        className="font-mono font-bold truncate"
-                        style={{ color: item.accentColor }}
-                      >
-                        {item.year} · {item.rarityLabel}
-                      </span>
+                  <div className="shrink-0">
+                    <div
+                      className="text-[9px] font-mono font-bold truncate"
+                      style={{ color: item.accentColor }}
+                    >
+                      {item.year} · {item.rarityLabel}
                     </div>
-                    <div className="text-[11px] font-extrabold text-slate-100 leading-tight line-clamp-2">
+                    <div className="text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 leading-tight truncate">
                       {item.name}
                     </div>
                   </div>
 
                   {/* Center Museum Pedestal Stage */}
-                  <div className="shrink-0 rounded-xl border border-white/8 bg-[#0D131C] py-1.5 px-2 flex flex-col items-center justify-center gap-1">
-                    <MuseumPhoneArt id={item.id} className="w-11 h-14 lg:w-13 lg:h-18" />
-                    <div className="text-[9.5px] font-mono text-emerald-400 font-bold tabular-nums">
+                  <div className="shrink-0 rounded-xl border border-white/8 bg-[#0D131C] py-1 px-1.5 flex flex-col items-center justify-center gap-0.5">
+                    <MuseumPhoneArt id={item.id} className="w-8 h-11 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-16" />
+                    <div className="text-[8.5px] [@media(min-height:560px)]:text-[9.5px] font-mono text-emerald-400 font-bold tabular-nums truncate max-w-full">
                       +{formatTRY(item.dailyPassiveCash)}/{bi('g', 'd')} · +{item.prestigeBonus}P
                     </div>
                   </div>
 
                   {/* Compact "Hikaye" Box inside Card */}
-                  <div className="flex-1 min-h-0 rounded-lg border border-amber-400/15 bg-[#0E141D] p-2 flex flex-col justify-between gap-1 overflow-hidden">
-                    <div className="space-y-0.5 min-h-0 overflow-hidden">
-                      <div className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-400">
+                  <div className="flex-1 min-h-0 rounded-lg border border-amber-400/15 bg-[#0E141D] p-1.5 flex flex-col justify-between gap-0.5 overflow-hidden">
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="hidden [@media(min-height:500px)]:inline-flex items-center gap-1 text-[8.5px] font-extrabold uppercase tracking-wider text-amber-400">
                         <BookOpen className="w-2.5 h-2.5" />
                         {bi('Hikaye', 'Story')}
                       </div>
-                      <p className="text-[9.5px] text-slate-300 leading-snug line-clamp-3">
+                      <p className="text-[9px] [@media(min-height:560px)]:text-[9.5px] text-slate-300 leading-tight line-clamp-2 [@media(min-height:540px)]:line-clamp-3">
                         {item.story}
                       </p>
                     </div>
-                    <span className="text-[9.5px] font-bold text-amber-300">
-                      {bi('Detayı Gör →', 'Read More →')}
+                    <span className="shrink-0 text-[9px] font-bold text-amber-300 truncate">
+                      {bi('Detayı Gör →', 'Read →')}
                     </span>
                   </div>
 
@@ -1607,10 +1612,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                           setJustBoughtMuseumId(null);
                           setSelectedMuseumId(item.id);
                         }}
-                        className="w-full rounded-lg bg-amber-500/20 hover:bg-amber-500/30 py-1.5 text-center text-[10px] font-extrabold text-amber-300 inline-flex items-center justify-center gap-1 cursor-pointer"
+                        className="w-full rounded-lg bg-amber-500/20 hover:bg-amber-500/30 py-1 text-center text-[9.5px] font-extrabold text-amber-300 inline-flex items-center justify-center gap-1 cursor-pointer truncate px-1"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        {bi('Hikayeyi Aç', 'View Story')}
+                        <CheckCircle2 className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{bi('Hikaye', 'Story')}</span>
                       </button>
                     ) : (
                       <button
@@ -1621,7 +1626,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                           setJustBoughtMuseumId(item.id);
                           setSelectedMuseumId(item.id);
                         }}
-                        className="w-full rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer tabular-nums"
+                        className="w-full rounded-lg bg-amber-500 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer tabular-nums"
                       >
                         {formatTRY(item.cost)}
                       </button>
@@ -1634,127 +1639,159 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB 6: PAZAR GÜNÜ ESNAF KERMESİ (SUNDAY CLEARANCE & RARE PARTS BAZAAR) */}
+      {/* SUB-TAB 6: PAZAR GÜNÜ ESNAF KERMESİ (STRICT ZERO SCROLL + PAGINATED CLEARANCE) */}
       {subTab === 'KERMES' && (
         !kermesOpen || !kermes ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/30 bg-[#151D28] flex flex-col items-center justify-center text-center p-5 gap-3 overflow-hidden">
-            <div className="w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-amber-400" />
+          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/30 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-5 gap-1.5 [@media(min-height:560px)]:gap-3 overflow-hidden">
+            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Calendar className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
             </div>
-            <div className="space-y-1 max-w-xl">
-              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 [@media(min-height:540px)]:space-y-1 max-w-xl">
+              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi(
                   `BUGÜN ${weekday.nameTr.toUpperCase()} (GÜN ${shop.day}) · PAZAR GÜNÜ AÇILIR`,
                   `TODAY IS ${weekday.nameEn.toUpperCase()} (DAY ${shop.day}) · OPENS EVERY SUNDAY`
                 )}
               </div>
-              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-sm [@media(min-height:540px)]:text-lg font-extrabold text-slate-50">
                 {bi(
                   `Esnaf Kermesi’ne ${weekday.daysUntilSunday} Gün Kaldı (Gün ${weekday.nextSundayDay} · Pazar)`,
                   `Sunday Merchants Fair Opens in ${weekday.daysUntilSunday} Day(s) (Day ${weekday.nextSundayDay} · Sun)`
                 )}
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-[10.5px] [@media(min-height:540px)]:text-xs text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {bi(
-                  'Her Pazar günü pasaj meydanında kurulan Esnaf Kermesi’nde elinde bekleyen tüm telefonları beklemeden anında nakde çevirebilir, tamir parçalarını ise yarı fiyatına toplayabilirsin!',
+                  'Her Pazar günü pasaj meydanında kurulan Esnaf Kermesi’nde elinde bekleyen tüm telefonları beklemeden anında nakde çevirebilir, tamir parçalarını yarı fiyatına toplayabilirsin!',
                   'Every Sunday the Arcade Merchants Fair opens! Instantly liquidate sitting inventory for cash and snatch rare repair parts & bargain phones at up to 60% off!'
                 )}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 max-w-xl w-full text-left">
-              <div className="rounded-xl border border-emerald-400/25 bg-[#0E141D] p-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
-                  <Store className="w-4 h-4 shrink-0" />
-                  {bi('1. Hızlı Elden Çıkarma Tezgâhı', '1. Instant Clearance Stall')}
+            <div className="hidden [@media(min-height:430px)]:grid grid-cols-2 gap-2 max-w-xl w-full text-left">
+              <div className="rounded-xl border border-emerald-400/25 bg-[#0E141D] p-2 [@media(min-height:540px)]:p-3 space-y-0.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-300">
+                  <Store className="w-3.5 h-3.5 shrink-0" />
+                  {bi('1. Hızlı Elden Çıkarma', '1. Instant Clearance')}
                 </div>
-                <p className="text-[11px] text-slate-400 leading-snug">
+                <p className="text-[10px] text-slate-400 leading-tight line-clamp-2">
                   {bi(
-                    'Stokta kalan, arızalı veya yavaş satan cihazları müşteri beklemeden Pazar kalabalığına %92–%108 piyasa oranıyla anında sat!',
-                    'Sell slow, older, or faulty devices instantly to the Sunday crowd at 92%–108% fair value with zero waiting!'
+                    'Stokta kalan cihazları Pazar kalabalığına %92–%108 oranla beklemeden anında sat!',
+                    'Sell slow or faulty devices instantly to the Sunday crowd at 92%–108% fair value!'
                   )}
                 </p>
               </div>
-              <div className="rounded-xl border border-amber-400/25 bg-[#0E141D] p-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-300">
-                  <Wrench className="w-4 h-4 shrink-0" />
-                  {bi('2. Yarı Fiyatına Nadir Parça & Kelepir', '2. Half-Price Rare Parts & Steals')}
+              <div className="rounded-xl border border-amber-400/25 bg-[#0E141D] p-2 [@media(min-height:540px)]:p-3 space-y-0.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-300">
+                  <Wrench className="w-3.5 h-3.5 shrink-0" />
+                  {bi('2. Yarı Fiyatına Parça & Kelepir', '2. Half-Price Parts & Steals')}
                 </div>
-                <p className="text-[11px] text-slate-400 leading-snug">
+                <p className="text-[10px] text-slate-400 leading-tight line-clamp-2">
                   {bi(
-                    'Her Pazar rastgele yenilenen 4 sandık: %50–%62 indirimli OLED ekran, OEM pil, IPA anakart kiti ve sürpriz kelepir cihazlar!',
-                    '4 freshly randomized crates every Sunday: 50%–62% off OLED displays, OEM batteries, IPA board kits & surprise bargain phones!'
+                    'Her Pazar yenilenen 4 sandık: %50–%62 indirimli OLED, OEM pil ve sürpriz cihazlar!',
+                    '4 freshly randomized crates every Sunday: 50%–62% off OLED, batteries & bargain phones!'
                   )}
                 </p>
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0E141D] px-3 py-1.5 text-[11px] text-slate-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <div className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0E141D] px-2.5 py-1 text-[10.5px] text-slate-300">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>
                 {bi(
-                  `Sonraki Kermes Günü: Gün ${weekday.nextSundayDay} (Her 7. Gün Pazar)`,
-                  `Next Fair Day: Day ${weekday.nextSundayDay} (Every 7th Day)`
+                  `Sonraki Kermes: Gün ${weekday.nextSundayDay} (Her 7. Gün Pazar)`,
+                  `Next Fair: Day ${weekday.nextSundayDay} (Every 7th Day)`
                 )}
               </span>
             </div>
           </div>
-        ) : (
-          <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        ) : (() => {
+          const kermesAvailable = shop.inventory.filter((p) => !p.assignedToStaff);
+          const KERMES_PER_PAGE = 3;
+          const totalKermesPages = Math.max(1, Math.ceil(kermesAvailable.length / KERMES_PER_PAGE));
+          const safeKermesPage = Math.min(kermesPage, totalKermesPages - 1);
+          const visibleKermesPhones = kermesAvailable.slice(
+            safeKermesPage * KERMES_PER_PAGE,
+            safeKermesPage * KERMES_PER_PAGE + KERMES_PER_PAGE
+          );
+
+          return (
+          <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {/* FESTIVE SUNDAY KERMES HEADER */}
-            <div className="shrink-0 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-950/80 via-[#151D28] to-amber-950/60 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="shrink-0 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-950/80 via-[#151D28] to-amber-950/60 px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-2 flex items-center justify-between gap-2 overflow-hidden">
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono font-extrabold text-emerald-300 uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <div className="flex items-center gap-1.5 text-[9.5px] font-mono font-extrabold text-emerald-300 uppercase tracking-wider truncate">
+                  <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
                   <span>
-                    {bi(`PAZAR GÜNÜ ÖZEL · GÜN ${shop.day}`, `SUNDAY SPECIAL · DAY ${shop.day}`)}
+                    {bi(`PAZAR ÖZEL · GÜN ${shop.day}`, `SUNDAY SPECIAL · DAY ${shop.day}`)}
                   </span>
                   <span>·</span>
-                  <span className="text-amber-300">
+                  <span className="text-amber-300 truncate">
                     {lang === 'en' ? kermes.enCrowdBuzzLabel : kermes.crowdBuzzLabel}
                   </span>
                 </div>
-                <div className="font-display text-xs sm:text-sm font-extrabold text-slate-50 truncate mt-0.5">
+                <div className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50 truncate">
                   {lang === 'en' ? kermes.enHeadline : kermes.headline}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 tabular-nums">
-                <div className="rounded-lg border border-emerald-400/35 bg-[#0D1614] px-2.5 py-1 text-right">
-                  <div className="text-[9px] text-slate-400 uppercase font-bold">
-                    {bi('Kermes Alım Oranı', 'Clearance Rate')}
+              <div className="flex items-center gap-1.5 shrink-0 tabular-nums">
+                <div className="rounded-lg border border-emerald-400/35 bg-[#0D1614] px-2 py-0.5 text-right">
+                  <div className="text-[8.5px] text-slate-400 uppercase font-bold">
+                    {bi('Alım Oranı', 'Rate')}
                   </div>
-                  <div className="font-mono text-xs font-extrabold text-emerald-400">
-                    %{Math.round(kermes.clearanceMultiplier * 100)} {bi('Anında Nakit', 'Instant Cash')}
+                  <div className="font-mono text-[11px] font-extrabold text-emerald-400">
+                    %{Math.round(kermes.clearanceMultiplier * 100)}
                   </div>
                 </div>
-                <div className="rounded-lg border border-amber-400/35 bg-[#1B1710] px-2.5 py-1 text-right">
-                  <div className="text-[9px] text-slate-400 uppercase font-bold">
-                    {bi('Bugün Satılan', 'Cleared Today')}
+                <div className="rounded-lg border border-amber-400/35 bg-[#1B1710] px-2 py-0.5 text-right">
+                  <div className="text-[8.5px] text-slate-400 uppercase font-bold">
+                    {bi('Satılan', 'Sold')}
                   </div>
-                  <div className="font-mono text-xs font-extrabold text-amber-300">
-                    {kermes.clearanceSoldCount} {bi('Cihaz', 'Units')}
+                  <div className="font-mono text-[11px] font-extrabold text-amber-300">
+                    {kermes.clearanceSoldCount} {bi('Adet', 'U')}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* TWO-COLUMN ZERO-SCROLL KERMES WORKSPACE */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2 overflow-hidden">
-              {/* LEFT COLUMN (5 cols): INSTANT INVENTORY CLEARANCE STALL */}
-              <div className="lg:col-span-5 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2.5 flex flex-col gap-2 overflow-hidden">
-                <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/8 pb-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
-                    <Store className="w-4 h-4 shrink-0" />
-                    <span>{bi('Hızlı Elden Çıkarma Tezgâhı', 'Instant Clearance Stall')}</span>
+            {/* TWO-COLUMN KERMES WORKSPACE (STRICT ZERO SCROLL) */}
+            <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+              {/* LEFT COLUMN (5 cols): INSTANT INVENTORY CLEARANCE STALL (3/PAGE PAGINATED) */}
+              <div className="col-span-5 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1.5 overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-1 border-b border-white/8 pb-1">
+                  <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-300 min-w-0">
+                    <Store className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{bi('Elden Çıkarma', 'Clearance')} ({kermesAvailable.length})</span>
                   </div>
-                  <span className="font-mono text-[10px] text-slate-400">
-                    {shop.inventory.filter((p) => !p.assignedToStaff).length} {bi('stok', 'in stock')}
-                  </span>
+                  {totalKermesPages > 1 && (
+                    <div className="flex items-center gap-1 shrink-0 font-mono text-[9.5px]">
+                      <button
+                        type="button"
+                        disabled={safeKermesPage === 0}
+                        onClick={() => setKermesPage((p) => Math.max(0, p - 1))}
+                        className="rounded border border-white/10 bg-[#0E141D] px-1 py-0.5 text-slate-200 disabled:opacity-30 cursor-pointer"
+                        aria-label={bi('Önceki', 'Prev')}
+                      >
+                        <ChevronLeft className="w-3 h-3" />
+                      </button>
+                      <span className="text-slate-300">
+                        {safeKermesPage + 1}/{totalKermesPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={safeKermesPage >= totalKermesPages - 1}
+                        onClick={() => setKermesPage((p) => Math.min(totalKermesPages - 1, p + 1))}
+                        className="rounded border border-white/10 bg-[#0E141D] px-1 py-0.5 text-slate-200 disabled:opacity-30 cursor-pointer"
+                        aria-label={bi('Sonraki', 'Next')}
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {shop.inventory.filter((p) => !p.assignedToStaff).length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center text-xs text-slate-400 px-3 gap-1">
-                    <Package className="w-6 h-6 text-slate-500" />
+                {kermesAvailable.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center text-[11px] text-slate-400 px-2 gap-1 overflow-hidden">
+                    <Package className="w-5 h-5 text-slate-500" />
                     <div>
                       {bi(
                         'Kermeste elden çıkaracak boşta cihazın kalmadı.',
@@ -1763,104 +1800,102 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
-                    {shop.inventory
-                      .filter((p) => !p.assignedToStaff)
-                      .map((phone) => {
-                        const fairVal = calculateMarketValue(
-                          phone,
-                          false,
-                          shop.dailyNews,
-                          shop.upgrades,
-                          shop.day
-                        );
-                        const instantOffer = Math.max(
-                          1000,
-                          roundPrice(fairVal * kermes.clearanceMultiplier)
-                        );
-                        const netProfit =
-                          instantOffer - (phone.purchasePrice + phone.repairSpend);
+                  <div className="flex-1 min-h-0 grid grid-rows-3 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+                    {visibleKermesPhones.map((phone) => {
+                      const fairVal = calculateMarketValue(
+                        phone,
+                        false,
+                        shop.dailyNews,
+                        shop.upgrades,
+                        shop.day
+                      );
+                      const instantOffer = Math.max(
+                        1000,
+                        roundPrice(fairVal * kermes.clearanceMultiplier)
+                      );
+                      const netProfit =
+                        instantOffer - (phone.purchasePrice + phone.repairSpend);
 
-                        return (
-                          <div
-                            key={phone.uid}
-                            className="rounded-lg border border-white/10 bg-[#0E141D] p-2 flex items-center justify-between gap-2"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <PhoneModelThumb device={phone} className="w-7 h-11 shrink-0" />
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-extrabold text-slate-100 truncate">
-                                  {phone.brand} {phone.model}
-                                </div>
-                                <div className="text-[9.5px] text-slate-400 flex items-center gap-1.5 flex-wrap">
-                                  <span>{phone.storage}</span>
-                                  <span>·</span>
-                                  <span
-                                    className={
-                                      phone.defects.length > 0
-                                        ? 'text-rose-300 font-semibold'
-                                        : 'text-emerald-300 font-semibold'
-                                    }
-                                  >
-                                    {phone.defects.length > 0
-                                      ? bi(`${phone.defects.length} Kusur`, `${phone.defects.length} Defect`)
-                                      : bi('Temiz', 'Clean')}
-                                  </span>
-                                  {phone.isBrandNew && (
-                                    <span className="text-sky-300 font-bold">
-                                      {bi('Sıfır', 'New')}
-                                    </span>
-                                  )}
-                                </div>
-                                <div
-                                  className={`text-[9.5px] font-mono font-bold tabular-nums ${
-                                    netProfit >= 0 ? 'text-emerald-400' : 'text-amber-300'
-                                  }`}
+                      return (
+                        <div
+                          key={phone.uid}
+                          className="min-h-0 rounded-lg border border-white/10 bg-[#0E141D] px-2 py-1 flex items-center justify-between gap-1.5 overflow-hidden"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <PhoneModelThumb device={phone} className="w-6 h-9 [@media(min-height:540px)]:w-7 [@media(min-height:540px)]:h-11 shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-[10.5px] font-extrabold text-slate-100 truncate">
+                                {phone.brand} {phone.model}
+                              </div>
+                              <div className="text-[9px] text-slate-400 flex items-center gap-1 truncate">
+                                <span>{phone.storage}</span>
+                                <span>·</span>
+                                <span
+                                  className={
+                                    phone.defects.length > 0
+                                      ? 'text-rose-300 font-semibold'
+                                      : 'text-emerald-300 font-semibold'
+                                  }
                                 >
-                                  {netProfit >= 0 ? '+' : ''}
-                                  {formatTRY(netProfit)} {bi('net', 'net')}
-                                </div>
+                                  {phone.defects.length > 0
+                                    ? bi(`${phone.defects.length} Kusur`, `${phone.defects.length} Def`)
+                                    : bi('Temiz', 'Clean')}
+                                </span>
+                                {phone.isBrandNew && (
+                                  <span className="text-sky-300 font-bold">
+                                    {bi('Sıfır', 'New')}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                className={`text-[9px] font-mono font-bold tabular-nums ${
+                                  netProfit >= 0 ? 'text-emerald-400' : 'text-amber-300'
+                                }`}
+                              >
+                                {netProfit >= 0 ? '+' : ''}
+                                {formatTRY(netProfit)} {bi('net', 'net')}
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => onKermesSellPhone(phone.uid)}
-                              className="shrink-0 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer tabular-nums whitespace-nowrap"
-                            >
-                              {bi('Sat', 'Sell')} · {formatTRY(instantOffer)}
-                            </button>
                           </div>
-                        );
-                      })}
+                          <button
+                            type="button"
+                            onClick={() => onKermesSellPhone(phone.uid)}
+                            className="shrink-0 rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer tabular-nums whitespace-nowrap"
+                          >
+                            {bi('Sat', 'Sell')} · {formatTRY(instantOffer)}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              {/* RIGHT COLUMN (7 cols): ULTRA-CHEAP RARE PARTS & SURPRISE BARGAINS (2x2 GRID) */}
-              <div className="lg:col-span-7 min-h-0 rounded-xl border border-amber-400/25 bg-[#151D28] p-2.5 flex flex-col gap-2 overflow-hidden">
-                <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/8 pb-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-300">
-                    <Tag className="w-4 h-4 shrink-0" />
-                    <span>
+              {/* RIGHT COLUMN (7 cols): ULTRA-CHEAP RARE PARTS & SURPRISE BARGAINS (STRICT 2x2 ZERO SCROLL) */}
+              <div className="col-span-7 min-h-0 rounded-xl border border-amber-400/25 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1.5 overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/8 pb-1">
+                  <div className="flex items-center gap-1 text-[11px] font-extrabold text-amber-300 min-w-0">
+                    <Tag className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">
                       {bi(
-                        'Pazar Nadir Parça & Kelepir Tezgâhı (Sınırlı Stok)',
-                        'Sunday Rare Parts & Bargain Booth (Limited Stock)'
+                        'Pazar Nadir Parça & Kelepir Tezgâhı',
+                        'Sunday Rare Parts & Bargain Booth'
                       )}
                     </span>
                   </div>
-                  <span className="font-mono text-[10px] text-amber-200/80">
+                  <span className="font-mono text-[9.5px] text-amber-200/80 shrink-0">
                     {kermes.deals.filter((d) => !d.bought).length}/{kermes.deals.length}{' '}
                     {bi('kaldı', 'left')}
                   </span>
                 </div>
 
-                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2 overflow-hidden">
+                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
                   {kermes.deals.map((deal) => {
                     const canAfford = shop.cash >= deal.kermesPrice;
                     return (
                       <div
                         key={deal.id}
-                        className={`rounded-xl border p-2.5 flex flex-col justify-between gap-1.5 overflow-hidden ${
+                        className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 min-h-0 overflow-hidden ${
                           deal.bought
                             ? 'border-emerald-400/30 bg-emerald-950/25 opacity-75'
                             : deal.kind === 'BARGAIN_PHONE'
@@ -1868,10 +1903,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                             : 'border-amber-400/25 bg-[#0E141D]'
                         }`}
                       >
-                        <div className="space-y-1 min-w-0">
+                        <div className="space-y-0.5 min-w-0 overflow-hidden">
                           <div className="flex items-center justify-between gap-1">
                             <span
-                              className={`text-[9.5px] font-mono font-extrabold uppercase tracking-wider ${
+                              className={`text-[9px] font-mono font-extrabold uppercase tracking-wider truncate ${
                                 deal.kind === 'BARGAIN_PHONE'
                                   ? 'text-fuchsia-300'
                                   : deal.kind === 'ACCESSORY_BUNDLE'
@@ -1885,32 +1920,32 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                                 ? bi('TOPTAN KOLİ', 'BULK BOX')
                                 : bi('KELEPİR CİHAZ', 'BARGAIN PHONE')}
                             </span>
-                            <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-rose-300">
+                            <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1 py-0.5 font-mono text-[9px] font-extrabold text-rose-300 shrink-0">
                               -%{deal.discountPercent}
                             </span>
                           </div>
 
-                          <div className="text-xs font-extrabold text-slate-50 truncate">
+                          <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-50 truncate">
                             {lang === 'en' ? deal.enTitle : deal.title}
                           </div>
-                          <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
+                          <p className="hidden [@media(min-height:520px)]:block text-[9.5px] text-slate-400 leading-tight line-clamp-2">
                             {lang === 'en' ? deal.enSubtitle : deal.subtitle}
                           </p>
                         </div>
 
-                        <div className="flex items-end justify-between gap-2 pt-1.5 border-t border-white/8 tabular-nums">
-                          <div>
-                            <div className="font-mono text-[9.5px] text-slate-500 line-through">
+                        <div className="shrink-0 flex items-end justify-between gap-1.5 pt-1 border-t border-white/8 tabular-nums">
+                          <div className="min-w-0">
+                            <div className="font-mono text-[9px] text-slate-500 line-through">
                               {formatTRY(deal.originalPrice)}
                             </div>
-                            <div className="font-mono text-xs sm:text-sm font-extrabold text-emerald-400">
+                            <div className="font-mono text-xs [@media(min-height:560px)]:text-sm font-extrabold text-emerald-400 leading-none">
                               {formatTRY(deal.kermesPrice)}
                             </div>
                           </div>
 
                           {deal.bought ? (
-                            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-1 text-[10px] font-extrabold text-emerald-300">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span className="inline-flex items-center gap-0.5 rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-2 py-1 text-[9.5px] font-extrabold text-emerald-300 shrink-0">
+                              <CheckCircle2 className="w-3 h-3" />
                               {bi('Alındı', 'Claimed')}
                             </span>
                           ) : (
@@ -1918,9 +1953,9 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                               type="button"
                               disabled={!canAfford}
                               onClick={() => onBuyKermesDeal(deal.id)}
-                              className="rounded-lg bg-amber-500 px-3 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                              className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
                             >
-                              {bi('Kermesten Kap', 'Grab Deal')}
+                              {bi('Kap', 'Grab')}
                             </button>
                           )}
                         </div>
@@ -1931,7 +1966,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               </div>
             </div>
           </div>
-        )
+          );
+        })()
       )}
 
       {/* MUSEUM ARCHIVE STORY MODAL (AUTO-OPENS ON PURCHASE OR CARD CLICK) */}
@@ -1944,7 +1980,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
           }}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-amber-400/40 bg-[#151D28] p-4 shadow-2xl space-y-3"
+            className="w-full max-w-lg max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-amber-400/40 bg-[#151D28] p-3.5 sm:p-4 shadow-2xl space-y-2.5 sm:space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             {justBoughtMuseumId === selectedMuseumSpec.id && (
@@ -2043,7 +2079,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
           onClick={() => setWonMysteryLot(null)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-fuchsia-400/40 bg-[#151D28] p-4 shadow-2xl space-y-3"
+            className="w-full max-w-lg max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-fuchsia-400/40 bg-[#151D28] p-3.5 sm:p-4 shadow-2xl space-y-2.5 sm:space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-2">

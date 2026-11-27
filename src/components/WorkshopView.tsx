@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   Banknote,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   FolderOpen,
   Layers,
@@ -140,6 +142,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
     inventory[0]?.uid ?? null
   );
   const [listFilter, setListFilter] = useState<'ALL' | 'REPAIR' | 'LISTED'>('ALL');
+  const [invPage, setInvPage] = useState(0);
   const [priceDraft, setPriceDraft] = useState<number>(0);
 
   const selected =
@@ -176,6 +179,13 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
     }
     return true;
   });
+  const INV_PER_PAGE = 4;
+  const totalInvPages = Math.max(1, Math.ceil(filteredInventory.length / INV_PER_PAGE));
+  const safeInvPage = Math.min(invPage, totalInvPages - 1);
+  const visibleInventory = filteredInventory.slice(
+    safeInvPage * INV_PER_PAGE,
+    safeInvPage * INV_PER_PAGE + INV_PER_PAGE
+  );
   const totalInventoryValue = inventory.reduce(
     (sum, p) =>
       sum + calculateMarketValue(p, false, dailyNews, upgrades, currentDay),
@@ -281,7 +291,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   const canListMore = selected.listedForSale || listedCount < maxShowcase;
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 p-2 lg:p-2.5 overflow-hidden bg-[#0F141B]">
+    <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 p-1.5 [@media(min-height:560px)]:p-2.5 overflow-hidden bg-[#0F141B]">
       {/* LEFT INVENTORY PANEL WITH VISUAL PHONE THUMBNAILS */}
       <aside className="col-span-4 lg:col-span-3 flex flex-col min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2 overflow-hidden">
         <div className="shrink-0 flex items-center justify-between gap-1 pb-1.5 border-b border-white/8">
@@ -331,7 +341,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
         </div>
 
         {/* Quick Stock Filter Pills */}
-        <div className="shrink-0 grid grid-cols-3 gap-1 pt-1.5">
+        <div className="shrink-0 grid grid-cols-3 gap-1 pt-1">
           {(
             [
               { id: 'ALL', label: `${bi('Tümü', 'All')} (${inventory.length})` },
@@ -342,8 +352,11 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             <button
               key={f.id}
               type="button"
-              onClick={() => setListFilter(f.id)}
-              className={`rounded-md py-1 text-[9.5px] font-extrabold transition-colors cursor-pointer touch-manipulation truncate px-1 ${
+              onClick={() => {
+                setListFilter(f.id);
+                setInvPage(0);
+              }}
+              className={`rounded-md py-0.5 [@media(min-height:540px)]:py-1 text-[9.5px] font-extrabold transition-colors cursor-pointer touch-manipulation truncate px-1 ${
                 listFilter === f.id
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-400/45'
                   : 'bg-[#0E141D] text-slate-400 border border-white/6 hover:text-slate-200'
@@ -354,16 +367,16 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           ))}
         </div>
 
-        {/* Full-Height Scrollable Phone List — Zero Wasted Bottom Void */}
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 py-1.5 overflow-y-auto pasaj-scroll overscroll-contain pr-0.5">
+        {/* Zero-Scroll Paginated 4-Row Phone List */}
+        <div className="flex-1 min-h-0 grid grid-rows-4 gap-1 py-1 overflow-hidden">
           {filteredInventory.length === 0 ? (
-            <div className="my-auto rounded-lg border border-white/6 bg-[#0E141D] px-3 py-4 text-center text-[10.5px] text-slate-400">
+            <div className="row-span-4 my-auto rounded-lg border border-white/6 bg-[#0E141D] px-3 py-4 text-center text-[10.5px] text-slate-400">
               {listFilter === 'LISTED'
                 ? bi('Vitrinde sergilenen cihaz yok.', 'No devices currently listed.')
                 : bi('Tamir bekleyen arızalı cihaz yok.', 'No devices needing repair.')}
             </div>
           ) : (
-            filteredInventory.map((phone) => {
+            visibleInventory.map((phone) => {
               const isSel = phone.uid === selected.uid;
               const cond = getConditionInfo(phone, false);
               const val = calculateMarketValue(
@@ -378,7 +391,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   key={phone.uid}
                   type="button"
                   onClick={() => setSelectedUid(phone.uid)}
-                  className={`w-full shrink-0 rounded-lg border px-2 py-1.5 flex items-center gap-2 text-left transition-colors cursor-pointer touch-manipulation ${
+                  className={`w-full h-full min-h-0 overflow-hidden rounded-lg border px-1.5 py-1 flex items-center gap-1.5 text-left transition-colors cursor-pointer touch-manipulation ${
                     isSel
                       ? 'border-amber-400 bg-amber-500/15 shadow-[0_0_12px_rgba(251,191,36,0.12)]'
                       : 'border-white/8 bg-[#0E141D] hover:bg-[#182231]'
@@ -387,15 +400,15 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   <PhoneModelThumb
                     device={phone}
                     showBack
-                    className="w-7 h-11 shrink-0"
+                    className="h-full max-h-10 w-auto shrink-0"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[11px] font-bold text-slate-100 truncate">
+                      <span className="text-[10.5px] font-bold text-slate-100 truncate">
                         {phone.brand} {phone.model}
                       </span>
                       <span
-                        className={`rounded px-1 py-0.2 text-[9px] font-bold shrink-0 ${
+                        className={`rounded px-1 py-0.2 text-[8.5px] font-bold shrink-0 ${
                           phone.assignedToStaff
                             ? 'bg-sky-500/20 text-sky-300'
                             : phone.listedForSale
@@ -410,7 +423,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                           : bi('Atölye', 'Bench')}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[9.5px] text-slate-400 mt-0.5 tabular-nums">
+                    <div className="flex items-center justify-between text-[9px] text-slate-400 mt-0.5 tabular-nums">
                       <span className="truncate">
                         {cond.label} · {phone.defects.length}{' '}
                         {bi('kusur', 'flaw')}
@@ -426,30 +439,55 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           )}
         </div>
 
-        {/* Pinned Inventory Valuation Footer */}
-        <div className="shrink-0 flex items-center justify-between gap-1.5 pt-1.5 border-t border-white/8 text-[10px] tabular-nums">
-          <span className="text-slate-400 truncate">
-            {bi('Toplam Stok Değeri', 'Total Stock Value')}
-          </span>
-          <span className="font-mono font-extrabold text-emerald-300 shrink-0">
-            {formatTRY(totalInventoryValue)}
-          </span>
+        {/* Pinned Inventory Valuation + Pagination Footer */}
+        <div className="shrink-0 flex items-center justify-between gap-1 pt-1 border-t border-white/8 text-[9.5px] tabular-nums">
+          <div className="min-w-0 truncate">
+            <span className="text-slate-400">{bi('Stok', 'Stock')}: </span>
+            <span className="font-mono font-extrabold text-emerald-300">
+              {formatTRY(totalInventoryValue)}
+            </span>
+          </div>
+          {totalInvPages > 1 && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                disabled={safeInvPage === 0}
+                onClick={() => setInvPage((p) => Math.max(0, p - 1))}
+                className="rounded border border-white/12 bg-[#0E141D] p-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+                aria-label={bi('Önceki sayfa', 'Previous page')}
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <span className="font-mono text-[9px] text-slate-300">
+                {safeInvPage + 1}/{totalInvPages}
+              </span>
+              <button
+                type="button"
+                disabled={safeInvPage >= totalInvPages - 1}
+                onClick={() => setInvPage((p) => Math.min(totalInvPages - 1, p + 1))}
+                className="rounded border border-white/12 bg-[#0E141D] p-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+                aria-label={bi('Sonraki sayfa', 'Next page')}
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* RIGHT WORKBENCH — 2 BALANCED ZERO-VOID COLUMNS */}
-      <section className="col-span-8 lg:col-span-9 grid grid-cols-12 gap-2 min-h-0 overflow-hidden">
+      {/* RIGHT WORKBENCH — 2 BALANCED ZERO-SCROLL OVERFLOW-HIDDEN COLUMNS */}
+      <section className="col-span-8 lg:col-span-9 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
         {/* CENTER-LEFT: PROMINENT LIVE PHONE MODEL + TIGHT REPAIR BENCH */}
-        <div className="col-span-6 flex flex-col gap-2 min-h-0 overflow-hidden">
-          {/* HERO DEVICE SHOWCASE STAGE (GROWS TO FILL HEIGHT — ZERO VOID) */}
-          <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2.5 grid grid-cols-12 gap-2.5 overflow-hidden">
+        <div className="col-span-6 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+          {/* HERO DEVICE SHOWCASE STAGE */}
+          <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {/* Full-Height Interactive Phone Model (Front / Back Flip) */}
-            <div className="col-span-6 min-h-0 h-full">
+            <div className="col-span-5 sm:col-span-6 min-h-0 h-full overflow-hidden">
               <PhoneInspectSVG device={selected} revealAll fluid />
             </div>
 
             {/* Live Device Tech Specs beside the phone */}
-            <div className="col-span-6 min-h-0 flex flex-col justify-between gap-1.5 overflow-hidden tabular-nums">
+            <div className="col-span-7 sm:col-span-6 min-h-0 flex flex-col justify-between gap-1 overflow-hidden tabular-nums">
               <div>
                 <div className="flex items-center justify-between gap-1">
                   <span className="font-mono text-[9.5px] font-bold text-amber-300 uppercase">
@@ -485,23 +523,23 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-1 text-[10.5px]">
-                <div className="rounded-lg bg-[#0E141D] border border-white/6 px-2 py-1 flex items-center justify-between">
-                  <span className="text-slate-400">{bi('Maliyet', 'Cost')}</span>
-                  <span className="font-mono font-bold text-slate-100">
+              <div className="space-y-0.5 [@media(min-height:560px)]:space-y-1 text-[9.5px] [@media(min-height:560px)]:text-[10.5px]">
+                <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1 flex items-center justify-between gap-1">
+                  <span className="text-slate-400 truncate">{bi('Maliyet', 'Cost')}</span>
+                  <span className="font-mono font-bold text-slate-100 whitespace-nowrap shrink-0">
                     {formatTRY(totalInvested)}
                   </span>
                 </div>
-                <div className="rounded-lg bg-[#0E141D] border border-white/6 px-2 py-1 flex items-center justify-between">
-                  <span className="text-slate-400">{bi('Piyasa', 'Market')}</span>
-                  <span className="font-mono font-extrabold text-amber-300">
+                <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1 flex items-center justify-between gap-1">
+                  <span className="text-slate-400 truncate">{bi('Piyasa', 'Market')}</span>
+                  <span className="font-mono font-extrabold text-amber-300 whitespace-nowrap shrink-0">
                     {formatTRY(fairValue)}
                   </span>
                 </div>
-                <div className="rounded-lg bg-[#0E141D] border border-white/6 px-2 py-1 flex items-center justify-between">
-                  <span className="text-slate-400">{bi('Pil', 'Battery')}</span>
+                <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1 flex items-center justify-between gap-1">
+                  <span className="text-slate-400 truncate">{bi('Pil', 'Battery')}</span>
                   <span
-                    className={`font-mono font-bold ${
+                    className={`font-mono font-bold whitespace-nowrap shrink-0 ${
                       selected.batteryHealth < 80
                         ? 'text-rose-400'
                         : 'text-emerald-300'
@@ -513,17 +551,17 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
               </div>
 
               {/* Quick Defect Status */}
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-0.5 [@media(min-height:560px)]:gap-1 overflow-hidden max-h-[34px] [@media(min-height:560px)]:max-h-none">
                 {selected.defects.length === 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-400/25 px-2 py-0.5 text-[9.5px] font-bold text-emerald-300">
-                    <Check className="w-3 h-3" />
-                    {bi('Kusursuz Cihaz', 'Spotless Device')}
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-400/25 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                    <Check className="w-2.5 h-2.5" />
+                    {bi('Kusursuz', 'Spotless')}
                   </span>
                 ) : (
                   selected.defects.map((d) => (
                     <span
                       key={d}
-                      className="rounded-md border border-rose-400/30 bg-rose-500/12 px-1.5 py-0.5 text-[9.5px] font-bold text-rose-200"
+                      className="rounded-md border border-rose-400/30 bg-rose-500/12 px-1 py-0.2 text-[8.5px] [@media(min-height:560px)]:text-[9.5px] font-bold text-rose-200 truncate"
                     >
                       {getLocalizedDefect(d, lang).shortLabel}
                     </span>
@@ -534,7 +572,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           </div>
 
           {/* TIGHT SINGLE-SESSION REPAIR BENCH & UTILITY ACTIONS */}
-          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-2 space-y-1.5">
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 space-y-1 [@media(min-height:560px)]:space-y-1.5 overflow-hidden">
             <div className="flex items-center justify-between gap-1">
               <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-100">
                 <Wrench className="w-3.5 h-3.5 text-amber-400" />
@@ -639,7 +677,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                             {bi('Mini Tamir', 'Mini Fix')} (
                             {inHouseCost === 0 ? bi('Stoktan', 'Stock') : formatTRY(inHouseCost)})
                           </span>
-                          <span className="text-[8.5px] font-bold opacity-80">
+                          <span className="hidden [@media(min-height:540px)]:inline text-[8.5px] font-bold opacity-80">
                             {stockCalc.usedStockCount > 0
                               ? bi('Stok Parçası Kullanır · Usta İşi', 'Uses Stock Part · Master Chance')
                               : bi('Sadece Parça · Usta İşi Şansı', 'Parts Only · Master Bonus')}
@@ -660,7 +698,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                           <span>
                             {bi('Hızlı Onar', 'Quick Fix')} ({formatTRY(quickTotalCost)})
                           </span>
-                          <span className="text-[8.5px] text-amber-300 font-semibold">
+                          <span className="hidden [@media(min-height:540px)]:inline text-[8.5px] text-amber-300 font-semibold">
                             +{formatTRY(expressFee)} {bi('Erken Teslimat', 'Express Fee')}
                           </span>
                         </button>
@@ -742,10 +780,10 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           </div>
         </div>
 
-        {/* CENTER-RIGHT: RICH 3x2 ACCESSORY VISUAL TILES + SHOWCASE PRICING */}
-        <div className="col-span-6 flex flex-col gap-2 min-h-0 overflow-hidden">
-          <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2 flex flex-col overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between gap-1 mb-1.5">
+        {/* CENTER-RIGHT: RICH 3x2 ACCESSORY VISUAL TILES + SHOWCASE PRICING (ZERO SCROLL) */}
+        <div className="col-span-6 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between gap-1 mb-1">
               <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-100 truncate">
                 <ShoppingBag className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                 <span className="truncate">
@@ -835,10 +873,10 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                     </div>
 
                     {/* Large Centered Product Illustration */}
-                    <div className="flex-1 min-h-0 flex items-center justify-center py-0.5">
+                    <div className="flex-1 min-h-0 flex items-center justify-center py-0.5 overflow-hidden">
                       <AccessoryProductArt
                         id={acc.id}
-                        className={`h-full max-h-14 lg:max-h-16 w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] ${
+                        className={`h-full max-h-7 [@media(min-height:520px)]:max-h-14 lg:max-h-16 w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] ${
                           !unlocked ? 'opacity-50' : ''
                         }`}
                       />
@@ -846,10 +884,10 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
 
                     {/* Product Name & Value Boost */}
                     <div className="shrink-0 w-full">
-                      <div className="text-[9.5px] font-bold text-slate-100 truncate leading-tight">
+                      <div className="text-[9px] [@media(min-height:560px)]:text-[9.5px] font-bold text-slate-100 truncate leading-tight">
                         {loc.name}
                       </div>
-                      <div className="font-mono text-[9px] font-bold text-emerald-400 leading-tight">
+                      <div className="font-mono text-[8.5px] [@media(min-height:560px)]:text-[9px] font-bold text-emerald-400 leading-tight">
                         +{formatTRY(bonusVal)}
                       </div>
                     </div>
@@ -861,7 +899,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           </div>
 
           {/* Showcase Listing & Price Slider */}
-          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-2 space-y-1.5 tabular-nums">
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 space-y-1 [@media(min-height:560px)]:space-y-1.5 overflow-hidden tabular-nums">
             <div className="flex items-center justify-between gap-1">
               <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-100">
                 <Store className="w-3.5 h-3.5 text-emerald-400" />

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  BarChart3,
   Building2,
   Flame,
-  Newspaper,
   Package,
   Pause,
   PlayCircle,
@@ -13,8 +11,6 @@ import {
   Store,
   Target,
   Users,
-  Volume2,
-  VolumeX,
   Wrench,
   X,
   Zap,
@@ -46,12 +42,17 @@ import {
 import { MorningNewspaperModal } from './components/MorningNewspaperModal';
 import { OfflineEarningsModal } from './components/OfflineEarningsModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { ShopTourOverlay } from './components/ShopTourOverlay';
 import { SplashScreen } from './components/SplashScreen';
 import {
   ComplianceTab,
   StoreComplianceModal,
 } from './components/StoreComplianceModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
+import {
+  resetSeenTabTips,
+  TabFirstVisitTip,
+} from './components/TabFirstVisitTip';
 import { TitleScreen } from './components/TitleScreen';
 import { UpgradesView } from './components/UpgradesView';
 import { WarrantyCertificateModal } from './components/WarrantyCertificateModal';
@@ -290,6 +291,8 @@ export default function App() {
     useState<OfflineEarningsSummary | null>(null);
   const [activeWebAd, setActiveWebAd] = useState<ActiveWebAdSession | null>(null);
   const [inspectingActiveDrama, setInspectingActiveDrama] = useState(false);
+  const [manualTourOpen, setManualTourOpen] = useState(false);
+  const [tabTipsResetSignal, setTabTipsResetSignal] = useState(0);
   const [debtClearedOverlay, setDebtClearedOverlay] =
     useState<DebtClearedCelebrationData | null>(null);
   const lastDramaStingerKeyRef = useRef<string | null>(null);
@@ -4977,7 +4980,7 @@ export default function App() {
   return (
     <div className="h-dvh w-screen overflow-hidden flex flex-col bg-[#0F141B] text-slate-100 select-none">
       {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Logo + all 6 tabs visible side-by-side without horizontal scroll */}
-      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(4px,env(safe-area-inset-top))] pb-[4px] min-h-[42px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[4px] lg:gap-2">
+      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(3px,env(safe-area-inset-top))] pb-[3px] min-h-[36px] [@media(min-height:500px)]:min-h-[42px] [@media(min-height:500px)]:pb-[4px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[4px] lg:gap-2 overflow-hidden">
         <div className="flex items-center gap-[5px] lg:gap-2 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
           <div className="flex items-center shrink-0">
             <BrandLogo size="compact" />
@@ -5005,6 +5008,7 @@ export default function App() {
 
             <button
               type="button"
+              data-tour="tour-tab-workshop"
               onClick={() => {
                 soundFX.playClick();
                 setActiveTab('WORKSHOP');
@@ -5024,6 +5028,7 @@ export default function App() {
 
             <button
               type="button"
+              data-tour="tour-tab-wholesale"
               onClick={() => {
                 soundFX.playClick();
                 setActiveTab('WHOLESALE');
@@ -5041,6 +5046,7 @@ export default function App() {
 
             <button
               type="button"
+              data-tour="tour-tab-empire"
               onClick={() => {
                 soundFX.playClick();
                 setActiveTab('EMPIRE');
@@ -5068,6 +5074,7 @@ export default function App() {
 
             <button
               type="button"
+              data-tour="tour-tab-missions"
               onClick={() => {
                 soundFX.playClick();
                 setActiveTab('MISSIONS');
@@ -5089,6 +5096,7 @@ export default function App() {
 
             <button
               type="button"
+              data-tour="tour-tab-upgrades"
               onClick={() => {
                 soundFX.playClick();
                 setActiveTab('UPGRADES');
@@ -5309,8 +5317,11 @@ export default function App() {
         </div>
       )}
 
-      {/* ACTIVE SHOP PLAYFIELD */}
-      <main className="relative flex-1 min-h-0 flex flex-col">
+      {/* ACTIVE SHOP PLAYFIELD — STRICT ZERO-SCROLL FLEX CONTAINER */}
+      <main className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+        {activeTab !== 'COUNTER' && (
+          <TabFirstVisitTip tab={activeTab} resetSignal={tabTipsResetSignal} />
+        )}
         {activeTab === 'COUNTER' && (
           <CounterView
             encounter={currentEncounter}
@@ -5693,12 +5704,50 @@ export default function App() {
             setScreen('PLAYING');
             openComplianceModal('SETTINGS');
           }}
+          onReplayTour={() => {
+            soundFX.playClick();
+            resetSeenTabTips();
+            setTabTipsResetSignal((n) => n + 1);
+            setActiveTab('COUNTER');
+            setScreen('PLAYING');
+            setManualTourOpen(true);
+          }}
           muted={muted}
           onToggleMute={handleToggleMute}
-          onRestart={handleStartNew}
+          onRestart={() => {
+            resetSeenTabTips();
+            setTabTipsResetSignal((n) => n + 1);
+            handleStartNew();
+          }}
           onTitle={() => {
             soundFX.playClick();
             setScreen('TITLE_MENU');
+          }}
+        />
+      )}
+
+      {/* INTERACTIVE 5-STEP SPOTLIGHT SHOP TOUR (Day 1 First-Time + Replayable from Pause Menu) */}
+      {(manualTourOpen ||
+        (screen === 'PLAYING' &&
+          !shop.tutorialDismissed &&
+          shop.day === 1 &&
+          activeTab === 'COUNTER' &&
+          !offlineSummary &&
+          !activeWebAd &&
+          !showNewspaperReview &&
+          !showAnalyticsModal &&
+          !showComplianceModal &&
+          !miniRepairJob &&
+          !showComplaintArchive &&
+          !activeWarrantyModal)) && (
+        <ShopTourOverlay
+          onComplete={() => {
+            setManualTourOpen(false);
+            setShop((prev) => ({ ...prev, tutorialDismissed: true }));
+          }}
+          onSkip={() => {
+            setManualTourOpen(false);
+            setShop((prev) => ({ ...prev, tutorialDismissed: true }));
           }}
         />
       )}

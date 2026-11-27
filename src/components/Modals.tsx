@@ -5,6 +5,7 @@ import {
   BarChart3,
   CheckCircle2,
   Coffee,
+  Compass,
   Crown,
   Flame,
   Gavel,
@@ -52,6 +53,7 @@ interface PauseModalProps {
   onOpenAnalytics?: () => void;
   onOpenNewspaper?: () => void;
   onOpenLegacy?: () => void;
+  onReplayTour?: () => void;
   muted?: boolean;
   onToggleMute?: () => void;
 }
@@ -64,6 +66,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   onOpenAnalytics,
   onOpenNewspaper,
   onOpenLegacy,
+  onReplayTour,
   muted = false,
   onToggleMute,
 }) => {
@@ -123,6 +126,17 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           >
             <Crown className="w-4 h-4 text-amber-400 shrink-0" />
             <span>{bi('Pasaj Hatıraları (Kariyer Özeti)', 'Shop Legacy Album')}</span>
+          </button>
+        )}
+
+        {onReplayTour && (
+          <button
+            type="button"
+            onClick={onReplayTour}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/12 px-4 py-2 text-xs font-extrabold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <Compass className="w-4 h-4 text-sky-300 shrink-0" />
+            <span>{bi('Nasıl Oynanır? (Dükkan Turunu Tekrarla)', 'How to Play (Replay Shop Tour)')}</span>
           </button>
         )}
 

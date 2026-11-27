@@ -130,6 +130,7 @@ const UPGRADE_ICONS: Record<UpgradeId, React.ReactNode> = {
 
 const ALL_TIERS: ShopTier[] = [1, 2, 3, 4, 5, 6];
 const EQUIP_PER_PAGE = 6;
+const DECOR_PER_PAGE = 6;
 
 export const UpgradesView: React.FC<UpgradesViewProps> = ({
   cash,
@@ -164,6 +165,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
   const { lang, bi } = useLanguage();
   const [subTab, setSubTab] = useState<GrowthSubTab>('EQUIPMENT');
   const [equipPage, setEquipPage] = useState(0);
+  const [decorPage, setDecorPage] = useState(0);
 
   const prestige = calculatePrestige({
     shopTier,
@@ -191,11 +193,21 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
     safeEquipPage * EQUIP_PER_PAGE + EQUIP_PER_PAGE
   );
 
+  const totalDecorPages = Math.max(
+    1,
+    Math.ceil(SHOP_DECORATIONS.length / DECOR_PER_PAGE)
+  );
+  const safeDecorPage = Math.min(decorPage, totalDecorPages - 1);
+  const visibleDecorations = SHOP_DECORATIONS.slice(
+    safeDecorPage * DECOR_PER_PAGE,
+    safeDecorPage * DECOR_PER_PAGE + DECOR_PER_PAGE
+  );
+
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-2 lg:p-3 gap-2">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
       {/* SINGLE-ROW SUB-TAB BAR + PRESTIGE & PENDING CHIP */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
           {(
             [
               ['EQUIPMENT', Wrench, bi(`Ekipman & Lisans (${SHOP_UPGRADES.length})`, `Gear & Permits (${SHOP_UPGRADES.length})`)],
@@ -244,20 +256,20 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
 
       {/* TAB 1: EQUIPMENT + SHOWCASE RACK (3x2 PAGINATED, ZERO SCROLL) */}
       {subTab === 'EQUIPMENT' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Compact Inline Showcase Rack Bar */}
-          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-[#17202D] px-3 py-1.5 tabular-nums">
+          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-[#17202D] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 tabular-nums">
             <div className="flex items-center gap-2 min-w-0">
-              <LayoutGrid className="w-4 h-4 text-amber-400 shrink-0" />
-              <div className="min-w-0">
+              <LayoutGrid className="w-3.5 h-3.5 [@media(min-height:560px)]:w-4 [@media(min-height:560px)]:h-4 text-amber-400 shrink-0" />
+              <div className="min-w-0 truncate">
                 <span className="text-[11px] font-bold text-slate-100">
                   {bi('Vitrin Rafı', 'Showcase Rack')}{' '}
                   <strong className="font-mono text-amber-300">
                     {showcaseUpgradeLevel}/{SHOWCASE_UPGRADE_MAX_LEVEL}
                   </strong>
                 </span>
-                <span className="ml-2 text-[10.5px] text-slate-400">
-                  ({bi('Kapasite', 'Capacity')}:{' '}
+                <span className="ml-2 text-[10px] text-slate-400">
+                  ({bi('Kapasite', 'Cap')}:{' '}
                   <strong className="text-emerald-300 font-mono">
                     {showcaseCap}
                   </strong>
@@ -267,11 +279,11 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
             </div>
 
             {showcaseUpgradeLevel >= SHOWCASE_UPGRADE_MAX_LEVEL ? (
-              <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold text-emerald-300">
+              <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold text-emerald-300 shrink-0">
                 MAX ✓
               </span>
             ) : pendingShowcase ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+              <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300 shrink-0">
                 <Clock className="w-3 h-3" />
                 {pendingShowcase.daysRemaining} {bi('gün', 'd')}
               </span>
@@ -280,15 +292,15 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 type="button"
                 disabled={cash < nextShowcaseCost}
                 onClick={onBuyShowcaseUpgrade}
-                className="rounded-lg bg-amber-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                className="rounded-lg bg-amber-500 px-2.5 py-0.5 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
               >
                 +1 {bi('Raf', 'Slot')} · {formatTRY(nextShowcaseCost)}
               </button>
             )}
           </div>
 
-          {/* 3x2 Equipment Grid — Pure Cash Unlocks */}
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+          {/* 3x2 Equipment Grid — Strict Zero-Scroll Overflow Hidden */}
+          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleUpgrades.map((up) => {
               const loc = getLocalizedUpgrade(up.id, lang);
               const owned = ownedUpgrades.includes(up.id);
@@ -316,7 +328,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
               return (
                 <div
                   key={up.id}
-                  className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                     owned
                       ? 'border-emerald-500/35 bg-emerald-500/8'
                       : pending
@@ -326,60 +338,60 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
-                  <div className="flex items-start gap-2 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-[#0D131C] border border-white/8 flex items-center justify-center shrink-0">
+                  <div className="flex items-start gap-1.5 [@media(min-height:560px)]:gap-2 min-w-0">
+                    <div className="w-6 h-6 [@media(min-height:540px)]:w-8 [@media(min-height:540px)]:h-8 rounded-lg bg-[#0D131C] border border-white/8 flex items-center justify-center shrink-0">
                       {UPGRADE_ICONS[up.id]}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-slate-100 truncate">
+                      <div className="text-[10.5px] [@media(min-height:540px)]:text-[11px] font-bold text-slate-100 truncate">
                         {loc.name}
                       </div>
-                      <div className="text-[9.5px] font-semibold text-amber-300 truncate">
+                      <div className="text-[9px] [@media(min-height:540px)]:text-[9.5px] font-semibold text-amber-300 truncate">
                         {loc.benefitText}
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-[9.5px] text-slate-400 line-clamp-2 leading-snug">
+                  <p className="text-[9px] [@media(min-height:540px)]:text-[9.5px] text-slate-400 line-clamp-1 [@media(min-height:540px)]:line-clamp-2 leading-tight">
                     {loc.summary}
                   </p>
 
                   <div className="flex items-center justify-between gap-1 pt-1 border-t border-white/8 tabular-nums">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[9.5px] text-slate-400 font-mono shrink-0">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-[9px] text-slate-400 font-mono shrink-0">
                         {up.installDays > 0
-                          ? `${up.installDays} ${bi('gün', 'd')}`
+                          ? `${up.installDays}${bi('g', 'd')}`
                           : bi('Anında', 'Instant')}
                       </span>
                       {visibleInShop && (
                         <span
-                          className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold truncate ${
+                          className={`hidden [@media(min-height:520px)]:inline-flex items-center gap-0.5 text-[8.5px] font-bold truncate ${
                             owned ? 'text-cyan-300' : 'text-slate-400'
                           }`}
                         >
                           <Eye className="w-2.5 h-2.5 shrink-0" />
                           {owned
-                            ? bi('Dükkanda Aktif', 'Live in Shop')
-                            : bi('Dükkanda Görünür', 'Shown in Shop')}
+                            ? bi('Aktif', 'Live')
+                            : bi('Dükkanda', 'In Shop')}
                         </span>
                       )}
                     </div>
 
                     {owned ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-emerald-400 shrink-0">
+                      <span className="inline-flex items-center gap-0.5 text-[9.5px] font-extrabold text-emerald-400 shrink-0">
                         <Check className="w-3 h-3" /> {bi('Kurulu', 'Owned')}
                       </span>
                     ) : pending ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-300 shrink-0">
-                        <Clock className="w-3 h-3" /> {pending.daysRemaining}{' '}
-                        {bi('gün', 'd')}
+                      <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-sky-300 shrink-0">
+                        <Clock className="w-3 h-3" /> {pending.daysRemaining}
+                        {bi('g', 'd')}
                       </span>
                     ) : (
                       <button
                         type="button"
                         disabled={!canBuy}
                         onClick={() => onBuyUpgrade(up.id)}
-                        className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
+                        className="rounded-md bg-amber-500 px-2 py-0.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
                       >
                         {formatTRY(up.cost)}
                       </button>
@@ -391,7 +403,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
           </div>
 
           {/* Pagination Footer */}
-          <div className="shrink-0 flex items-center justify-center gap-2 text-[11px]">
+          <div className="shrink-0 flex items-center justify-center gap-2 text-[10.5px]">
             <button
               type="button"
               disabled={safeEquipPage === 0}
@@ -421,7 +433,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
 
       {/* TAB 2: 6 SHOP TIERS (3x2 ZERO SCROLL — CASH & REPUTATION ONLY) */}
       {subTab === 'EXPANSION' && (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {ALL_TIERS.map((tier) => {
             const info = getLocalizedShopTier(tier, lang);
             const raw = SHOP_TIERS[tier];
@@ -437,7 +449,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
             return (
               <div
                 key={tier}
-                className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
+                className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
                   isCurrent
                     ? 'border-amber-400 bg-amber-500/10'
                     : isPast
@@ -445,40 +457,40 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
-                <div>
+                <div className="min-h-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="font-mono text-[10px] font-extrabold text-amber-300">
+                    <span className="font-mono text-[9.5px] font-extrabold text-amber-300">
                       {bi(`DÜKKAN ${tier}`, `TIER ${tier}`)}
                     </span>
-                    <span className="font-mono text-[9.5px] text-slate-400">
+                    <span className="font-mono text-[9px] text-slate-400 truncate">
                       {bi('Kira', 'Rent')}: {formatTRY(raw.baseRent)}/{bi('g', 'd')}
                     </span>
                   </div>
-                  <div className="text-xs font-extrabold text-slate-100 truncate mt-0.5">
+                  <div className="text-[11px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-100 truncate mt-0.5">
                     {info.name}
                   </div>
-                  <div className="text-[10px] text-slate-400 line-clamp-2 mt-0.5 leading-snug">
+                  <div className="text-[9px] [@media(min-height:540px)]:text-[10px] text-slate-400 line-clamp-1 [@media(min-height:520px)]:line-clamp-2 mt-0.5 leading-tight">
                     {info.unlocksText}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/8 tabular-nums">
-                  <span className="text-[9.5px] font-mono text-slate-400 truncate">
+                <div className="shrink-0 flex items-center justify-between gap-1 pt-1 border-t border-white/8 tabular-nums">
+                  <span className="text-[9px] font-mono text-slate-400 truncate">
                     {tier === 1
                       ? bi('Başlangıç', 'Starter')
                       : `${raw.minReputation.toFixed(1)}★ · ${raw.renovationDays}${bi('g', 'd')}`}
                   </span>
 
                   {isCurrent ? (
-                    <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                    <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9.5px] font-extrabold text-amber-300 shrink-0">
                       {bi('Mevcut', 'Active')}
                     </span>
                   ) : isPast ? (
-                    <span className="text-[10px] font-bold text-emerald-400">
+                    <span className="text-[9.5px] font-bold text-emerald-400 shrink-0">
                       ✓ {bi('Geçildi', 'Cleared')}
                     </span>
                   ) : pending ? (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-300">
+                    <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-sky-300 shrink-0">
                       <Clock className="w-3 h-3" /> {pending.daysRemaining}
                       {bi('g', 'd')}
                     </span>
@@ -487,14 +499,14 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       type="button"
                       disabled={!canMove}
                       onClick={() => onUpgradeShopTier(tier)}
-                      className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      className="rounded-md bg-amber-500 px-2 py-0.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
                     >
                       {!meetsRep
                         ? `${raw.minReputation.toFixed(1)}★`
                         : formatTRY(raw.cost)}
                     </button>
                   ) : (
-                    <span className="text-[10px] font-mono text-slate-500 whitespace-nowrap">
+                    <span className="text-[9.5px] font-mono text-slate-500 whitespace-nowrap shrink-0">
                       {formatTRY(raw.cost)}
                     </span>
                   )}
@@ -505,137 +517,165 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: DECORATIONS (3x3 ZERO SCROLL — INCLUDES RADIO, TEA BOILER & PRESTIGE PLAQUE) */}
+      {/* TAB 3: DECORATIONS (3x2 PAGINATED, STRICT ZERO SCROLL) */}
       {subTab === 'DECOR' && (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-3 gap-1.5 overflow-hidden">
-          {SHOP_DECORATIONS.map((dec) => {
-            const loc = getLocalizedDecoration(dec.id, lang);
-            const isPlaque = dec.id === 'prestige_plaque';
-            const isRadio = dec.id === 'vintage_radio';
-            const plaqueStyle = getPrestigePlaqueStyle(prestigeLevel);
-            const owned = isPlaque
-              ? prestigeLevel > 0
-              : ownedDecorations.includes(dec.id);
-            const active = owned && activeDecorations.includes(dec.id);
-            const displayTitle =
-              isPlaque && prestigeLevel > 0
-                ? `${lang === 'en' ? plaqueStyle.tierLabelEn : plaqueStyle.tierLabelTr} ${bi('Plaket', 'Plaque')} (P${prestigeLevel})`
-                : loc.name;
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+            {visibleDecorations.map((dec) => {
+              const loc = getLocalizedDecoration(dec.id, lang);
+              const isPlaque = dec.id === 'prestige_plaque';
+              const isRadio = dec.id === 'vintage_radio';
+              const plaqueStyle = getPrestigePlaqueStyle(prestigeLevel);
+              const owned = isPlaque
+                ? prestigeLevel > 0
+                : ownedDecorations.includes(dec.id);
+              const active = owned && activeDecorations.includes(dec.id);
+              const displayTitle =
+                isPlaque && prestigeLevel > 0
+                  ? `${lang === 'en' ? plaqueStyle.tierLabelEn : plaqueStyle.tierLabelTr} ${bi('Plaket', 'Plaque')} (P${prestigeLevel})`
+                  : loc.name;
 
-            return (
-              <div
-                key={dec.id}
-                className={`rounded-xl border p-1.5 sm:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
-                  isPlaque && prestigeLevel > 0
-                    ? `${plaqueStyle.borderClass} ${plaqueStyle.bgClass}`
-                    : active
-                    ? 'border-amber-400/50 bg-amber-500/10'
-                    : 'border-white/10 bg-[#151D28]'
-                }`}
-              >
-                <div className="shrink-0 flex items-center justify-between gap-1">
-                  <div className="text-[11px] font-extrabold text-slate-100 truncate">
-                    {displayTitle}
+              return (
+                <div
+                  key={dec.id}
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                    isPlaque && prestigeLevel > 0
+                      ? `${plaqueStyle.borderClass} ${plaqueStyle.bgClass}`
+                      : active
+                      ? 'border-amber-400/50 bg-amber-500/10'
+                      : 'border-white/10 bg-[#151D28]'
+                  }`}
+                >
+                  <div className="shrink-0 flex items-center justify-between gap-1">
+                    <div className="text-[10.5px] font-extrabold text-slate-100 truncate">
+                      {displayTitle}
+                    </div>
+                    <div className="text-[9px] font-mono font-bold text-amber-300 shrink-0">
+                      +{dec.prestige}
+                    </div>
                   </div>
-                  <div className="text-[9.5px] font-mono font-bold text-amber-300 shrink-0">
-                    +{dec.prestige}
+
+                  <div className="flex-1 min-h-0 my-0.5 [@media(min-height:540px)]:my-1 rounded-lg border border-white/8 bg-[#0D131C] p-1 flex items-center justify-center overflow-hidden">
+                    <DecorPreviewArt
+                      id={dec.id}
+                      prestigeLevel={prestigeLevel}
+                      className="h-full max-h-10 [@media(min-height:540px)]:max-h-20 w-auto object-contain"
+                    />
                   </div>
-                </div>
 
-                <div className="flex-1 min-h-0 my-1 rounded-lg border border-white/8 bg-[#0D131C] p-1 flex items-center justify-center overflow-hidden">
-                  <DecorPreviewArt
-                    id={dec.id}
-                    prestigeLevel={prestigeLevel}
-                    className="w-full h-full max-h-20 object-contain"
-                  />
-                </div>
+                  <p className="hidden [@media(min-height:520px)]:block shrink-0 text-[9px] text-slate-400 truncate mb-0.5">
+                    {isPlaque
+                      ? prestigeLevel > 0
+                        ? bi(
+                            `Prestij P${prestigeLevel} (${plaqueStyle.tierLabelTr}) — duvarda otomatik parlar.`,
+                            `Prestige P${prestigeLevel} (${plaqueStyle.tierLabelEn}) — shines on your shop wall.`
+                          )
+                        : bi('1. Prestij sıfırlamasında otomatik açılır.', 'Auto-unlocks at Prestige 1.')
+                      : loc.summary}
+                  </p>
 
-                <p className="shrink-0 text-[9px] text-slate-400 truncate mb-1">
-                  {isPlaque
-                    ? prestigeLevel > 0
-                      ? bi(
-                          `Prestij P${prestigeLevel} (${plaqueStyle.tierLabelTr}) — duvarda otomatik parlar.`,
-                          `Prestige P${prestigeLevel} (${plaqueStyle.tierLabelEn}) — shines on your shop wall.`
-                        )
-                      : bi('1. Prestij sıfırlamasında otomatik açılır.', 'Auto-unlocks at Prestige 1.')
-                    : loc.summary}
-                </p>
-
-                <div className="flex items-center justify-between gap-1 pt-1 border-t border-white/8 tabular-nums">
-                  {isRadio && owned && onCycleRadio ? (
-                    <button
-                      type="button"
-                      onClick={onCycleRadio}
-                      className={`rounded-md px-2 py-0.5 text-[9.5px] font-extrabold cursor-pointer truncate ${
-                        radioStation === 'ARABESK'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                  <div className="shrink-0 flex items-center justify-between gap-1 pt-1 border-t border-white/8 tabular-nums">
+                    {isRadio && owned && onCycleRadio ? (
+                      <button
+                        type="button"
+                        onClick={onCycleRadio}
+                        className={`rounded-md px-1.5 py-0.5 text-[9px] font-extrabold cursor-pointer truncate ${
+                          radioStation === 'ARABESK'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                            : radioStation === 'POP90'
+                            ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40'
+                            : 'bg-white/10 text-slate-300'
+                        }`}
+                      >
+                        {radioStation === 'ARABESK'
+                          ? 'FM 94.2'
                           : radioStation === 'POP90'
-                          ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40'
-                          : 'bg-white/10 text-slate-300'
-                      }`}
-                    >
-                      {radioStation === 'ARABESK'
-                        ? 'FM 94.2 Arabesk'
-                        : radioStation === 'POP90'
-                        ? 'FM 98.8 90lar'
-                        : bi('Radyo Kapalı', 'Radio Off')}
-                    </button>
-                  ) : (
-                    <span className="text-[9px] font-mono text-slate-500 truncate">
-                      {isPlaque
-                        ? prestigeLevel > 0
-                          ? `P${prestigeLevel}`
-                          : bi('Kilitli', 'Locked')
-                        : dec.cost === 0
-                        ? bi('Başlangıç', 'Starter')
-                        : formatTRY(dec.cost)}
-                    </span>
-                  )}
+                          ? 'FM 98.8'
+                          : bi('Kapalı', 'Off')}
+                      </button>
+                    ) : (
+                      <span className="text-[9px] font-mono text-slate-500 truncate">
+                        {isPlaque
+                          ? prestigeLevel > 0
+                            ? `P${prestigeLevel}`
+                            : bi('Kilitli', 'Locked')
+                          : dec.cost === 0
+                          ? bi('Başlangıç', 'Starter')
+                          : formatTRY(dec.cost)}
+                      </span>
+                    )}
 
-                  {isPlaque && prestigeLevel === 0 ? (
-                    <span className="rounded-md bg-white/8 px-2 py-0.5 text-[9.5px] font-bold text-slate-400 whitespace-nowrap">
-                      {bi('Prestij 1+', 'Prestige 1+')}
-                    </span>
-                  ) : owned ? (
-                    <button
-                      type="button"
-                      onClick={() => onToggleDecoration(dec.id)}
-                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9.5px] font-bold cursor-pointer whitespace-nowrap ${
-                        active
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/35'
-                          : 'bg-white/10 text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      {active ? (
-                        <>
-                          <Eye className="w-3 h-3" /> {bi('Açık', 'On')}
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="w-3 h-3" /> {bi('Gizli', 'Off')}
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={cash < dec.cost}
-                      onClick={() => onBuyDecoration(dec.id)}
-                      className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                    >
-                      {bi('Al', 'Buy')}
-                    </button>
-                  )}
+                    {isPlaque && prestigeLevel === 0 ? (
+                      <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[9px] font-bold text-slate-400 whitespace-nowrap">
+                        {bi('Prestij 1+', 'Prestige 1+')}
+                      </span>
+                    ) : owned ? (
+                      <button
+                        type="button"
+                        onClick={() => onToggleDecoration(dec.id)}
+                        className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[9px] font-bold cursor-pointer whitespace-nowrap ${
+                          active
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/35'
+                            : 'bg-white/10 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {active ? (
+                          <>
+                            <Eye className="w-2.5 h-2.5" /> {bi('Açık', 'On')}
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-2.5 h-2.5" /> {bi('Gizli', 'Off')}
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={cash < dec.cost}
+                        onClick={() => onBuyDecoration(dec.id)}
+                        className="rounded-md bg-amber-500 px-2 py-0.5 text-[9px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      >
+                        {bi('Al', 'Buy')}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          <div className="shrink-0 flex items-center justify-center gap-2 text-[10.5px]">
+            <button
+              type="button"
+              disabled={safeDecorPage === 0}
+              onClick={() => setDecorPage((p) => Math.max(0, p - 1))}
+              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              {bi('Önceki', 'Prev')}
+            </button>
+            <span className="font-mono text-slate-400">
+              {safeDecorPage + 1} / {totalDecorPages}
+            </span>
+            <button
+              type="button"
+              disabled={safeDecorPage >= totalDecorPages - 1}
+              onClick={() =>
+                setDecorPage((p) => Math.min(totalDecorPages - 1, p + 1))
+              }
+              className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-[#151D28] px-2.5 py-0.5 text-slate-200 disabled:opacity-35 cursor-pointer"
+            >
+              {bi('Sonraki', 'Next')}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
       {/* TAB 4: STAFF TEAM (2x2 ZERO SCROLL — PURE CASH HIRE + RANK TRAINING) */}
       {subTab === 'STAFF' && (
-        <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {SHOP_STAFF.map((member) => {
             const loc = getLocalizedStaff(member.id, lang);
             const hired = hiredStaff.includes(member.id);
@@ -649,42 +689,42 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
             return (
               <div
                 key={member.id}
-                className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
+                className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
                   hired
                     ? 'border-emerald-400/35 bg-[#16222C]'
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2 min-w-0">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       {member.id === 'accountant' ? (
-                        <Calculator className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <Calculator className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                       ) : (
-                        <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                        <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       )}
-                      <span className="text-xs font-extrabold text-slate-100 truncate">
+                      <span className="text-[11px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-100 truncate">
                         {loc.name}
                       </span>
                     </div>
-                    <div className="text-[10px] text-amber-300 font-semibold mt-0.5">
+                    <div className="text-[9.5px] [@media(min-height:540px)]:text-[10px] text-amber-300 font-semibold mt-0.5 truncate">
                       {loc.role} · {loc.benefitText}
                     </div>
                   </div>
                   {hired && (
-                    <span className="font-mono text-[10px] font-extrabold rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-300 shrink-0">
-                      {bi('Kademe', 'Rank')} {stLvl}/{STAFF_MAX_LEVEL}
+                    <span className="font-mono text-[9.5px] font-extrabold rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-300 shrink-0">
+                      {bi('Kdm', 'Rk')} {stLvl}/{STAFF_MAX_LEVEL}
                     </span>
                   )}
                 </div>
 
-                <p className="text-[10px] text-slate-300 line-clamp-2 leading-snug">
+                <p className="text-[9.5px] [@media(min-height:540px)]:text-[10px] text-slate-300 line-clamp-1 [@media(min-height:520px)]:line-clamp-2 leading-tight">
                   {loc.summary}
                 </p>
 
-                <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-white/8 tabular-nums">
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {bi('Günlük Maaş', 'Daily Wage')}: {formatTRY(member.dailyWage)}
+                <div className="shrink-0 flex items-center justify-between gap-1.5 pt-1 border-t border-white/8 tabular-nums">
+                  <span className="text-[9.5px] text-slate-400 font-mono truncate">
+                    {bi('Maaş', 'Wage')}: {formatTRY(member.dailyWage)}/{bi('g', 'd')}
                   </span>
 
                   {!hired ? (
@@ -692,26 +732,26 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       type="button"
                       disabled={cash < member.hireCost}
                       onClick={() => onHireStaff(member.id)}
-                      className="rounded-lg bg-amber-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      className="rounded-lg bg-amber-500 px-2.5 py-0.5 [@media(min-height:540px)]:py-1 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
                     >
                       {bi('İşe Al', 'Hire')} · {formatTRY(member.hireCost)}
                     </button>
                   ) : stLvl >= STAFF_MAX_LEVEL ? (
-                    <span className="text-[10.5px] font-extrabold text-emerald-400">
-                      MAX {bi('USTALIK', 'MASTERY')} ✓
+                    <span className="text-[10px] font-extrabold text-emerald-400 shrink-0">
+                      MAX ✓
                     </span>
                   ) : pendingTrain ? (
-                    <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-sky-300">
-                      <Clock className="w-3.5 h-3.5" />
-                      {bi('Eğitimde', 'Training')} ({pendingTrain.daysRemaining}
-                      {bi('g', 'd')})
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-300 shrink-0">
+                      <Clock className="w-3 h-3" />
+                      {pendingTrain.daysRemaining}
+                      {bi('g', 'd')}
                     </span>
                   ) : (
                     <button
                       type="button"
                       disabled={cash < trainCost}
                       onClick={() => onTrainStaff(member.id)}
-                      className="rounded-lg bg-sky-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-sky-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      className="rounded-lg bg-sky-500 px-2.5 py-0.5 [@media(min-height:540px)]:py-1 text-[10px] font-extrabold text-slate-950 hover:bg-sky-400 disabled:opacity-35 cursor-pointer whitespace-nowrap shrink-0"
                     >
                       {bi('Eğit', 'Train')} ({trainDays}
                       {bi('g', 'd')}) · {formatTRY(trainCost)}
@@ -726,7 +766,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
 
       {/* TAB 5: BOSS WARDROBE (3x2 ZERO SCROLL — PURE CASH) */}
       {subTab === 'WARDROBE' && (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {PLAYER_OUTFITS.map((outfit) => {
             const loc = getLocalizedOutfit(outfit.id, lang);
             const owned = ownedOutfits.includes(outfit.id);
@@ -735,48 +775,48 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
             return (
               <div
                 key={outfit.id}
-                className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                   equipped
                     ? 'border-amber-400 bg-amber-500/12'
                     : 'border-white/10 bg-[#151D28]'
                 }`}
               >
                 <div className="shrink-0 flex items-center justify-between gap-1">
-                  <div className="text-xs font-extrabold text-slate-100 truncate">
+                  <div className="text-[10.5px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-100 truncate">
                     {loc.name}
                   </div>
-                  <span className="text-[9.5px] font-semibold text-emerald-300 truncate shrink-0">
+                  <span className="text-[9px] font-semibold text-emerald-300 truncate shrink-0">
                     {outfit.moodBonus > 0
                       ? `+${outfit.moodBonus} ${bi('Ruh', 'Mood')}`
                       : bi('Klasik', 'Classic')}
                   </span>
                 </div>
 
-                <div className="flex-1 min-h-0 my-1.5 rounded-lg border border-white/8 bg-[#0D131C] px-2.5 py-1.5 flex items-center justify-center gap-3 overflow-hidden">
+                <div className="flex-1 min-h-0 my-0.5 [@media(min-height:540px)]:my-1 rounded-lg border border-white/8 bg-[#0D131C] px-2 py-1 flex items-center justify-center gap-2 overflow-hidden">
                   <OutfitAvatarArt
                     id={outfit.id}
-                    className="h-full max-h-20 w-auto shrink-0"
+                    className="h-full max-h-10 [@media(min-height:540px)]:max-h-20 w-auto shrink-0"
                   />
                   <div className="min-w-0 flex-1 space-y-0.5">
-                    <div className="text-[10px] font-bold text-emerald-300 line-clamp-2 leading-snug">
+                    <div className="text-[9.5px] [@media(min-height:540px)]:text-[10px] font-bold text-emerald-300 line-clamp-2 leading-tight">
                       {loc.bonusDescription}
                     </div>
-                    <p className="text-[9.5px] text-slate-400 line-clamp-2 leading-snug">
+                    <p className="hidden [@media(min-height:540px)]:block text-[9px] text-slate-400 line-clamp-1 leading-tight">
                       {loc.subtitle}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end pt-1 border-t border-white/8 tabular-nums">
+                <div className="shrink-0 flex items-center justify-end pt-1 border-t border-white/8 tabular-nums">
                   {equipped ? (
-                    <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                    <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[9.5px] font-extrabold text-amber-300">
                       {bi('Giyili ✓', 'Worn ✓')}
                     </span>
                   ) : owned ? (
                     <button
                       type="button"
                       onClick={() => onEquipOutfit(outfit.id)}
-                      className="rounded-md bg-white/12 px-2.5 py-0.5 text-[10px] font-bold text-slate-100 hover:bg-white/20 cursor-pointer"
+                      className="rounded-md bg-white/12 px-2 py-0.5 text-[9.5px] font-bold text-slate-100 hover:bg-white/20 cursor-pointer"
                     >
                       {bi('Giy', 'Equip')}
                     </button>
@@ -785,7 +825,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       type="button"
                       disabled={cash < outfit.cost}
                       onClick={() => onBuyOutfit(outfit.id)}
-                      className="rounded-md bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                      className="rounded-md bg-amber-500 px-2 py-0.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
                     >
                       {formatTRY(outfit.cost)}
                     </button>

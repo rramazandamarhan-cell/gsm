@@ -67,6 +67,7 @@ interface MissionsViewProps {
 
 type MissionsSubTab = 'STORY' | 'DAILY' | 'MILESTONES' | 'PRESTIGE' | 'ROADMAP' | 'COLLECTION';
 
+const CHAPTERS_PER_PAGE = 4;
 const MS_PER_PAGE = 6;
 const MODELS_PER_PAGE = 8;
 const CORE_LICENSE_IDS: UpgradeId[] = [
@@ -109,6 +110,12 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
       (c) => !shop.claimedChapterIds.includes(c.id)
     );
     return (firstUnclaimed ?? STORY_CHAPTERS[0]).id;
+  });
+  const [storyPage, setStoryPage] = useState<number>(() => {
+    const firstIdx = STORY_CHAPTERS.findIndex(
+      (c) => !shop.claimedChapterIds.includes(c.id)
+    );
+    return firstIdx >= 0 ? Math.floor(firstIdx / CHAPTERS_PER_PAGE) : 0;
   });
   const [msPage, setMsPage] = useState(0);
   const [colPage, setColPage] = useState(0);
@@ -179,6 +186,16 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   const activeChClaimed = shop.claimedChapterIds.includes(activeChapterRaw.id);
   const activeChReady = !activeChClaimed && activeChVal >= activeChapterRaw.target;
 
+  const totalStoryPages = Math.max(
+    1,
+    Math.ceil(STORY_CHAPTERS.length / CHAPTERS_PER_PAGE)
+  );
+  const safeStoryPage = Math.min(storyPage, totalStoryPages - 1);
+  const visibleChapters = STORY_CHAPTERS.slice(
+    safeStoryPage * CHAPTERS_PER_PAGE,
+    safeStoryPage * CHAPTERS_PER_PAGE + CHAPTERS_PER_PAGE
+  );
+
   const totalMsPages = Math.max(
     1,
     Math.ceil(CAREER_MILESTONES.length / MS_PER_PAGE)
@@ -200,10 +217,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-2 lg:p-3 gap-2">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
       {/* COMPACT LEVEL + XP + STREAK + SUB-TAB HEADER */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
           {(
             [
               ['STORY', BookOpen, bi('Hikâye', 'Story'), readyStoryCount],
@@ -299,24 +316,46 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       </div>
 
-      {/* TAB 1: 12-CHAPTER STORY ARC (SCROLLABLE CHAPTER SIDEBAR + DETAIL PANEL) */}
+      {/* TAB 1: 12-CHAPTER STORY ARC (PAGINATED 4/PAGE SIDEBAR + ZERO-SCROLL DETAIL PANEL) */}
       {subTab === 'STORY' && (
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 overflow-hidden">
-          {/* Scrollable Chapter List (12 Chapters) */}
-          <div className="col-span-5 lg:col-span-4 flex flex-col gap-1.5 min-h-0 overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between px-1 text-[10px] font-mono text-slate-400">
-              <span>
-                {bi('Hikâye İlerlemesi', 'Story Progress')}:{' '}
+        <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* Paginated Chapter List (4 per page, zero scroll) */}
+          <div className="col-span-5 lg:col-span-4 flex flex-col gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between gap-1 px-1 text-[10px] font-mono text-slate-400">
+              <span className="truncate">
+                {bi('Hikâye', 'Story')}:{' '}
                 <strong className="text-amber-300">
-                  {shop.claimedChapterIds.length} / {STORY_CHAPTERS.length}
+                  {shop.claimedChapterIds.length}/{STORY_CHAPTERS.length}
                 </strong>
               </span>
-              <span className="text-emerald-300">
-                %{Math.round((shop.claimedChapterIds.length / STORY_CHAPTERS.length) * 100)}
-              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  disabled={safeStoryPage === 0}
+                  onClick={() => setStoryPage((p) => Math.max(0, p - 1))}
+                  className="rounded border border-white/10 bg-[#151D28] px-1 py-0.5 text-slate-200 disabled:opacity-30 cursor-pointer"
+                  aria-label={bi('Önceki Sayfa', 'Prev Page')}
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+                <span className="text-[9.5px] text-slate-300">
+                  {safeStoryPage + 1}/{totalStoryPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={safeStoryPage >= totalStoryPages - 1}
+                  onClick={() =>
+                    setStoryPage((p) => Math.min(totalStoryPages - 1, p + 1))
+                  }
+                  className="rounded border border-white/10 bg-[#151D28] px-1 py-0.5 text-slate-200 disabled:opacity-30 cursor-pointer"
+                  aria-label={bi('Sonraki Sayfa', 'Next Page')}
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll pr-1 space-y-1.5">
-              {STORY_CHAPTERS.map((ch) => {
+            <div className="flex-1 min-h-0 grid grid-rows-4 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+              {visibleChapters.map((ch) => {
                 const loc = getLocalizedStoryChapter(ch, lang);
                 const val = getStoryChapterCurrentValue(shop, ch);
                 const claimed = shop.claimedChapterIds.includes(ch.id);
@@ -328,7 +367,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     key={ch.id}
                     type="button"
                     onClick={() => setSelectedChapterId(ch.id)}
-                    className={`w-full shrink-0 rounded-xl border px-2.5 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                    className={`w-full min-h-0 rounded-xl border px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5 text-left flex items-center justify-between gap-1.5 transition-colors cursor-pointer overflow-hidden ${
                       selected
                         ? 'border-amber-400 bg-amber-500/15'
                         : claimed
@@ -337,17 +376,17 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold text-slate-100 truncate">
+                      <div className="text-[10.5px] [@media(min-height:560px)]:text-[11px] font-bold text-slate-100 truncate">
                         {loc.title}
                       </div>
-                      <div className="mt-1 flex items-center gap-1.5">
+                      <div className="mt-0.5 flex items-center gap-1.5">
                         <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
                           <div
                             className={`h-full ${claimed || ready ? 'bg-emerald-400' : 'bg-amber-400'}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <span className="text-[9px] font-mono text-slate-400 shrink-0 tabular-nums">
+                        <span className="text-[8.5px] font-mono text-slate-400 shrink-0 tabular-nums">
                           {ch.metric === 'totalProfitEarned'
                             ? `%${pct}`
                             : `${Math.min(val, ch.target)}/${ch.target}`}
@@ -355,13 +394,13 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       </div>
                     </div>
                     {claimed ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     ) : ready ? (
-                      <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[9.5px] font-extrabold text-slate-950 shrink-0">
+                      <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[9px] font-extrabold text-slate-950 shrink-0">
                         {bi('AL', 'CLAIM')}
                       </span>
                     ) : (
-                      <span className="font-mono text-[9.5px] font-bold text-emerald-300 shrink-0 tabular-nums">
+                      <span className="font-mono text-[9px] font-bold text-emerald-300 shrink-0 tabular-nums">
                         +{formatTRY(ch.rewardCash)}
                       </span>
                     )}
@@ -371,45 +410,47 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </div>
           </div>
 
-          {/* Active Chapter Detail */}
-          <div className="col-span-7 lg:col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-3 flex flex-col justify-between min-h-0 overflow-hidden">
-            <div className="space-y-2 overflow-y-auto pasaj-scroll pr-1">
-              <div className="flex items-start justify-between gap-2">
+          {/* Active Chapter Detail — Strict Zero Scroll */}
+          <div className="col-span-7 lg:col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden">
+            <div className="min-h-0 flex-1 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+              <div className="shrink-0 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[10px] font-mono font-bold text-amber-300 uppercase">
-                    {bi(`Bölüm ${activeChapterRaw.chapterNumber} / ${STORY_CHAPTERS.length}`, `Chapter ${activeChapterRaw.chapterNumber} / ${STORY_CHAPTERS.length}`)} · {rank} · {bi('GÜN', 'DAY')} {shop.day}
+                  <span className="text-[9.5px] font-mono font-bold text-amber-300 uppercase">
+                    {bi(`Bölüm ${activeChapterRaw.chapterNumber}/${STORY_CHAPTERS.length}`, `Ch. ${activeChapterRaw.chapterNumber}/${STORY_CHAPTERS.length}`)} · {rank} · {bi('GÜN', 'DAY')} {shop.day}
                   </span>
-                  <h3 className="font-display text-base font-extrabold text-slate-50">
+                  <h3 className="font-display text-sm [@media(min-height:560px)]:text-base font-extrabold text-slate-50 truncate">
                     {activeChapter.title}
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-400 truncate">
                     {activeChapter.subtitle}
                   </p>
                 </div>
                 <div className="text-right font-mono tabular-nums shrink-0">
-                  <div className="text-sm font-extrabold text-emerald-400">
+                  <div className="text-xs [@media(min-height:560px)]:text-sm font-extrabold text-emerald-400">
                     +{formatTRY(activeChapter.rewardCash)}
                   </div>
                   {activeChapter.rewardXp > 0 && (
-                    <div className="text-[10px] font-bold text-amber-300">
+                    <div className="text-[9.5px] font-bold text-amber-300">
                       +{activeChapter.rewardXp} XP
                     </div>
                   )}
                 </div>
               </div>
 
-              <p className="text-xs text-slate-200 leading-relaxed">
+              <p className="text-[10.5px] [@media(min-height:560px)]:text-xs text-slate-200 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {activeChapter.narrative}
               </p>
 
-              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-2.5 text-[11px] text-amber-100 flex items-start gap-2">
-                <MessageSquare className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span className="italic">{activeChapter.mentorNote}</span>
+              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-1.5 [@media(min-height:560px)]:p-2.5 text-[10px] [@media(min-height:560px)]:text-[11px] text-amber-100 flex items-start gap-1.5 overflow-hidden">
+                <MessageSquare className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <span className="italic line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
+                  {activeChapter.mentorNote}
+                </span>
               </div>
             </div>
 
-            <div className="shrink-0 space-y-1.5 pt-2 border-t border-white/8 tabular-nums">
-              <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="shrink-0 space-y-1 [@media(min-height:560px)]:space-y-1.5 pt-1.5 border-t border-white/8 tabular-nums">
+              <div className="flex items-center justify-between gap-2 text-[11px] [@media(min-height:560px)]:text-xs">
                 <span className="font-semibold text-slate-200 truncate">
                   {activeChapter.objectiveText}
                 </span>
@@ -419,7 +460,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     : `${Math.min(activeChVal, activeChapterRaw.target)} / ${activeChapterRaw.target}`}
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-1.5 [@media(min-height:560px)]:h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
                   className="h-full bg-emerald-400 transition-all"
                   style={{
@@ -432,8 +473,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               </div>
               <div className="flex justify-end">
                 {activeChClaimed ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-400">
-                    <CheckCircle2 className="w-4 h-4" />
+                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                     {bi('Bölüm Tamamlandı', 'Chapter Completed')}
                   </span>
                 ) : (
@@ -441,7 +482,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     type="button"
                     disabled={!activeChReady}
                     onClick={() => onClaimStoryChapter(activeChapterRaw.id)}
-                    className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                    className="rounded-lg bg-emerald-500 px-3.5 py-1 [@media(min-height:560px)]:py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
                   >
                     {activeChReady
                       ? bi('Ödülü Topla', 'Claim Reward')
@@ -456,9 +497,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
       {/* TAB 2: DYNAMIC PLAYSTYLE DAILY QUESTS + ESNAF DIPLOMA + STREAK (ZERO SCROLL) */}
       {subTab === 'DAILY' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Playstyle Adaptation Bar */}
-          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-3 py-1.5 flex items-center justify-between gap-2 text-[10.5px]">
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 flex items-center justify-between gap-2 text-[10.5px]">
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-extrabold text-amber-300 whitespace-nowrap">
                 {bi('Oyun Tarzın:', 'Playstyle:')} {playstyleInfo.title}
@@ -475,14 +516,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     null
                 )
               }
-              className="inline-flex items-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/22 cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/12 px-2 py-0.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/22 cursor-pointer whitespace-nowrap shrink-0"
             >
-              <ScrollText className="w-3.5 h-3.5" />
+              <ScrollText className="w-3 h-3" />
               {bi('Esnaf Diploması', 'Merchant Diploma')}
             </button>
           </div>
 
-          <div className="flex-1 min-h-0 grid grid-cols-3 gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {shop.dailyQuests.slice(0, 3).map((q) => {
               const loc = getLocalizedQuest(q, lang);
               const ready = !q.claimed && q.progress >= q.target;
@@ -491,7 +532,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               return (
                 <div
                   key={q.id}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
                     q.claimed
                       ? 'border-emerald-500/25 bg-emerald-500/6 opacity-80'
                       : ready
@@ -499,25 +540,25 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
-                  <div>
+                  <div className="min-h-0 overflow-hidden">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-extrabold text-slate-100 truncate">
+                      <span className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
                         {loc.title}
                       </span>
-                      <span className="font-mono text-[10.5px] font-bold text-emerald-400 shrink-0 tabular-nums">
+                      <span className="font-mono text-[10px] font-bold text-emerald-400 shrink-0 tabular-nums">
                         +{formatTRY(q.reward)}
                       </span>
                     </div>
-                    <div className="text-[9.5px] text-amber-300/90 font-semibold mt-0.5">
+                    <div className="text-[9px] text-amber-300/90 font-semibold mt-0.5 truncate">
                       {diffText} · +{q.xpReward} XP
                     </div>
-                    <p className="text-[10.5px] text-slate-300 mt-1 leading-snug line-clamp-3">
+                    <p className="text-[10px] text-slate-300 mt-1 leading-tight line-clamp-2 [@media(min-height:540px)]:line-clamp-3">
                       {loc.description}
                     </p>
                   </div>
 
-                  <div className="space-y-1.5 tabular-nums">
-                    <div className="flex justify-between text-[10.5px]">
+                  <div className="shrink-0 space-y-1 [@media(min-height:560px)]:space-y-1.5 tabular-nums">
+                    <div className="flex justify-between text-[10px]">
                       <span className="text-slate-400">
                         {bi('İlerleme', 'Progress')}
                       </span>
@@ -536,9 +577,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setDiplomaQuest(q)}
-                        className="w-full rounded-lg border border-emerald-400/35 bg-emerald-500/12 py-1 text-[10.5px] font-extrabold text-emerald-300 hover:bg-emerald-500/20 cursor-pointer"
+                        className="w-full rounded-lg border border-emerald-400/35 bg-emerald-500/12 py-1 text-[10px] font-extrabold text-emerald-300 hover:bg-emerald-500/20 cursor-pointer truncate"
                       >
-                        ✓ {bi('Alındı · Diplomayı Gör', 'Claimed · View Diploma')}
+                        ✓ {bi('Alındı · Diploma', 'Claimed · Diploma')}
                       </button>
                     ) : (
                       <button
@@ -548,10 +589,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                           onClaimDailyQuest(q.id);
                           setDiplomaQuest(q);
                         }}
-                        className="w-full rounded-lg bg-emerald-500 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                        className="w-full rounded-lg bg-emerald-500 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer truncate"
                       >
                         {ready
-                          ? `${bi('Ödülü Al & Diploma', 'Claim & Diploma')} · +${formatTRY(q.reward)}`
+                          ? `${bi('Ödülü Al', 'Claim')} · +${formatTRY(q.reward)}`
                           : `${bi('Ödül', 'Reward')}: +${formatTRY(q.reward)}`}
                       </button>
                     )}
@@ -562,26 +603,26 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           </div>
 
           {/* Bottom Compact 7-Day Login Streak Strip */}
-          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-3 py-1.5 flex items-center justify-between gap-2 tabular-nums">
-            <div className="flex items-center gap-1.5 text-[11px]">
-              <Flame className="w-4 h-4 text-amber-400 shrink-0" />
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 flex items-center justify-between gap-2 tabular-nums">
+            <div className="flex items-center gap-1.5 text-[10.5px] min-w-0">
+              <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span className="font-bold text-slate-100 whitespace-nowrap">
                 {bi(`Giriş Serisi: ${shop.loginStreak}. Gün`, `Login Streak: Day ${shop.loginStreak}`)}
               </span>
               {streakBonus > 0 && (
-                <span className="text-[10px] text-emerald-300 hidden sm:inline">
-                  · {bi('Anlaşma Serisi Bonusu', 'Deal Streak Bonus')}: +{formatTRY(streakBonus)}
+                <span className="text-[10px] text-emerald-300 hidden sm:inline truncate">
+                  · {bi('Seri Bonusu', 'Streak Bonus')}: +{formatTRY(streakBonus)}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               {DAILY_STREAK_REWARDS.map((r) => {
                 const active = r.day === shop.loginStreak;
                 const past = r.day < shop.loginStreak;
                 return (
                   <span
                     key={r.day}
-                    className={`rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold ${
+                    className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold ${
                       active
                         ? 'bg-amber-500 text-slate-950'
                         : past
@@ -599,10 +640,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: CAREER MILESTONES (3x2 PAGINATED, ZERO LEVEL LOCKS) */}
+      {/* TAB 3: CAREER MILESTONES (3x2 PAGINATED, STRICT ZERO SCROLL) */}
       {subTab === 'MILESTONES' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleMilestones.map((m) => {
               const loc = getLocalizedMilestone(m, lang);
               const val = getMilestoneCurrentValue(shop, m);
@@ -612,7 +653,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               return (
                 <div
                   key={m.id}
-                  className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                     claimed
                       ? 'border-emerald-500/25 bg-emerald-500/6 opacity-75'
                       : ready
@@ -620,29 +661,29 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
-                  <div>
+                  <div className="min-h-0 overflow-hidden">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[11px] font-extrabold text-slate-100 truncate">
+                      <span className="text-[10.5px] font-extrabold text-slate-100 truncate">
                         {loc.title}
                       </span>
-                      <span className="font-mono text-[10px] font-bold text-emerald-400 shrink-0 tabular-nums">
+                      <span className="font-mono text-[9.5px] font-bold text-emerald-400 shrink-0 tabular-nums">
                         +{formatTRY(m.rewardCash)}
                       </span>
                     </div>
-                    <p className="text-[9.5px] text-slate-400 line-clamp-2 mt-0.5">
+                    <p className="text-[9px] text-slate-400 line-clamp-1 [@media(min-height:540px)]:line-clamp-2 mt-0.5 leading-tight">
                       {loc.description}
                     </p>
                   </div>
 
-                  <div className="space-y-1 tabular-nums">
-                    <div className="flex justify-between text-[9.5px] font-mono">
-                      <span className="text-slate-400">
+                  <div className="shrink-0 space-y-1 tabular-nums">
+                    <div className="flex justify-between text-[9px] font-mono">
+                      <span className="text-slate-400 truncate">
                         {m.metric === 'totalProfitEarned'
                           ? `${formatTRY(Math.min(val, m.target))} / ${formatTRY(m.target)}`
                           : `${Math.min(val, m.target)} / ${m.target}`}
                       </span>
-                      <span className="text-amber-300">
-                        +{m.rewardXp} XP · {pct}%
+                      <span className="text-amber-300 shrink-0">
+                        +{m.rewardXp}XP · {pct}%
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
@@ -652,7 +693,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       />
                     </div>
                     {claimed ? (
-                      <div className="text-center text-[10px] font-bold text-emerald-400">
+                      <div className="text-center text-[9.5px] font-bold text-emerald-400">
                         ✓ {bi('Tamamlandı', 'Completed')}
                       </div>
                     ) : (
@@ -660,7 +701,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                         type="button"
                         disabled={!ready}
                         onClick={() => onClaimMilestone(m.id)}
-                        className="w-full rounded-md bg-amber-500 py-0.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                        className="w-full rounded-md bg-amber-500 py-0.5 text-[9.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
                       >
                         {ready
                           ? bi('Ödülü Al', 'Claim')
@@ -673,8 +714,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             })}
           </div>
 
-          <div className="shrink-0 flex items-center justify-between gap-2 text-[11px] px-1">
-            <span className="font-mono text-[10.5px] text-slate-400">
+          <div className="shrink-0 flex items-center justify-between gap-2 text-[10.5px] px-1">
+            <span className="font-mono text-[10px] text-slate-400">
               {bi('Tamamlanan', 'Completed')}:{' '}
               <strong className="text-emerald-300">
                 {shop.claimedMilestoneIds.length} / {CAREER_MILESTONES.length}
@@ -701,17 +742,17 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 {bi('Sonraki', 'Next')} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <span className="hidden sm:inline font-mono text-[10.5px] text-amber-300/90">
+            <span className="hidden sm:inline font-mono text-[10px] text-amber-300/90">
               {totalMsPages} {bi('Sayfa', 'Pages')}
             </span>
           </div>
         </div>
       )}
 
-      {/* TAB 4: CAPITAL & BUSINESS ROADMAP (4 CORE PERMITS + 6 SHOP TIERS) */}
+      {/* TAB 4: CAPITAL & BUSINESS ROADMAP (4 CORE PERMITS + 6 SHOP TIERS — STRICT ZERO SCROLL) */}
       {subTab === 'ROADMAP' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
-          <div className="shrink-0 grid grid-cols-4 gap-2">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="shrink-0 grid grid-cols-4 gap-1.5 [@media(min-height:560px)]:gap-2">
             {CORE_LICENSE_IDS.map((id) => {
               const raw = SHOP_UPGRADES.find((u) => u.id === id)!;
               const loc = getLocalizedUpgrade(id, lang);
@@ -719,34 +760,34 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               return (
                 <div
                   key={id}
-                  className={`rounded-xl border p-2 flex flex-col justify-between gap-1 ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between gap-0.5 overflow-hidden ${
                     owned
                       ? 'border-emerald-400/40 bg-emerald-500/10'
                       : 'border-amber-400/25 bg-[#151D28]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10.5px] font-extrabold text-slate-100 truncate">
+                    <span className="text-[10px] font-extrabold text-slate-100 truncate">
                       {loc.name}
                     </span>
                     {owned ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                     ) : (
-                      <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                      <Lock className="w-2.5 h-2.5 text-amber-400 shrink-0" />
                     )}
                   </div>
-                  <p className="text-[9.5px] text-slate-400 line-clamp-2 leading-snug">
+                  <p className="hidden [@media(min-height:520px)]:block text-[9px] text-slate-400 line-clamp-1 leading-tight">
                     {loc.benefitText}
                   </p>
-                  <div className="font-mono text-[10px] font-extrabold text-amber-300 tabular-nums">
-                    {owned ? bi('✓ Lisans Aktif', '✓ Active') : formatTRY(raw.cost)}
+                  <div className="font-mono text-[9.5px] font-extrabold text-amber-300 tabular-nums truncate">
+                    {owned ? bi('✓ Aktif', '✓ Active') : formatTRY(raw.cost)}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {([1, 2, 3, 4, 5, 6] as ShopTier[]).map((t) => {
               const raw = SHOP_TIERS[t];
               const loc = getLocalizedShopTier(t, lang);
@@ -755,7 +796,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               return (
                 <div
                   key={t}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
                     isCurrent
                       ? 'border-amber-400 bg-amber-500/12'
                       : reached
@@ -764,24 +805,24 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="font-mono text-[10.5px] font-extrabold text-amber-300">
-                      {bi(`${t}. DÜKKAN`, `TIER ${t}`)} · {loc.name}
+                    <span className="font-mono text-[10px] font-extrabold text-amber-300 truncate">
+                      {bi(`${t}. DÜKKAN`, `T${t}`)} · {loc.name}
                     </span>
                     {reached ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                     ) : (
-                      <span className="font-mono text-[10px] font-bold text-slate-300 tabular-nums shrink-0">
+                      <span className="font-mono text-[9.5px] font-bold text-slate-300 tabular-nums shrink-0">
                         {formatTRY(raw.cost)}
                       </span>
                     )}
                   </div>
-                  <div className="text-[9.5px] text-slate-300 leading-snug line-clamp-2">
+                  <div className="text-[9px] [@media(min-height:540px)]:text-[9.5px] text-slate-300 leading-tight line-clamp-1 [@media(min-height:520px)]:line-clamp-2">
                     {loc.unlocksText}
                   </div>
-                  <div className="text-[9.5px] font-mono text-slate-400 tabular-nums">
+                  <div className="text-[9px] font-mono text-slate-400 tabular-nums truncate">
                     {t === 1
                       ? bi('Başlangıç · 6 Müşteri/g', 'Starter · 6 Cust/d')
-                      : `${raw.minReputation.toFixed(1)}★ · ${raw.dailyCustomers} ${bi('Müşteri/g', 'Cust/d')} · ${raw.showcaseSlots} ${bi('Raf', 'Slots')}`}
+                      : `${raw.minReputation.toFixed(1)}★ · ${raw.dailyCustomers} ${bi('Müş/g', 'C/d')} · ${raw.showcaseSlots} ${bi('Raf', 'Slots')}`}
                   </div>
                 </div>
               );
@@ -790,44 +831,44 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 5: PHONE MODEL COLLECTION (4x2 PAGINATED, ZERO SCROLL) */}
+      {/* TAB 5: PHONE MODEL COLLECTION (4x2 PAGINATED, STRICT ZERO SCROLL) */}
       {subTab === 'COLLECTION' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
-          <div className="flex-1 min-h-0 grid grid-cols-4 grid-rows-2 gap-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-4 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleModels.map((spec) => {
               const discovered = shop.discoveredSpecIds.includes(spec.id);
               return (
                 <div
                   key={spec.id}
-                  className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                     discovered
                       ? 'border-amber-400/35 bg-[#151D28]'
                       : 'border-white/8 bg-[#111720] opacity-60'
                   }`}
                 >
                   <div className="shrink-0 flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-extrabold text-slate-100 truncate">
+                    <span className="text-[10px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 truncate">
                       {discovered ? `${spec.brand} ${spec.model}` : '???'}
                     </span>
-                    <span className="font-mono text-[9.5px] text-slate-400 shrink-0">
+                    <span className="font-mono text-[9px] text-slate-400 shrink-0">
                       {spec.storage}
                     </span>
                   </div>
 
-                  <div className="flex-1 min-h-0 my-1 rounded-lg border border-white/6 bg-[#0D131C] p-1.5 flex items-center justify-center overflow-hidden">
+                  <div className="flex-1 min-h-0 my-0.5 [@media(min-height:540px)]:my-1 rounded-lg border border-white/6 bg-[#0D131C] p-1 flex items-center justify-center overflow-hidden">
                     <PhoneModelThumb
                       spec={spec}
                       showBack
                       silhouette={!discovered}
-                      className="h-full max-h-20 w-auto"
+                      className="h-full max-h-10 [@media(min-height:540px)]:max-h-20 w-auto"
                     />
                   </div>
 
-                  <div className="shrink-0 flex items-center justify-between text-[10px] tabular-nums">
-                    <span className="text-slate-400 uppercase font-mono">
+                  <div className="shrink-0 flex items-center justify-between text-[9.5px] tabular-nums">
+                    <span className="text-slate-400 uppercase font-mono truncate">
                       {spec.tier}
                     </span>
-                    <span className="font-mono font-bold text-amber-300">
+                    <span className="font-mono font-bold text-amber-300 shrink-0">
                       {discovered ? formatTRY(spec.baseValue) : '—'}
                     </span>
                   </div>
@@ -836,7 +877,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             })}
           </div>
 
-          <div className="shrink-0 flex items-center justify-center gap-2 text-[11px]">
+          <div className="shrink-0 flex items-center justify-center gap-2 text-[10.5px]">
             <button
               type="button"
               disabled={safeColPage === 0}
@@ -862,42 +903,42 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           </div>
         </div>
       )}
-      {/* TAB 4: INFINITE PRESTIGE & PERMANENT PERKS (NEW GAME+ LOOP) */}
+      {/* TAB 6: INFINITE PRESTIGE & PERMANENT PERKS (STRICT ZERO SCROLL) */}
       {subTab === 'PRESTIGE' && (
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2.5 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Left: Prestige Cycle Status & Reset Trigger */}
-          <div className="col-span-5 rounded-xl border border-amber-400/30 bg-[#151D28] p-3 flex flex-col justify-between gap-2 min-h-0 overflow-hidden tabular-nums">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 font-display text-sm font-extrabold text-amber-300">
-                  <Crown className="w-4 h-4" />
-                  {bi(`Prestij Dönemi #${prestigeLevel}`, `Prestige Cycle #${prestigeLevel}`)}
+          <div className="col-span-5 rounded-xl border border-amber-400/30 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden tabular-nums">
+            <div className="min-h-0 space-y-1.5 overflow-hidden">
+              <div className="flex items-center justify-between gap-1">
+                <span className="inline-flex items-center gap-1 font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-amber-300 truncate">
+                  <Crown className="w-3.5 h-3.5 shrink-0" />
+                  {bi(`Prestij #${prestigeLevel}`, `Prestige #${prestigeLevel}`)}
                 </span>
-                <span className="font-mono text-xs font-extrabold text-emerald-300">
+                <span className="font-mono text-[11px] font-extrabold text-emerald-300 shrink-0">
                   {prestigePoints} PP
                 </span>
               </div>
-              <p className="text-[10.5px] text-slate-300 leading-snug">
+              <p className="hidden [@media(min-height:540px)]:block text-[10px] text-slate-300 leading-snug line-clamp-2">
                 {bi(
-                  'Hedef nakde ulaştığında dükkanı yeni bir döneme sıfırla; Prestij Puanı (PP) kazan, kalıcı avantajlar aç ve her yeni döneme daha güçlü başla!',
-                  'Reach the cash target to reset your shop into a new Prestige cycle; earn Prestige Points (PP) and keep permanent upgrades forever!'
+                  'Hedef nakde ulaştığında dükkanı yeni bir döneme sıfırla; Prestij Puanı (PP) kazan, kalıcı avantajlar aç!',
+                  'Reach the cash target to reset into a new Prestige cycle; earn PP and unlock permanent upgrades!'
                 )}
               </p>
 
               {/* Structured 3-Gate Prestige Requirements (Cash + Shop Tier + Level) */}
-              <div className="rounded-lg border border-white/10 bg-[#0E141D] p-2 space-y-1.5">
-                <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
-                  {bi(`Prestij #${prestigeLevel + 1} Geçiş Şartları`, `Prestige #${prestigeLevel + 1} Requirements`)}
+              <div className="rounded-lg border border-white/10 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 space-y-1">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                  {bi(`Prestij #${prestigeLevel + 1} Şartları`, `Prestige #${prestigeLevel + 1} Goals`)}
                 </div>
 
                 {/* Gate 1: Cash */}
                 <div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className={shop.cash >= prestigeTarget ? 'text-emerald-300 font-semibold' : 'text-slate-300'}>
+                  <div className="flex justify-between text-[9.5px] gap-1">
+                    <span className={`truncate ${shop.cash >= prestigeTarget ? 'text-emerald-300 font-semibold' : 'text-slate-300'}`}>
                       {shop.cash >= prestigeTarget ? '✓ ' : '• '}
-                      {bi('Kasa Hedefi', 'Cash Goal')}
+                      {bi('Kasa', 'Cash')}
                     </span>
-                    <span className="font-mono font-bold text-amber-300">
+                    <span className="font-mono font-bold text-amber-300 shrink-0">
                       {formatTRY(shop.cash)} / {formatTRY(prestigeTarget)}
                     </span>
                   </div>
@@ -914,123 +955,127 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 </div>
 
                 {/* Gate 2 & 3: Shop Tier + Level */}
-                <div className="grid grid-cols-2 gap-1.5 pt-0.5 text-[10px]">
+                <div className="grid grid-cols-2 gap-1 text-[9.5px]">
                   <div
-                    className={`rounded-md border px-2 py-1 flex items-center justify-between ${
+                    className={`rounded-md border px-1.5 py-0.5 flex items-center justify-between ${
                       shop.shopTier >= prestigeReq.minShopTier
                         ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-300'
                         : 'border-white/10 bg-[#141C27] text-slate-300'
                     }`}
                   >
-                    <span className="truncate">{bi('Dükkan', 'Shop Tier')}</span>
+                    <span className="truncate">{bi('Dükkan', 'Shop')}</span>
                     <strong className="font-mono shrink-0">
                       {shop.shopTier}/{prestigeReq.minShopTier}
                     </strong>
                   </div>
                   <div
-                    className={`rounded-md border px-2 py-1 flex items-center justify-between ${
+                    className={`rounded-md border px-1.5 py-0.5 flex items-center justify-between ${
                       shop.level >= prestigeReq.minLevel
                         ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-300'
                         : 'border-white/10 bg-[#141C27] text-slate-300'
                     }`}
                   >
-                    <span className="truncate">{bi('Seviye', 'Level')}</span>
+                    <span className="truncate">{bi('Seviye', 'Lvl')}</span>
                     <strong className="font-mono shrink-0">
                       {shop.level}/{prestigeReq.minLevel}
                     </strong>
                   </div>
                 </div>
 
-                <div className="flex justify-between text-[9.5px] text-slate-400 pt-0.5 border-t border-white/8">
+                <div className="flex justify-between text-[9px] text-slate-400 pt-0.5 border-t border-white/8">
                   <span>
-                    {bi('Kalıcı Gelir Çarpanı', 'Permanent Income Bonus')}:{' '}
+                    {bi('Gelir', 'Bonus')}:{' '}
                     <strong className="text-emerald-300">+%{prestigeMultPct}</strong>
                   </span>
                   <span>
-                    {bi('Kazanılacak', 'Earn on Reset')}:{' '}
+                    {bi('Ödül', 'Earn')}:{' '}
                     <strong className="text-amber-300">
-                      {prestigeReady ? `+${prestigeEarnedPreview} PP` : bi('Şartlar bekleniyor', 'Pending')}
+                      {prestigeReady ? `+${prestigeEarnedPreview} PP` : bi('Bekleniyor', 'Pending')}
                     </strong>
                   </span>
                 </div>
               </div>
 
-              <div className="text-[10px] text-slate-300 space-y-0.5 leading-snug">
-                <div>
-                  <strong className="text-emerald-300">{bi('Korunanlar:', 'Kept:')}</strong>{' '}
-                  {bi('Seviye (Sv.), Müze, Gardırop, Katalog, Kariyer ve Prestij Avantajları.', 'Level, Museum, Wardrobe, Catalog, Milestones & Prestige Perks.')}
+              <div className="hidden [@media(min-height:480px)]:block text-[9.5px] text-slate-300 space-y-0.5 leading-tight">
+                <div className="truncate">
+                  <strong className="text-emerald-300">{bi('Korunan:', 'Kept:')}</strong>{' '}
+                  {bi('Sv., Müze, Gardırop, Katalog, Prestij.', 'Lv., Museum, Wardrobe, Catalog, Perks.')}
                 </div>
-                <div>
-                  <strong className="text-rose-300">{bi('Sıfırlananlar:', 'Reset:')}</strong>{' '}
-                  {bi('Gün 1, Dükkan 1, Envanter, Şubeler ve Nakit (+yeni dönem sermayesi).', 'Day 1, Shop Tier 1, Inventory, Branches & Cash (+cycle bonus).')}
+                <div className="truncate">
+                  <strong className="text-rose-300">{bi('Sıfırlanan:', 'Reset:')}</strong>{' '}
+                  {bi('Gün 1, Dükkan 1, Stok, Nakit.', 'Day 1, Shop 1, Stock, Cash.')}
                 </div>
               </div>
             </div>
 
-            {!confirmPrestige ? (
-              <button
-                type="button"
-                disabled={!prestigeReady}
-                onClick={() => setConfirmPrestige(true)}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                {prestigeReady
-                  ? bi(`Prestij Yap (+${prestigeEarnedPreview} PP Kazan)`, `Prestige Reset (+${prestigeEarnedPreview} PP)`)
-                  : bi(`3 Şartı Tamamla (${formatTRY(prestigeTarget)} · Dük.${prestigeReq.minShopTier} · Sv.${prestigeReq.minLevel})`, `Meet All 3 Goals (${formatTRY(prestigeTarget)} · T${prestigeReq.minShopTier} · Lv.${prestigeReq.minLevel})`)}
-              </button>
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5">
+            <div className="shrink-0">
+              {!confirmPrestige ? (
                 <button
                   type="button"
-                  onClick={() => setConfirmPrestige(false)}
-                  className="rounded-xl border border-white/12 bg-[#1D2634] py-2 text-[11px] font-bold text-slate-200 cursor-pointer"
+                  disabled={!prestigeReady}
+                  onClick={() => setConfirmPrestige(true)}
+                  className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer truncate px-2"
                 >
-                  {bi('Vazgeç', 'Cancel')}
+                  <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    {prestigeReady
+                      ? bi(`Prestij Yap (+${prestigeEarnedPreview} PP)`, `Prestige (+${prestigeEarnedPreview} PP)`)
+                      : bi(`3 Şartı Tamamla (${formatTRY(prestigeTarget)})`, `Meet All 3 Goals (${formatTRY(prestigeTarget)})`)}
+                  </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirmPrestige(false);
-                    onTriggerPrestige();
-                  }}
-                  className="rounded-xl bg-emerald-500 py-2 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
-                >
-                  {bi(`Onayla (+${prestigeEarnedPreview} PP)`, `Confirm (+${prestigeEarnedPreview} PP)`)}
-                </button>
-              </div>
-            )}
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmPrestige(false)}
+                    className="rounded-xl border border-white/12 bg-[#1D2634] py-1.5 text-[10.5px] font-bold text-slate-200 cursor-pointer"
+                  >
+                    {bi('Vazgeç', 'Cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmPrestige(false);
+                      onTriggerPrestige();
+                    }}
+                    className="rounded-xl bg-emerald-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                  >
+                    {bi(`Onayla (+${prestigeEarnedPreview} PP)`, `Confirm (+${prestigeEarnedPreview} PP)`)}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right: 2x2 Permanent Prestige Perks */}
-          <div className="col-span-7 grid grid-cols-2 grid-rows-2 gap-2 min-h-0 overflow-hidden">
+          {/* Right: 2x2 Permanent Prestige Perks — Strict Zero Scroll */}
+          <div className="col-span-7 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
             {PRESTIGE_PERKS.map((perk) => {
               const owned = prestigePerks.includes(perk.id);
               const canAfford = prestigePoints >= perk.cost;
               return (
                 <div
                   key={perk.id}
-                  className={`rounded-xl border p-2.5 flex flex-col justify-between min-h-0 ${
+                  className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between min-h-0 overflow-hidden ${
                     owned
                       ? 'border-emerald-400/45 bg-emerald-500/10'
                       : 'border-white/10 bg-[#151D28]'
                   }`}
                 >
-                  <div>
+                  <div className="min-h-0 overflow-hidden">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-extrabold text-slate-100 truncate">
+                      <span className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
                         {lang === 'en' ? perk.enName : perk.trName}
                       </span>
-                      <span className="font-mono text-[10.5px] font-extrabold text-amber-300 shrink-0 tabular-nums">
+                      <span className="font-mono text-[10px] font-extrabold text-amber-300 shrink-0 tabular-nums">
                         {owned ? '✓' : `${perk.cost} PP`}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-300 mt-1 leading-snug">
+                    <p className="text-[9.5px] [@media(min-height:560px)]:text-[10px] text-slate-300 mt-0.5 leading-tight line-clamp-2 [@media(min-height:540px)]:line-clamp-3">
                       {lang === 'en' ? perk.enEffect : perk.trEffect}
                     </p>
                   </div>
                   {owned ? (
-                    <div className="text-center text-[10.5px] font-extrabold text-emerald-300 py-1">
+                    <div className="shrink-0 text-center text-[10px] font-extrabold text-emerald-300 py-0.5">
                       ✓ {bi('Kalıcı Aktif', 'Permanently Active')}
                     </div>
                   ) : (
@@ -1038,7 +1083,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                       type="button"
                       disabled={!canAfford}
                       onClick={() => onBuyPrestigePerk(perk.id)}
-                      className="w-full rounded-lg bg-amber-500 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                      className="shrink-0 w-full rounded-lg bg-amber-500 py-1 [@media(min-height:560px)]:py-1.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
                     >
                       {canAfford
                         ? bi(`Kalıcı Aç (${perk.cost} PP)`, `Unlock (${perk.cost} PP)`)
@@ -1060,7 +1105,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border-2 border-amber-400/70 bg-gradient-to-b from-[#1D1810] via-[#151B26] to-[#111720] p-4 shadow-2xl space-y-3 text-center relative"
+            className="w-full max-w-lg max-h-[92dvh] overflow-y-auto pasaj-scroll rounded-2xl border-2 border-amber-400/70 bg-gradient-to-b from-[#1D1810] via-[#151B26] to-[#111720] p-3.5 sm:p-4 shadow-2xl space-y-2.5 sm:space-y-3 text-center relative"
           >
             <button
               type="button"

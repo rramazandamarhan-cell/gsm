@@ -50,35 +50,46 @@ const env =
   (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
 
 const TEST_PUBLISHER_PREFIX = 'ca-app-pub-3940256099942544';
-const androidRewardedId =
+const GOOGLE_ANDROID_TEST_REWARDED = 'ca-app-pub-3940256099942544/5224354917';
+const GOOGLE_ANDROID_TEST_INTERSTITIAL = 'ca-app-pub-3940256099942544/1033173712';
+const GOOGLE_IOS_TEST_REWARDED = 'ca-app-pub-3940256099942544/1712485313';
+const GOOGLE_IOS_TEST_INTERSTITIAL = 'ca-app-pub-3940256099942544/4411468910';
+
+const prodAndroidRewardedId =
   env.VITE_ADMOB_ANDROID_REWARDED || 'ca-app-pub-9402241323787415/6147015955';
-const androidInterstitialId =
+const prodAndroidInterstitialId =
   env.VITE_ADMOB_ANDROID_INTERSTITIAL || 'ca-app-pub-9402241323787415/5265499923';
-const iosRewardedId =
-  env.VITE_ADMOB_IOS_REWARDED || 'ca-app-pub-3940256099942544/1712485313';
-const iosInterstitialId =
-  env.VITE_ADMOB_IOS_INTERSTITIAL || 'ca-app-pub-3940256099942544/4411468910';
+const prodIosRewardedId =
+  env.VITE_ADMOB_IOS_REWARDED || GOOGLE_IOS_TEST_REWARDED;
+const prodIosInterstitialId =
+  env.VITE_ADMOB_IOS_INTERSTITIAL || GOOGLE_IOS_TEST_INTERSTITIAL;
 
 const hasCustomProdUnit =
-  !androidRewardedId.startsWith(TEST_PUBLISHER_PREFIX) ||
-  !iosRewardedId.startsWith(TEST_PUBLISHER_PREFIX);
+  !prodAndroidRewardedId.startsWith(TEST_PUBLISHER_PREFIX) ||
+  !prodIosRewardedId.startsWith(TEST_PUBLISHER_PREFIX);
 
-// Automatically switches to production ads once real AdMob Unit IDs are provided in .env,
-// unless VITE_ADMOB_TESTING='true' is explicitly set for local QA.
+const isTestingMode =
+  env.VITE_ADMOB_TESTING === 'true'
+    ? true
+    : env.VITE_ADMOB_TESTING === 'false'
+    ? false
+    : !hasCustomProdUnit;
+
+// Automatically uses production ads with real AdMob Unit IDs unless VITE_ADMOB_TESTING='true'
+// is explicitly set (e.g., Debug Test APK builds use official Google Test Ads).
 export const ADMOB_CONFIG = {
-  isTesting:
-    env.VITE_ADMOB_TESTING === 'true'
-      ? true
-      : env.VITE_ADMOB_TESTING === 'false'
-      ? false
-      : !hasCustomProdUnit,
+  isTesting: isTestingMode,
   android: {
-    rewardedId: androidRewardedId,
-    interstitialId: androidInterstitialId,
+    rewardedId: isTestingMode ? GOOGLE_ANDROID_TEST_REWARDED : prodAndroidRewardedId,
+    interstitialId: isTestingMode
+      ? GOOGLE_ANDROID_TEST_INTERSTITIAL
+      : prodAndroidInterstitialId,
   },
   ios: {
-    rewardedId: iosRewardedId,
-    interstitialId: iosInterstitialId,
+    rewardedId: isTestingMode ? GOOGLE_IOS_TEST_REWARDED : prodIosRewardedId,
+    interstitialId: isTestingMode
+      ? GOOGLE_IOS_TEST_INTERSTITIAL
+      : prodIosInterstitialId,
   },
 } as const;
 
