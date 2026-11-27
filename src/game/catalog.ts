@@ -930,6 +930,16 @@ export const SHOP_UPGRADES: ShopUpgrade[] = [
     benefitText: 'Mevcut vitrin rafına kalıcı +2 sergileme yuvası ekler.',
   },
   {
+    id: 'spare_parts_license',
+    name: 'Yedek Parça Toptan Lisansı',
+    cost: 30000,
+    installDays: 0,
+    category: 'workshop',
+    summary: 'Toptancıdan ekran, pil ve anakart yedek parça stoğu çekme yetkisini aç; atölye tamirlerinde parça masrafını sıfırla!',
+    benefitText: 'Toptan sekmesindeki Yedek Parça sayfası açılır ve 5’li paketlerde %15 indirim gelir!',
+    highlightTag: 'İş Kolu',
+  },
+  {
     id: 'accessory_license',
     name: 'Aksesuar Reyonu & Toptan Lisansı',
     cost: 45000,

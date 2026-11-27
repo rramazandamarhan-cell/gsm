@@ -217,10 +217,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
+    <div className="h-full flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2 gap-1.5">
       {/* COMPACT LEVEL + XP + STREAK + SUB-TAB HEADER */}
-      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
+      <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0 w-full sm:w-auto">
           {(
             [
               ['STORY', BookOpen, bi('Hikâye', 'Story'), readyStoryCount],
@@ -235,16 +235,16 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               key={id}
               type="button"
               onClick={() => setSubTab(id)}
-              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[10px] [@media(min-height:560px)]:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 subTab === id
                   ? 'bg-amber-500 text-slate-950'
                   : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-3 h-3" />
               {label}
               {badge > 0 && (
-                <span className="rounded bg-emerald-400 px-1 font-mono text-[9.5px] font-extrabold text-slate-950">
+                <span className="rounded bg-emerald-400 px-1 font-mono text-[9px] font-extrabold text-slate-950">
                   +{badge}
                 </span>
               )}
@@ -253,29 +253,29 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
 
         {/* Inline Rank, Infinite Level XP Bar & Daily Streak Claim */}
-        <div className="flex items-center gap-2 tabular-nums shrink-0">
+        <div className="flex items-center gap-1.5 tabular-nums shrink-0">
           <div
-            className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-[#0E141D] px-2.5 py-0.5 text-[10.5px]"
+            className="flex items-center gap-1 rounded-lg border border-amber-400/25 bg-[#0E141D] px-2 py-0.5 text-[9.5px] [@media(min-height:560px)]:text-[10px]"
             title={bi(
               `Sv. ${lvlProg.level + 1} bonusu: +${formatTRY(nextLevelBonus)} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP)`,
               `Lv. ${lvlProg.level + 1} bonus: +${formatTRY(nextLevelBonus)} (${lvlProg.currentInLevel}/${lvlProg.neededForNext} XP)`
             )}
           >
-            <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <Award className="w-3 h-3 text-amber-400 shrink-0" />
             <span className="font-mono font-extrabold text-amber-300 whitespace-nowrap">
               {bi(`Sv.${lvlProg.level}`, `Lv.${lvlProg.level}`)}
             </span>
-            <span className="hidden md:inline font-bold text-slate-200 truncate max-w-[115px]">
+            <span className="hidden md:inline font-bold text-slate-200 truncate max-w-[100px]">
               {rank}
             </span>
             <div className="hidden sm:flex items-center gap-1">
-              <div className="w-12 h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="w-10 h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div
                   className="h-full bg-amber-400 transition-all"
                   style={{ width: `${lvlProg.percent}%` }}
                 />
               </div>
-              <span className="font-mono text-[9px] text-slate-400">
+              <span className="font-mono text-[8.5px] text-slate-400">
                 {lvlProg.percent}%
               </span>
             </div>
@@ -286,10 +286,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               <button
                 type="button"
                 onClick={() => onClaimDailyStreak(false)}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
               >
-                <Gift className="w-3.5 h-3.5" />
-                {bi('Günlük Ödül', 'Daily')} +{formatTRY(todayStreakReward.cash)}
+                <Gift className="w-3 h-3" />
+                {bi('Günlük', 'Daily')} +{formatTRY(todayStreakReward.cash)}
               </button>
               <button
                 type="button"
@@ -298,9 +298,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                   'Ödüllü reklam izleyerek günlük ödülü 2x al',
                   'Watch a rewarded ad to claim 2x daily bonus'
                 )}
-                className="inline-flex items-center gap-1 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2 py-1 text-[10.5px] font-extrabold text-amber-200 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap"
               >
-                <PlayCircle className="w-3.5 h-3.5 text-amber-300" />
+                <PlayCircle className="w-3 h-3 text-amber-300" />
                 {bi('2x İzle', '2x Ad')} (+{formatTRY(todayStreakReward.cash * 2)})
               </button>
             </div>
@@ -309,18 +309,18 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           <button
             type="button"
             onClick={onBackToCounter}
-            className="rounded-lg border border-white/10 bg-[#1B2432] px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
+            className="rounded-lg border border-white/10 bg-[#1B2432] px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[10px] [@media(min-height:560px)]:text-[10.5px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
           >
             ← {bi('Tezgah', 'Counter')}
           </button>
         </div>
       </div>
 
-      {/* TAB 1: 12-CHAPTER STORY ARC (PAGINATED 4/PAGE SIDEBAR + ZERO-SCROLL DETAIL PANEL) */}
+      {/* TAB 1: 12-CHAPTER STORY ARC (STRICT ZERO SCROLL) */}
       {subTab === 'STORY' && (
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
-          {/* Paginated Chapter List (4 per page, zero scroll) */}
-          <div className="col-span-5 lg:col-span-4 flex flex-col gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* Paginated Chapter List (4 per page) */}
+          <div className="h-full col-span-5 lg:col-span-4 flex flex-col gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden">
             <div className="shrink-0 flex items-center justify-between gap-1 px-1 text-[10px] font-mono text-slate-400">
               <span className="truncate">
                 {bi('Hikâye', 'Story')}:{' '}
@@ -354,7 +354,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 </button>
               </div>
             </div>
-            <div className="flex-1 min-h-0 grid grid-rows-4 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+            <div className="h-full flex-1 min-h-0 grid grid-rows-4 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
               {visibleChapters.map((ch) => {
                 const loc = getLocalizedStoryChapter(ch, lang);
                 const val = getStoryChapterCurrentValue(shop, ch);
@@ -410,38 +410,38 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </div>
           </div>
 
-          {/* Active Chapter Detail — Strict Zero Scroll */}
-          <div className="col-span-7 lg:col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden">
+          {/* Active Chapter Detail */}
+          <div className="h-full col-span-7 lg:col-span-8 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden">
             <div className="min-h-0 flex-1 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               <div className="shrink-0 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[9.5px] font-mono font-bold text-amber-300 uppercase">
+                  <span className="text-[9px] font-mono font-bold text-amber-300 uppercase">
                     {bi(`Bölüm ${activeChapterRaw.chapterNumber}/${STORY_CHAPTERS.length}`, `Ch. ${activeChapterRaw.chapterNumber}/${STORY_CHAPTERS.length}`)} · {rank} · {bi('GÜN', 'DAY')} {shop.day}
                   </span>
-                  <h3 className="font-display text-sm [@media(min-height:560px)]:text-base font-extrabold text-slate-50 truncate">
+                  <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50 truncate">
                     {activeChapter.title}
                   </h3>
-                  <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-400 truncate">
+                  <p className="text-[9.5px] [@media(min-height:560px)]:text-[10.5px] text-slate-400 truncate">
                     {activeChapter.subtitle}
                   </p>
                 </div>
                 <div className="text-right font-mono tabular-nums shrink-0">
-                  <div className="text-xs [@media(min-height:560px)]:text-sm font-extrabold text-emerald-400">
+                  <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-emerald-400">
                     +{formatTRY(activeChapter.rewardCash)}
                   </div>
                   {activeChapter.rewardXp > 0 && (
-                    <div className="text-[9.5px] font-bold text-amber-300">
+                    <div className="text-[9px] font-bold text-amber-300">
                       +{activeChapter.rewardXp} XP
                     </div>
                   )}
                 </div>
               </div>
 
-              <p className="text-[10.5px] [@media(min-height:560px)]:text-xs text-slate-200 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-200 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {activeChapter.narrative}
               </p>
 
-              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-1.5 [@media(min-height:560px)]:p-2.5 text-[10px] [@media(min-height:560px)]:text-[11px] text-amber-100 flex items-start gap-1.5 overflow-hidden">
+              <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 p-1.5 [@media(min-height:560px)]:p-2 text-[9.5px] [@media(min-height:560px)]:text-[10.5px] text-amber-100 flex items-start gap-1.5 overflow-hidden">
                 <MessageSquare className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                 <span className="italic line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                   {activeChapter.mentorNote}
@@ -450,7 +450,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </div>
 
             <div className="shrink-0 space-y-1 [@media(min-height:560px)]:space-y-1.5 pt-1.5 border-t border-white/8 tabular-nums">
-              <div className="flex items-center justify-between gap-2 text-[11px] [@media(min-height:560px)]:text-xs">
+              <div className="flex items-center justify-between gap-2 text-[10px] [@media(min-height:560px)]:text-[11px]">
                 <span className="font-semibold text-slate-200 truncate">
                   {activeChapter.objectiveText}
                 </span>
@@ -497,10 +497,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
       {/* TAB 2: DYNAMIC PLAYSTYLE DAILY QUESTS + ESNAF DIPLOMA + STREAK (ZERO SCROLL) */}
       {subTab === 'DAILY' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Playstyle Adaptation Bar */}
-          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 flex items-center justify-between gap-2 text-[10.5px]">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 flex items-center justify-between gap-2 text-[10px]">
+            <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-extrabold text-amber-300 whitespace-nowrap">
                 {bi('Oyun Tarzın:', 'Playstyle:')} {playstyleInfo.title}
               </span>
@@ -516,14 +516,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                     null
                 )
               }
-              className="inline-flex items-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/12 px-2 py-0.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/22 cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/12 px-2 py-0.5 text-[9.5px] font-extrabold text-amber-200 hover:bg-amber-500/22 cursor-pointer whitespace-nowrap shrink-0"
             >
               <ScrollText className="w-3 h-3" />
               {bi('Esnaf Diploması', 'Merchant Diploma')}
             </button>
           </div>
 
-          <div className="flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="h-full flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {shop.dailyQuests.slice(0, 3).map((q) => {
               const loc = getLocalizedQuest(q, lang);
               const ready = !q.claimed && q.progress >= q.target;
@@ -542,10 +542,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                 >
                   <div className="min-h-0 overflow-hidden">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
+                      <span className="text-[10px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 truncate">
                         {loc.title}
                       </span>
-                      <span className="font-mono text-[10px] font-bold text-emerald-400 shrink-0 tabular-nums">
+                      <span className="font-mono text-[9.5px] font-bold text-emerald-400 shrink-0 tabular-nums">
                         +{formatTRY(q.reward)}
                       </span>
                     </div>
@@ -642,8 +642,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
       {/* TAB 3: CAREER MILESTONES (3x2 PAGINATED, STRICT ZERO SCROLL) */}
       {subTab === 'MILESTONES' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleMilestones.map((m) => {
               const loc = getLocalizedMilestone(m, lang);
               const val = getMilestoneCurrentValue(shop, m);
@@ -749,9 +749,9 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 4: CAPITAL & BUSINESS ROADMAP (4 CORE PERMITS + 6 SHOP TIERS — STRICT ZERO SCROLL) */}
+      {/* TAB 4: CAPITAL & BUSINESS ROADMAP (STRICT ZERO SCROLL) */}
       {subTab === 'ROADMAP' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           <div className="shrink-0 grid grid-cols-4 gap-1.5 [@media(min-height:560px)]:gap-2">
             {CORE_LICENSE_IDS.map((id) => {
               const raw = SHOP_UPGRADES.find((u) => u.id === id)!;
@@ -787,7 +787,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             })}
           </div>
 
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {([1, 2, 3, 4, 5, 6] as ShopTier[]).map((t) => {
               const raw = SHOP_TIERS[t];
               const loc = getLocalizedShopTier(t, lang);
@@ -833,8 +833,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
       {/* TAB 5: PHONE MODEL COLLECTION (4x2 PAGINATED, STRICT ZERO SCROLL) */}
       {subTab === 'COLLECTION' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
-          <div className="flex-1 min-h-0 grid grid-cols-4 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="h-full flex-1 min-h-0 grid grid-cols-4 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleModels.map((spec) => {
               const discovered = shop.discoveredSpecIds.includes(spec.id);
               return (
@@ -903,18 +903,18 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           </div>
         </div>
       )}
-      {/* TAB 6: INFINITE PRESTIGE & PERMANENT PERKS (STRICT ZERO SCROLL) */}
+      {/* TAB 6: INFINITE PRESTIGE & PERMANENT PERKS */}
       {subTab === 'PRESTIGE' && (
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Left: Prestige Cycle Status & Reset Trigger */}
-          <div className="col-span-5 rounded-xl border border-amber-400/30 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden tabular-nums">
+          <div className="h-full col-span-5 rounded-xl border border-amber-400/30 bg-[#151D28] p-2 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden tabular-nums">
             <div className="min-h-0 space-y-1.5 overflow-hidden">
               <div className="flex items-center justify-between gap-1">
-                <span className="inline-flex items-center gap-1 font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-amber-300 truncate">
+                <span className="inline-flex items-center gap-1 font-display text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-amber-300 truncate">
                   <Crown className="w-3.5 h-3.5 shrink-0" />
                   {bi(`Prestij #${prestigeLevel}`, `Prestige #${prestigeLevel}`)}
                 </span>
-                <span className="font-mono text-[11px] font-extrabold text-emerald-300 shrink-0">
+                <span className="font-mono text-[10.5px] font-extrabold text-emerald-300 shrink-0">
                   {prestigePoints} PP
                 </span>
               </div>
@@ -1014,7 +1014,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                   type="button"
                   disabled={!prestigeReady}
                   onClick={() => setConfirmPrestige(true)}
-                  className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer truncate px-2"
+                  className="w-full inline-flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-1.5 text-[10px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer truncate px-2"
                 >
                   <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">
@@ -1047,8 +1047,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </div>
           </div>
 
-          {/* Right: 2x2 Permanent Prestige Perks — Strict Zero Scroll */}
-          <div className="col-span-7 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+          {/* Right: 2x2 Permanent Prestige Perks */}
+          <div className="h-full col-span-7 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
             {PRESTIGE_PERKS.map((perk) => {
               const owned = prestigePerks.includes(perk.id);
               const canAfford = prestigePoints >= perk.cost;
@@ -1117,22 +1117,22 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </button>
 
             <div className="space-y-0.5">
-              <div className="font-mono text-[10px] font-extrabold uppercase tracking-[0.2em] text-amber-400">
+              <div className="font-mono text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-amber-400">
                 {bi('PASAJ ESNAF ODASI RESMİ BELGESİ', 'ARCADE MERCHANTS GUILD CERTIFICATE')}
               </div>
-              <h3 className="font-display text-xl font-extrabold text-amber-200">
+              <h3 className="font-display text-sm [@media(min-height:560px)]:text-base font-extrabold text-amber-200">
                 {bi('ESNAF DİPLOMASI', 'MERCHANT DIPLOMA')}
               </h3>
-              <div className="text-[11px] font-bold text-emerald-300">
+              <div className="text-[10.5px] font-bold text-emerald-300">
                 {playstyleInfo.diplomaTitle} · {bi(`Sv.${lvlProg.level}`, `Lv.${lvlProg.level}`)} · {rank}
               </div>
             </div>
 
-            <div className="rounded-xl border border-amber-400/30 bg-[#0D131C]/90 px-4 py-3 space-y-1.5">
-              <div className="text-xs font-extrabold text-slate-100">
+            <div className="rounded-xl border border-amber-400/30 bg-[#0D131C]/90 px-3.5 py-2.5 space-y-1">
+              <div className="text-[11px] font-extrabold text-slate-100">
                 {getLocalizedQuest(diplomaQuest, lang).title}
               </div>
-              <p className="text-[11.5px] italic text-amber-100/95 leading-relaxed">
+              <p className="text-[10.5px] [@media(min-height:560px)]:text-[11px] italic text-amber-100/95 leading-snug">
                 “{getWittyDiplomaQuote(diplomaQuest)}”
               </p>
             </div>

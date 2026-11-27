@@ -1,9 +1,10 @@
 // Production-Ready AdMob Monetization Bridge (Rewarded Video + Low-Frequency Interstitial)
-// - Native Android/iOS: routes directly to @capacitor-community/admob when installed in native wrapper
+// - Native Android/iOS: routes directly to @capacitor-community/admob v7 native bridge
 // - Web/PWA preview: triggers the in-app AdOverlayModal simulator so players & QA can test full flows
 // - Explicit Rewarded Ad confirmation flow before launching any rewarded video (both Native & Web)
 // - Low-frequency Interstitial pacing: automatic at day end once every 5–7 game days & >= 4 min cooldown
 
+import { AdMob, AdmobConsentStatus } from '@capacitor-community/admob';
 import { soundFX } from './sound';
 import { getRuntimePlatform } from './storeBridge';
 import { AdMonetizationState } from './types';
@@ -30,20 +31,10 @@ export interface ActiveWebAdSession {
   resolve: (completed: boolean) => void;
 }
 
-interface CapacitorAdMobPlugin {
-  initialize?: (opts?: {
-    initializeForTesting?: boolean;
-    testingDevices?: string[];
-  }) => Promise<void>;
-  requestConsentInfo?: () => Promise<{
-    status?: 'REQUIRED' | 'OBTAINED' | 'NOT_REQUIRED' | 'UNKNOWN' | string;
-    isConsentFormAvailable?: boolean;
-  }>;
-  showConsentForm?: () => Promise<void>;
-  prepareRewardVideoAd?: (opts: { adId: string; isTesting?: boolean }) => Promise<void>;
-  showRewardVideoAd?: () => Promise<{ type?: string; amount?: number }>;
-  prepareInterstitial?: (opts: { adId: string; isTesting?: boolean }) => Promise<void>;
-  showInterstitial?: () => Promise<void>;
+export interface AdStatusNotice {
+  code: 'LOAD_FAILED' | 'OFFLINE' | 'BUSY';
+  messageTr: string;
+  messageEn: string;
 }
 
 const env =
@@ -106,10 +97,14 @@ export const AD_PACING_RULES = {
 } as const;
 
 let adMobInitialized = false;
+let adMobInitPromise: Promise<boolean> | null = null;
 let nativeAdInFlight = false;
+let rewardedPrepared = false;
+let interstitialPrepared = false;
 let lastInterstitialShownAt = 0;
 let lastInterstitialDayRuntime = 0;
 let webAdListener: ((session: ActiveWebAdSession | null) => void) | null = null;
+let adStatusListener: ((notice: AdStatusNotice) => void) | null = null;
 
 /**
  * Picks the next low-frequency interstitial target day, 5 to 7 in-game days after `fromDay`.
@@ -161,14 +156,23 @@ export function normalizeAdState(
   };
 }
 
-function getNativeAdMob(): CapacitorAdMobPlugin | null {
-  if (typeof window === 'undefined') return null;
-  const cap = (
-    window as unknown as {
-      Capacitor?: { Plugins?: { AdMob?: CapacitorAdMobPlugin } };
-    }
-  ).Capacitor;
-  return cap?.Plugins?.AdMob ?? null;
+function isNativeAdPlatform(): boolean {
+  const platform = getRuntimePlatform();
+  return platform === 'android' || platform === 'ios';
+}
+
+function getRewardedAdUnitId(): string {
+  const platform = getRuntimePlatform();
+  return platform === 'ios'
+    ? ADMOB_CONFIG.ios.rewardedId
+    : ADMOB_CONFIG.android.rewardedId;
+}
+
+function getInterstitialAdUnitId(): string {
+  const platform = getRuntimePlatform();
+  return platform === 'ios'
+    ? ADMOB_CONFIG.ios.interstitialId
+    : ADMOB_CONFIG.android.interstitialId;
 }
 
 export function registerWebAdOverlayListener(
@@ -177,32 +181,80 @@ export function registerWebAdOverlayListener(
   webAdListener = cb;
 }
 
+export function registerAdStatusListener(
+  cb: ((notice: AdStatusNotice) => void) | null
+): void {
+  adStatusListener = cb;
+}
+
+async function preloadRewardedAd(): Promise<void> {
+  if (!adMobInitialized || !isNativeAdPlatform() || rewardedPrepared) return;
+  try {
+    await AdMob.prepareRewardVideoAd({
+      adId: getRewardedAdUnitId(),
+      isTesting: ADMOB_CONFIG.isTesting,
+    });
+    rewardedPrepared = true;
+  } catch {
+    rewardedPrepared = false;
+  }
+}
+
+async function preloadInterstitialAd(): Promise<void> {
+  if (!adMobInitialized || !isNativeAdPlatform() || interstitialPrepared) return;
+  try {
+    await AdMob.prepareInterstitial({
+      adId: getInterstitialAdUnitId(),
+      isTesting: ADMOB_CONFIG.isTesting,
+    });
+    interstitialPrepared = true;
+  } catch {
+    interstitialPrepared = false;
+  }
+}
+
 /**
  * Safely initializes AdMob & UMP/GDPR consent on native Android/iOS builds.
+ * Retries automatically if an earlier attempt failed (e.g. launched offline).
  */
-export async function initializeAdService(): Promise<void> {
-  if (adMobInitialized) return;
-  const admob = getNativeAdMob();
-  if (!admob) {
-    adMobInitialized = true;
-    return;
-  }
-  try {
-    await admob.initialize?.({
-      initializeForTesting: ADMOB_CONFIG.isTesting,
-    });
-    const consent = await admob.requestConsentInfo?.();
-    if (
-      consent?.isConsentFormAvailable &&
-      (!consent.status || consent.status === 'REQUIRED')
-    ) {
-      await admob.showConsentForm?.();
+export async function initializeAdService(): Promise<boolean> {
+  if (!isNativeAdPlatform()) return false;
+  if (adMobInitialized) return true;
+  if (adMobInitPromise) return adMobInitPromise;
+
+  adMobInitPromise = (async () => {
+    try {
+      await AdMob.initialize({
+        initializeForTesting: ADMOB_CONFIG.isTesting,
+      });
+      adMobInitialized = true;
+
+      // Request UMP/GDPR consent in isolated try/catch so missing consent forms never break ads
+      try {
+        const consent = await AdMob.requestConsentInfo();
+        if (
+          consent?.isConsentFormAvailable &&
+          consent.status === AdmobConsentStatus.REQUIRED
+        ) {
+          await AdMob.showConsentForm();
+        }
+      } catch {
+        // Ignore if UMP consent message is not configured or unavailable
+      }
+
+      // Warm up ad inventory in the background
+      void preloadRewardedAd();
+      void preloadInterstitialAd();
+      return true;
+    } catch {
+      adMobInitialized = false;
+      return false;
+    } finally {
+      adMobInitPromise = null;
     }
-  } catch {
-    // Never block gameplay if offline or consent unavailable
-  } finally {
-    adMobInitialized = true;
-  }
+  })();
+
+  return adMobInitPromise;
 }
 
 /**
@@ -295,31 +347,61 @@ export async function showRewardedAd(opts: {
     if (!confirmed) return false;
   }
 
-  await initializeAdService();
-  const platform = getRuntimePlatform();
-  const admob = getNativeAdMob();
-
-  if (admob && (platform === 'android' || platform === 'ios')) {
-    if (nativeAdInFlight) return false;
-    nativeAdInFlight = true;
+  if (isNativeAdPlatform()) {
     webAdListener?.(null);
-    const adId =
-      platform === 'ios'
-        ? ADMOB_CONFIG.ios.rewardedId
-        : ADMOB_CONFIG.android.rewardedId;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      adStatusListener?.({
+        code: 'OFFLINE',
+        messageTr: 'Reklam için internet bağlantısı gerekiyor.',
+        messageEn: 'Internet connection is required to load ads.',
+      });
+      return false;
+    }
+    if (nativeAdInFlight) {
+      adStatusListener?.({
+        code: 'BUSY',
+        messageTr: 'Reklam yükleniyor, lütfen kısa süre bekle.',
+        messageEn: 'An ad is already loading, please wait.',
+      });
+      return false;
+    }
+
+    const ready = await initializeAdService();
+    if (!ready) {
+      adStatusListener?.({
+        code: 'LOAD_FAILED',
+        messageTr: 'Reklam servisi başlatılamadı. Birazdan tekrar dene.',
+        messageEn: 'Ad service could not initialize. Please try again shortly.',
+      });
+      return false;
+    }
+
+    nativeAdInFlight = true;
+    const adId = getRewardedAdUnitId();
     soundFX.setAdSuspended(true);
     try {
-      await admob.prepareRewardVideoAd?.({
-        adId,
-        isTesting: ADMOB_CONFIG.isTesting,
-      });
-      const reward = await admob.showRewardVideoAd?.();
+      if (!rewardedPrepared) {
+        await AdMob.prepareRewardVideoAd({
+          adId,
+          isTesting: ADMOB_CONFIG.isTesting,
+        });
+        rewardedPrepared = true;
+      }
+      rewardedPrepared = false;
+      const reward = await AdMob.showRewardVideoAd();
       return Boolean(reward);
     } catch {
+      rewardedPrepared = false;
+      adStatusListener?.({
+        code: 'LOAD_FAILED',
+        messageTr: 'Şu an gösterilecek uygun reklam bulunamadı. Birazdan tekrar dene.',
+        messageEn: 'No ad available right now. Please try again in a moment.',
+      });
       return false;
     } finally {
       soundFX.setAdSuspended(false);
       nativeAdInFlight = false;
+      void preloadRewardedAd();
     }
   }
 
@@ -371,40 +453,48 @@ export async function maybeShowEndOfDayInterstitial(
     };
   }
 
-  await initializeAdService();
   const nextScheduled = pickNextInterstitialDay(completedDay);
-  lastInterstitialShownAt = Date.now();
-  lastInterstitialDayRuntime = completedDay;
 
-  const platform = getRuntimePlatform();
-  const admob = getNativeAdMob();
-
-  if (admob && (platform === 'android' || platform === 'ios')) {
-    if (nativeAdInFlight) {
+  if (isNativeAdPlatform()) {
+    if (nativeAdInFlight || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
       return {
         shown: false,
         lastInterstitialDay: currentLast,
         nextInterstitialDay: currentNext,
       };
     }
+
+    const ready = await initializeAdService();
+    if (!ready) {
+      return {
+        shown: false,
+        lastInterstitialDay: currentLast,
+        nextInterstitialDay: currentNext,
+      };
+    }
+
     nativeAdInFlight = true;
-    const adId =
-      platform === 'ios'
-        ? ADMOB_CONFIG.ios.interstitialId
-        : ADMOB_CONFIG.android.interstitialId;
+    const adId = getInterstitialAdUnitId();
     soundFX.setAdSuspended(true);
     try {
-      await admob.prepareInterstitial?.({
-        adId,
-        isTesting: ADMOB_CONFIG.isTesting,
-      });
-      await admob.showInterstitial?.();
+      if (!interstitialPrepared) {
+        await AdMob.prepareInterstitial({
+          adId,
+          isTesting: ADMOB_CONFIG.isTesting,
+        });
+        interstitialPrepared = true;
+      }
+      interstitialPrepared = false;
+      await AdMob.showInterstitial();
+      lastInterstitialShownAt = Date.now();
+      lastInterstitialDayRuntime = completedDay;
       return {
         shown: true,
         lastInterstitialDay: completedDay,
         nextInterstitialDay: nextScheduled,
       };
     } catch {
+      interstitialPrepared = false;
       return {
         shown: false,
         lastInterstitialDay: currentLast,
@@ -413,6 +503,7 @@ export async function maybeShowEndOfDayInterstitial(
     } finally {
       soundFX.setAdSuspended(false);
       nativeAdInFlight = false;
+      void preloadInterstitialAd();
     }
   }
 
@@ -435,6 +526,8 @@ export async function maybeShowEndOfDayInterstitial(
       detailTr: `Teşekkürler! Bir sonraki reklam arası en erken Gün ${nextScheduled} bitiminde gösterilir.`,
       detailEn: `Thanks for playing! Next ad break won't appear before Day ${nextScheduled} ends.`,
       resolve: () => {
+        lastInterstitialShownAt = Date.now();
+        lastInterstitialDayRuntime = completedDay;
         webAdListener?.(null);
         resolve({
           shown: true,

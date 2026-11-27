@@ -67,30 +67,30 @@ export const MorningNewspaperModal: React.FC<MorningNewspaperModalProps> = ({
         initial={{ opacity: 0, y: 14, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-        className="w-full max-w-[660px] max-h-[94dvh] flex flex-col overflow-hidden rounded-xl border-2 border-[#C8BCA6] bg-[#F4EFE4] text-[#171A1F] shadow-[0_24px_60px_rgba(0,0,0,0.68)]"
+        className="w-full max-w-[540px] max-h-[88dvh] flex flex-col overflow-hidden rounded-xl border-2 border-[#C8BCA6] bg-[#F4EFE4] text-[#171A1F] shadow-[0_24px_60px_rgba(0,0,0,0.68)]"
       >
         {/* Compact Newspaper Masthead */}
-        <header className="px-3 py-1.5 border-b-2 border-[#171A1F] shrink-0">
-          <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-[#555046] tabular-nums">
+        <header className="px-2.5 py-1 border-b-2 border-[#171A1F] shrink-0">
+          <div className="flex items-center justify-between gap-2 text-[9px] font-mono uppercase tracking-wider text-[#555046] tabular-nums">
             <span>{bi(`GÜN ${day} · İSTANBUL`, `DAY ${day} · ARCADE`)}</span>
-            <div className="flex items-center gap-1.5">
-              <Newspaper className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
-              <h1 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#14171C]">
+            <div className="flex items-center gap-1">
+              <Newspaper className="w-3 h-3 text-[#B45309] shrink-0" />
+              <h1 className="font-display text-xs sm:text-sm font-extrabold tracking-tight text-[#14171C]">
                 {bi('PASAJ POSTASI', 'ARCADE GAZETTE')}
               </h1>
-              <Coffee className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
+              <Coffee className="w-3 h-3 text-[#B45309] shrink-0" />
             </div>
-            <span className="font-semibold text-[#171A1F] truncate max-w-[140px]">
+            <span className="font-semibold text-[#171A1F] truncate max-w-[120px]">
               {shopRank}
             </span>
           </div>
         </header>
 
-        {/* Zero-Scroll 2-Column Landscape Front Page */}
-        <div className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-3">
-          <div className="grid grid-cols-12 gap-3 h-full items-stretch">
+        {/* Responsive 2-Column Front Page (Stacks Cleanly on Portrait Mobile) */}
+        <div className="flex-1 min-h-0 overflow-y-auto sm:overflow-hidden pasaj-scroll overscroll-contain touch-pan-y p-2">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:h-full items-stretch">
             {/* LEFT COLUMN: Headline + Market Effect + Flash Deal / Deliveries */}
-            <div className="col-span-7 flex flex-col justify-between gap-1.5 min-h-0">
+            <div className="sm:col-span-7 flex flex-col justify-between gap-1.5 min-h-0">
               <div className="space-y-1.5">
                 {morningNotifications.length > 0 && !isMidDayReview && (
                   <div className="rounded-lg border border-emerald-800/35 bg-emerald-900/10 px-2 py-1 space-y-0.5">
@@ -121,19 +121,19 @@ export const MorningNewspaperModal: React.FC<MorningNewspaperModalProps> = ({
                     <span>{locNews.kicker}</span>
                   </div>
 
-                  <h2 className="font-display text-sm sm:text-base font-extrabold leading-tight text-[#12151A]">
+                  <h2 className="font-display text-xs sm:text-[13px] font-extrabold leading-tight text-[#12151A]">
                     {locNews.headline}
                   </h2>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[#3C3831] leading-snug line-clamp-1">
+                  <p className="mt-0.5 text-[10px] font-semibold text-[#3C3831] leading-snug line-clamp-1">
                     {locNews.subheadline}
                   </p>
                 </div>
 
-                <p className="text-[10.5px] leading-snug text-[#252830] line-clamp-2">
+                <p className="text-[9.5px] leading-snug text-[#252830] line-clamp-2">
                   {locNews.description}
                 </p>
 
-                <div className={`rounded-lg border px-2 py-1 text-[10.5px] font-bold ${effectTone}`}>
+                <div className={`rounded-md border px-2 py-0.5 text-[9.5px] font-bold ${effectTone}`}>
                   {bi('Piyasa Etkisi', 'Market Effect')}: {locNews.effectSummary}
                 </div>
 
@@ -175,7 +175,7 @@ export const MorningNewspaperModal: React.FC<MorningNewspaperModalProps> = ({
             </div>
 
             {/* RIGHT COLUMN: Compact Daily Quests + Action CTA */}
-            <aside className="col-span-5 border-l border-[#171A1F]/15 pl-3 flex flex-col justify-between gap-2 min-h-0">
+            <aside className="sm:col-span-5 border-t sm:border-t-0 sm:border-l border-[#171A1F]/15 pt-2 sm:pt-0 sm:pl-3 flex flex-col justify-between gap-2 min-h-0">
               <div>
                 <div className="flex items-center gap-1 text-[9.5px] font-mono font-bold tracking-wider text-[#555046] mb-1">
                   <Target className="w-3 h-3 text-[#B45309]" />
@@ -220,7 +220,7 @@ export const MorningNewspaperModal: React.FC<MorningNewspaperModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-lg bg-[#171A1F] px-3 py-2 text-xs font-extrabold text-[#F6F1E7] hover:bg-[#262B34] active:scale-[0.99] transition-all cursor-pointer whitespace-nowrap"
+                className="w-full rounded-lg bg-[#171A1F] px-2.5 py-1.5 text-[10.5px] font-extrabold text-[#F6F1E7] hover:bg-[#262B34] active:scale-[0.99] transition-all cursor-pointer whitespace-nowrap"
               >
                 {isMidDayReview
                   ? bi('Gazeteyi Katla & Dön', 'Fold Paper & Return')

@@ -174,80 +174,94 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
     {
       id: 'SETTINGS',
       label: bi('Ayarlar', 'Settings'),
-      icon: <SlidersHorizontal className="w-3.5 h-3.5" />,
+      icon: <SlidersHorizontal className="w-3 h-3" />,
     },
     {
       id: 'ACHIEVEMENTS',
       label: `${bi('Başarımlar', 'Achievements')} (${unlockedCount}/${STORE_ACHIEVEMENTS.length})`,
-      icon: <Trophy className="w-3.5 h-3.5" />,
+      icon: <Trophy className="w-3 h-3" />,
     },
     {
       id: 'PRIVACY',
       label: bi('Gizlilik & Veri', 'Privacy & Data'),
-      icon: <ShieldCheck className="w-3.5 h-3.5" />,
+      icon: <ShieldCheck className="w-3 h-3" />,
     },
     {
       id: 'SUPPORT',
       label: bi('Mağaza & Destek', 'Store & Support'),
-      icon: <Star className="w-3.5 h-3.5" />,
+      icon: <Star className="w-3 h-3" />,
     },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-1.5 sm:p-2">
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 8 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-3xl max-h-[96dvh] rounded-2xl border border-white/12 bg-[#141C27] shadow-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-2xl max-h-[90dvh] sm:h-[86dvh] sm:max-h-[440px] rounded-xl border border-white/12 bg-[#141C27] shadow-2xl overflow-hidden flex flex-col"
       >
-        {/* Ergonomic Fixed-Px Header + Tabs */}
-        <div className="px-3 py-1.5 min-h-[46px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 bg-[#10161F]">
-          <div className="flex items-center gap-2 min-w-0">
-            <img
-              src="/pwa-192x192.png"
-              alt="GSM Simulator"
-              className="w-6 h-6 rounded-md object-cover border border-amber-400/30 shrink-0"
-            />
-            <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 truncate">
-              {bi('Ayarlar & Gizlilik', 'Settings & Privacy')}
-            </h2>
-            <span className="hidden md:inline text-[10px] font-mono text-amber-400">
-              v{STORE_RELEASE_META.versionName}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`inline-flex items-center gap-1 min-h-[34px] rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 touch-manipulation ${
-                  tab === t.id
-                    ? 'bg-amber-500 text-slate-950'
-                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-slate-50'
-                }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </button>
-            ))}
+        {/* Header with Always-Pinned Close Button & Horizontally Scrollable Tabs on Narrow Phones */}
+        <div className="px-2 sm:px-2.5 py-1.5 min-h-[34px] border-b border-white/10 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 shrink-0 bg-[#10161F]">
+          <div className="flex items-center justify-between sm:justify-start gap-1.5 w-full sm:w-auto shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <img
+                src="/pwa-192x192.png"
+                alt="GSM Simulator"
+                className="w-4 h-4 sm:w-5 sm:h-5 rounded object-cover border border-amber-400/30 shrink-0"
+              />
+              <h2 className="font-display text-[11px] sm:text-xs font-extrabold text-slate-50 whitespace-nowrap">
+                <span className="lg:hidden">{bi('Ayarlar', 'Settings')}</span>
+                <span className="hidden lg:inline">
+                  {bi('Ayarlar & Gizlilik', 'Settings & Privacy')}
+                </span>
+              </h2>
+            </div>
+
             <button
               type="button"
               onClick={onClose}
               aria-label={bi('Kapat', 'Close')}
-              className="ml-1 flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-white/12 bg-[#1E2836] text-slate-200 hover:text-white hover:bg-[#273447] cursor-pointer shrink-0 touch-manipulation"
+              className="sm:hidden flex h-[26px] w-[26px] items-center justify-center rounded-md border border-white/12 bg-[#1E2836] text-slate-200 hover:text-white hover:bg-[#273447] cursor-pointer shrink-0 touch-manipulation"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto min-w-0">
+            <div className="flex items-center gap-1 flex-1 sm:flex-initial min-w-0 overflow-x-auto no-scrollbar">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`inline-flex items-center justify-center gap-1 h-[26px] rounded-md px-2 text-[9.5px] sm:text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 touch-manipulation ${
+                    tab === t.id
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'text-slate-300 hover:bg-white/[0.06] hover:text-slate-50'
+                  }`}
+                >
+                  <span className="shrink-0">{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={bi('Kapat', 'Close')}
+              className="hidden sm:flex ml-0.5 h-[26px] w-[26px] items-center justify-center rounded-md border border-white/12 bg-[#1E2836] text-slate-200 hover:text-white hover:bg-[#273447] cursor-pointer shrink-0 touch-manipulation"
+            >
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Zero-Scroll Landscape Body */}
-        <div className="flex-1 min-h-0 overflow-hidden p-3">
+        {/* Scrollable Responsive Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll overscroll-contain touch-pan-y p-2">
           {tab === 'SETTINGS' && (
-            <div className="grid grid-cols-2 gap-2 h-full content-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-rows-3 gap-1.5 sm:gap-2 sm:h-full min-h-0">
               {/* Language Switcher */}
-              <div className="rounded-xl border border-amber-400/35 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-amber-400/35 bg-[#182230] px-2.5 py-2 flex items-center justify-between gap-2 min-h-0 overflow-hidden">
                 <div className="flex items-center gap-2 min-w-0">
                   <Globe className="w-4 h-4 text-amber-400 shrink-0" />
                   <div className="min-w-0">
@@ -263,7 +277,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setLang('tr')}
-                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold cursor-pointer touch-manipulation ${
                       lang === 'tr' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
                     }`}
                   >
@@ -272,7 +286,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setLang('en')}
-                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold cursor-pointer touch-manipulation ${
                       lang === 'en' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
                     }`}
                   >
@@ -282,7 +296,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Sound FX */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-white/10 bg-[#182230] px-2.5 py-2 flex items-center justify-between gap-2 min-h-0 overflow-hidden">
                 <div className="flex items-center gap-2 min-w-0">
                   {muted ? (
                     <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
@@ -301,7 +315,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                 <button
                   type="button"
                   onClick={onToggleMute}
-                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 ${
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 touch-manipulation ${
                     muted
                       ? 'border border-white/15 bg-[#10161F] text-slate-300'
                       : 'bg-emerald-500 text-slate-950'
@@ -312,7 +326,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Ambience */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-white/10 bg-[#182230] px-2.5 py-2 flex items-center justify-between gap-2 min-h-0 overflow-hidden">
                 <div className="flex items-center gap-2 min-w-0">
                   <Radio
                     className={`w-4 h-4 shrink-0 ${
@@ -332,7 +346,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                   type="button"
                   disabled={muted}
                   onClick={onToggleAmbientSound}
-                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer disabled:opacity-40 shrink-0 ${
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer disabled:opacity-40 shrink-0 touch-manipulation ${
                     shop.ambientSoundEnabled && !muted
                       ? 'bg-emerald-500 text-slate-950'
                       : 'border border-white/15 bg-[#10161F] text-slate-300'
@@ -345,7 +359,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Haptics */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-white/10 bg-[#182230] px-2.5 py-2 flex items-center justify-between gap-2 min-h-0 overflow-hidden">
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-slate-100 truncate">
                     {bi('Dokunsal Titreşim', 'Haptic Feedback')}
@@ -357,7 +371,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                 <button
                   type="button"
                   onClick={onToggleHaptics}
-                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 ${
+                  className={`rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 touch-manipulation ${
                     shop.hapticsEnabled
                       ? 'bg-emerald-500 text-slate-950'
                       : 'border border-white/15 bg-[#10161F] text-slate-300'
@@ -368,7 +382,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Text Speed */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-white/10 bg-[#182230] px-2.5 py-2 flex items-center justify-between gap-2 min-h-0 overflow-hidden">
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-slate-100 truncate">
                     {bi('Diyalog Yazı Hızı', 'Dialogue Speed')}
@@ -389,7 +403,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                       key={opt.id}
                       type="button"
                       onClick={() => onSetTextSpeed(opt.id)}
-                      className={`min-h-[30px] rounded-lg px-2 py-1 text-[10.5px] font-bold cursor-pointer transition-colors touch-manipulation ${
+                      className={`h-[28px] sm:h-[30px] rounded-lg px-2 text-[10px] sm:text-[10.5px] font-bold cursor-pointer transition-colors touch-manipulation ${
                         shop.textSpeed === opt.id
                           ? 'bg-amber-500 text-slate-950'
                           : 'border border-white/12 bg-[#111822] text-slate-300 hover:bg-[#1E2938]'
@@ -402,7 +416,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Fullscreen Toggle */}
-              <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-white/10 bg-[#182230] px-2.5 py-2 flex items-center justify-between gap-2 min-h-0 overflow-hidden">
                 <div className="flex items-center gap-2 min-w-0">
                   {isFullscreen ? (
                     <Minimize2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -421,7 +435,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                 <button
                   type="button"
                   onClick={() => void handleToggleFullscreen()}
-                  className={`min-h-[32px] rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer shrink-0 touch-manipulation ${
+                  className={`h-[28px] sm:h-[32px] rounded-lg px-2.5 sm:px-3 text-[10.5px] sm:text-[11px] font-bold cursor-pointer shrink-0 touch-manipulation ${
                     isFullscreen
                       ? 'bg-emerald-500 text-slate-950'
                       : 'border border-sky-400/40 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25'
@@ -434,50 +448,50 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
           )}
 
           {tab === 'ACHIEVEMENTS' && (
-            <div className="flex flex-col gap-2 h-full">
-              <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 flex items-center justify-between tabular-nums">
-                <div className="text-xs font-extrabold text-slate-50">
+            <div className="flex flex-col gap-1.5 sm:gap-2 sm:h-full min-h-0">
+              <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 sm:px-3 py-1.5 flex items-center justify-between tabular-nums">
+                <div className="text-[11px] sm:text-xs font-extrabold text-slate-50 truncate">
                   {bi(
                     `Play Games / Game Center · ${unlockedCount}/${STORE_ACHIEVEMENTS.length} Başarım`,
                     `Play Games / Game Center · ${unlockedCount}/${STORE_ACHIEVEMENTS.length} Unlocked`
                   )}
                 </div>
-                <div className="font-mono text-sm font-extrabold text-amber-400">
+                <div className="font-mono text-xs sm:text-sm font-extrabold text-amber-400 shrink-0">
                   {totalPoints} / {maxPoints} P
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="sm:flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-4 sm:grid-rows-2 gap-1.5 sm:gap-2">
                 {STORE_ACHIEVEMENTS.map((ach) => {
                   const unlocked = ach.check(shop);
                   const locAch = getLocalizedAchievement(ach, lang);
                   return (
                     <div
                       key={ach.id}
-                      className={`rounded-xl border p-2 flex flex-col justify-between ${
+                      className={`rounded-xl border p-2 flex flex-col justify-between min-h-0 overflow-hidden ${
                         unlocked
                           ? 'border-emerald-500/35 bg-emerald-500/10'
                           : 'border-white/8 bg-[#182230] opacity-80'
                       }`}
                     >
-                      <div>
+                      <div className="min-h-0">
                         <div className="flex items-start justify-between gap-1">
-                          <div className="font-display text-[11px] font-bold text-slate-100 leading-tight line-clamp-1">
+                          <div className="font-display text-[10.5px] sm:text-[11px] font-bold text-slate-100 leading-tight line-clamp-1">
                             {locAch.title}
                           </div>
                           <span
-                            className={`font-mono text-[10px] font-bold shrink-0 ${
+                            className={`font-mono text-[9.5px] sm:text-[10px] font-bold shrink-0 ${
                               unlocked ? 'text-emerald-400' : 'text-slate-500'
                             }`}
                           >
                             +{ach.points}P
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-2 leading-tight">
+                        <p className="text-[9.5px] sm:text-[10px] text-slate-400 mt-0.5 line-clamp-2 leading-tight">
                           {locAch.description}
                         </p>
                       </div>
-                      <div className="mt-1 text-[10px] font-semibold">
+                      <div className="mt-1 text-[9.5px] sm:text-[10px] font-semibold shrink-0">
                         {unlocked ? (
                           <span className="inline-flex items-center gap-0.5 text-emerald-400">
                             <Check className="w-3 h-3" />
@@ -497,34 +511,34 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
           )}
 
           {tab === 'PRIVACY' && (
-            <div className="grid grid-cols-12 gap-2.5 h-full">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:h-full min-h-0">
               {/* Left: Policy & Deletion */}
-              <div className="col-span-6 flex flex-col justify-between gap-2">
-                <div className="rounded-xl border border-white/10 bg-[#182230] p-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-100">
-                      <FileText className="w-3.5 h-3.5 text-sky-400" />
-                      <span>{bi('KVKK & GDPR Gizlilik', 'Privacy Policy (GDPR)')}</span>
+              <div className="col-span-1 sm:col-span-6 flex flex-col justify-between gap-1.5 sm:gap-2 min-h-0">
+                <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#182230] p-2 sm:p-2.5 flex flex-col justify-between gap-1 overflow-hidden">
+                  <div className="flex items-center justify-between gap-1.5 shrink-0">
+                    <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-slate-100 truncate">
+                      <FileText className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <span className="truncate">{bi('KVKK & GDPR Gizlilik', 'Privacy Policy (GDPR)')}</span>
                     </span>
                     {shop.privacyAccepted ? (
-                      <span className="text-[10.5px] font-bold text-emerald-400">
+                      <span className="text-[10px] font-bold text-emerald-400 shrink-0">
                         {bi('Onaylandı', 'Accepted')}
                       </span>
                     ) : (
                       <button
                         type="button"
                         onClick={onAcceptPrivacy}
-                        className="rounded-lg bg-emerald-500 px-2.5 py-0.5 text-[10.5px] font-bold text-slate-950 cursor-pointer"
+                        className="rounded-lg bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-slate-950 cursor-pointer shrink-0"
                       >
                         {bi('Onayla', 'Accept')}
                       </button>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => setLegalView('privacy')}
-                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                      className={`rounded-md px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold cursor-pointer transition-colors ${
                         legalView === 'privacy'
                           ? 'bg-sky-500 text-slate-950'
                           : 'border border-white/10 bg-[#101722] text-slate-300'
@@ -535,7 +549,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setLegalView('terms')}
-                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                      className={`rounded-md px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold cursor-pointer transition-colors ${
                         legalView === 'terms'
                           ? 'bg-sky-500 text-slate-950'
                           : 'border border-white/10 bg-[#101722] text-slate-300'
@@ -544,7 +558,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                       {bi('Kullanım Koşulları', 'Terms of Use')}
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-300 leading-snug">
+                  <p className="text-[9.5px] sm:text-[10px] text-slate-300 leading-snug line-clamp-3">
                     {legalView === 'privacy'
                       ? bi(
                           'GSM Simulator oyun kaydını yalnızca cihaz içi localStorage alanında saklar. Mobil mağaza sürümlerinde isteğe bağlı ödüllü/geçiş reklamları için Google AdMob (GDPR/ATT onaylı) kullanılabilir.',
@@ -556,32 +570,32 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                         )}
                   </p>
                   {/* Direct clickable legal document links required by Google Play & Apple App Store reviewers */}
-                  <div className="flex items-center gap-1.5 pt-0.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <a
                       href={STORE_RELEASE_META.privacyUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-sky-400/35 bg-sky-500/12 px-2 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-500/22 transition-colors truncate"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-sky-400/35 bg-sky-500/12 px-1.5 py-1 text-[9.5px] sm:text-[10px] font-bold text-sky-200 hover:bg-sky-500/22 transition-colors truncate"
                     >
                       <ExternalLink className="w-3 h-3 shrink-0" />
-                      <span>{bi('Gizlilik Politikası', 'Privacy Policy')}</span>
+                      <span className="truncate">{bi('Gizlilik Politikası', 'Privacy Policy')}</span>
                     </a>
                     <a
                       href={STORE_RELEASE_META.termsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-amber-400/35 bg-amber-500/12 px-2 py-1 text-[10px] font-bold text-amber-200 hover:bg-amber-500/22 transition-colors truncate"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-amber-400/35 bg-amber-500/12 px-1.5 py-1 text-[9.5px] sm:text-[10px] font-bold text-amber-200 hover:bg-amber-500/22 transition-colors truncate"
                     >
                       <ExternalLink className="w-3 h-3 shrink-0" />
-                      <span>{bi('Kullanım Koşulları', 'Terms of Service')}</span>
+                      <span className="truncate">{bi('Kullanım Koşulları', 'Terms of Service')}</span>
                     </a>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                    <div className="rounded border border-emerald-500/25 bg-[#101722] px-2 py-1">
+                  <div className="grid grid-cols-2 gap-1.5 text-[9.5px] sm:text-[10px] shrink-0">
+                    <div className="rounded border border-emerald-500/25 bg-[#101722] px-2 py-0.5 truncate">
                       <span className="text-slate-400">{bi('Kayıt:', 'Save:')}</span>{' '}
                       <strong className="text-emerald-400">{bi('Cihaz İçi', 'On-Device')}</strong>
                     </div>
-                    <div className="rounded border border-white/10 bg-[#101722] px-2 py-1">
+                    <div className="rounded border border-white/10 bg-[#101722] px-2 py-0.5 truncate">
                       <span className="text-slate-400">{bi('Yaş:', 'Rating:')}</span>{' '}
                       <strong className="text-amber-300">PEGI 3 / 4+</strong>
                     </div>
@@ -589,35 +603,35 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                 </div>
 
                 {/* Delete Data */}
-                <div className="rounded-xl border border-rose-500/35 bg-rose-500/8 p-2.5 space-y-1.5">
-                  <div className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{bi('Tüm Verileri Kalıcı Sil', 'Delete All Local Data')}</span>
+                <div className="shrink-0 rounded-xl border border-rose-500/35 bg-rose-500/8 p-2 flex items-center justify-between gap-2">
+                  <div className="text-[10.5px] sm:text-xs font-bold text-rose-300 flex items-center gap-1.5 min-w-0">
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{bi('Tüm Verileri Sil', 'Erase All Data')}</span>
                   </div>
                   {!confirmDelete ? (
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(true)}
-                      className="rounded-lg border border-rose-500/50 bg-rose-500/15 px-3 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+                      className="rounded-lg border border-rose-500/50 bg-rose-500/15 px-2.5 py-1 text-[10px] sm:text-[11px] font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer whitespace-nowrap shrink-0"
                     >
-                      {bi('Kariyeri & Verileri Sıfırla...', 'Reset Career & Erase Data...')}
+                      {bi('Sıfırla...', 'Reset...')}
                     </button>
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => {
                           setConfirmDelete(false);
                           onDeleteAllData();
                         }}
-                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-rose-500 cursor-pointer"
+                        className="rounded-lg bg-rose-600 px-2.5 py-1 text-[10px] sm:text-[11px] font-extrabold text-white hover:bg-rose-500 cursor-pointer whitespace-nowrap"
                       >
-                        {bi('Evet, Kalıcı Sil', 'Yes, Delete Permanently')}
+                        {bi('Evet, Sil', 'Yes, Erase')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(false)}
-                        className="rounded-lg border border-white/15 bg-[#1B2533] px-3 py-1.5 text-[11px] font-semibold text-slate-200 cursor-pointer"
+                        className="rounded-lg border border-white/15 bg-[#1B2533] px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold text-slate-200 cursor-pointer whitespace-nowrap"
                       >
                         {bi('Vazgeç', 'Cancel')}
                       </button>
@@ -627,18 +641,18 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Right: Save Backup JSON */}
-              <div className="col-span-6 rounded-xl border border-white/10 bg-[#182230] p-2.5 flex flex-col justify-between gap-2">
-                <div className="space-y-1.5">
-                  <div className="text-xs font-bold text-slate-100">
+              <div className="col-span-1 sm:col-span-6 rounded-xl border border-white/10 bg-[#182230] p-2 sm:p-2.5 flex flex-col justify-between gap-1.5 min-h-[160px] sm:min-h-0">
+                <div className="space-y-1.5 shrink-0">
+                  <div className="text-[11px] sm:text-xs font-bold text-slate-100 truncate">
                     {bi('Kayıt Yedeği (JSON Export / Import)', 'Save Backup (JSON Export / Import)')}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={handleCopySaveToClipboard}
-                      className="flex-1 min-h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 hover:bg-sky-400 cursor-pointer whitespace-nowrap touch-manipulation"
+                      className="flex-1 h-[30px] sm:h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-2 text-[10.5px] sm:text-[11px] font-bold text-slate-950 hover:bg-sky-400 cursor-pointer whitespace-nowrap touch-manipulation"
                     >
-                      <Copy className="w-3.5 h-3.5" />
+                      <Copy className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         {clipboardCopied ? bi('Kopyalandı!', 'Copied!') : bi('Panoya Kopyala', 'Copy JSON')}
                       </span>
@@ -646,9 +660,9 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                     <button
                       type="button"
                       onClick={handleExportSave}
-                      className="flex-1 min-h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/12 px-2.5 py-1.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 cursor-pointer whitespace-nowrap touch-manipulation"
+                      className="flex-1 h-[30px] sm:h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/12 px-2 text-[10.5px] sm:text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 cursor-pointer whitespace-nowrap touch-manipulation"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <Download className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         {exportCopied ? bi('İndirildi!', 'Saved!') : bi('.json İndir', 'Download .json')}
                       </span>
@@ -656,20 +670,19 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="flex-1 min-h-0 flex flex-col gap-1.5">
                   <textarea
-                    rows={2}
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                     placeholder='{"day": 5, "cash": 24500, ...}'
-                    className="w-full rounded-lg border border-white/12 bg-[#0F151E] p-2 text-[10.5px] font-mono text-slate-200 focus:outline-none focus:border-amber-400"
+                    className="flex-1 min-h-0 w-full resize-none rounded-lg border border-white/12 bg-[#0F151E] p-2 text-[10px] sm:text-[10.5px] font-mono text-slate-200 focus:outline-none focus:border-amber-400"
                   />
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="shrink-0 flex items-center justify-between gap-2">
                     <button
                       type="button"
                       disabled={!importText.trim()}
                       onClick={handleImportSubmit}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-[10.5px] sm:text-[11px] font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40 cursor-pointer whitespace-nowrap"
                     >
                       <Upload className="w-3.5 h-3.5" />
                       <span>{bi('Yedeği Yükle', 'Import Backup')}</span>
@@ -684,14 +697,14 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
           )}
 
           {tab === 'SUPPORT' && (
-            <div className="grid grid-cols-12 gap-2.5 h-full">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:h-full min-h-0">
               {/* Left: Rate Us + Build Meta */}
-              <div className="col-span-6 flex flex-col justify-between gap-2">
-                <div className="rounded-xl border border-amber-500/30 bg-[#182230] p-3 text-center space-y-1.5">
-                  <div className="font-display text-sm font-bold text-slate-100">
+              <div className="col-span-1 sm:col-span-6 flex flex-col justify-between gap-1.5 sm:gap-2 min-h-0">
+                <div className="rounded-xl border border-amber-500/30 bg-[#182230] p-2.5 text-center space-y-1 shrink-0">
+                  <div className="font-display text-xs sm:text-sm font-bold text-slate-100">
                     {bi('GSM Simulator’ı Değerlendir!', 'Rate GSM Simulator!')}
                   </div>
-                  <div className="flex items-center justify-center gap-1.5 py-0.5">
+                  <div className="flex items-center justify-center gap-1.5">
                     {[1, 2, 3, 4, 5].map((star) => {
                       const active = star <= (ratingHover || selectedStars);
                       return (
@@ -708,7 +721,7 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                           className="p-0.5 cursor-pointer transition-transform hover:scale-110"
                         >
                           <Star
-                            className={`w-6 h-6 ${
+                            className={`w-5 h-5 sm:w-6 sm:h-6 ${
                               active ? 'text-amber-400 fill-amber-400' : 'text-slate-600'
                             }`}
                           />
@@ -717,28 +730,22 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                     })}
                   </div>
                   {shop.ratedApp && (
-                    <div className="text-[11px] font-bold text-emerald-400">
+                    <div className="text-[10.5px] font-bold text-emerald-400">
                       {bi('Değerlendirmen için teşekkürler!', 'Thank you for rating!')}
                     </div>
                   )}
                 </div>
 
-                <div className="rounded-xl border border-white/8 bg-[#10161F] p-2.5 space-y-1 text-[10px] text-slate-400">
+                <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#10161F] p-2 sm:p-2.5 flex flex-col justify-between text-[9.5px] sm:text-[10px] text-slate-400 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
-                    <span>
-                      {bi('Sürüm', 'Version')}:{' '}
-                      <strong className="text-slate-200">
-                        v{STORE_RELEASE_META.versionName}
-                      </strong>
+                    <span className="truncate font-mono text-slate-300">
+                      {STORE_RELEASE_META.appId}
                     </span>
-                    <span className="text-emerald-400 font-semibold">
+                    <span className="text-emerald-400 font-semibold shrink-0">
                       {getPlatformDisplayLabel()}
                     </span>
                   </div>
-                  <div className="font-mono text-[9.5px] text-slate-400">
-                    {STORE_RELEASE_META.appId} · © 2026 {STORE_RELEASE_META.developerName}
-                  </div>
-                  <div className="text-[10px] text-slate-300">
+                  <div className="text-slate-300 truncate">
                     {bi('Destek:', 'Support:')}{' '}
                     <a
                       href={`mailto:${STORE_RELEASE_META.supportEmail}`}
@@ -747,7 +754,10 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
                       {STORE_RELEASE_META.supportEmail}
                     </a>
                   </div>
-                  <div className="text-slate-500 leading-tight">
+                  <div className="text-slate-400 truncate">
+                    © 2026 {STORE_RELEASE_META.developerName}
+                  </div>
+                  <div className="text-slate-500 leading-tight line-clamp-2">
                     {bi(
                       'Parodi markalar (Samxung, aPhone, PocoPop, RedMix, FoldZ, LuminaCam, NovaFold) tamamen kurgusaldır.',
                       'Parody brands (Samxung, aPhone, PocoPop, RedMix, FoldZ, LuminaCam, NovaFold) are purely fictional.'
@@ -757,29 +767,26 @@ export const StoreComplianceModal: React.FC<StoreComplianceModalProps> = ({
               </div>
 
               {/* Right: Feedback Box */}
-              <div className="col-span-6 rounded-xl border border-white/10 bg-[#182230] p-3 flex flex-col justify-between gap-2">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
-                    <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{bi('Öneri & Hata Bildirimi', 'Feedback & Bug Report')}</span>
-                  </div>
-                  <textarea
-                    rows={4}
-                    value={feedbackDraft}
-                    onChange={(e) => setFeedbackDraft(e.target.value)}
-                    placeholder={bi(
-                      'Oyuna eklenmesini istediğin özellik veya hata notu bırak...',
-                      'Share a feature request or bug report...'
-                    )}
-                    className="w-full rounded-lg border border-white/12 bg-[#0F151E] p-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
-                  />
+              <div className="col-span-1 sm:col-span-6 rounded-xl border border-white/10 bg-[#182230] p-2 sm:p-2.5 flex flex-col justify-between gap-1.5 min-h-[160px] sm:min-h-0">
+                <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-slate-100 shrink-0">
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">{bi('Öneri & Hata Bildirimi', 'Feedback & Bug Report')}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <textarea
+                  value={feedbackDraft}
+                  onChange={(e) => setFeedbackDraft(e.target.value)}
+                  placeholder={bi(
+                    'Oyuna eklenmesini istediğin özellik veya hata notu bırak...',
+                    'Share a feature request or bug report...'
+                  )}
+                  className="flex-1 min-h-0 w-full resize-none rounded-lg border border-white/12 bg-[#0F151E] p-2 text-[11px] sm:text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                />
+                <div className="shrink-0 flex items-center justify-between gap-2">
                   <button
                     type="button"
                     disabled={!feedbackDraft.trim()}
                     onClick={handleSendFeedback}
-                    className="rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
+                    className="rounded-lg bg-amber-500 px-3.5 py-1.5 text-[11px] sm:text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer"
                   >
                     {bi('Notu Gönder', 'Send Feedback')}
                   </button>

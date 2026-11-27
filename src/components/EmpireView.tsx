@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Award,
   BookOpen,
@@ -171,11 +171,32 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
   const pendingProjects = shop.pendingProjects ?? [];
   const taxPct = Math.round(getEffectiveSalesTaxRate(shop.staff, shop.staffLevels) * 100);
 
+  const prevLotIdRef = useRef<string | null>(activeLot?.id ?? null);
+
+  useEffect(() => {
+    if (auctionLots.length > 0 && selectedLotIdx >= auctionLots.length) {
+      setSelectedLotIdx(0);
+    }
+  }, [auctionLots.length, selectedLotIdx]);
+
+  useEffect(() => {
+    const currentId = activeLot?.id ?? null;
+    if (currentId !== prevLotIdRef.current) {
+      prevLotIdRef.current = currentId;
+      setAuctionActive(false);
+      setCurrentBid(activeLot?.startingBid ?? 8000);
+      setHighestBidder(bi('Açılış Fiyatı', 'Opening Bid'));
+      setAuctionRound(0);
+      setAuctionLog([]);
+    }
+  }, [activeLot?.id, activeLot?.startingBid, bi]);
+
   const selectLot = (idx: number) => {
     if (auctionActive) return;
     setSelectedLotIdx(idx);
     const nextLot = auctionLots[idx];
     if (nextLot) {
+      prevLotIdRef.current = nextLot.id;
       setCurrentBid(nextLot.startingBid);
       setHighestBidder(bi('Açılış Fiyatı', 'Opening Bid'));
       setAuctionRound(0);
@@ -341,7 +362,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
           </div>
           <div className="text-right shrink-0 tabular-nums">
-            <div className="font-mono text-[11px] [@media(min-height:560px)]:text-sm font-extrabold text-amber-300">
+            <div className="font-mono text-[10.5px] [@media(min-height:560px)]:text-xs font-extrabold text-amber-300">
               {formatTRY(currentPrice)}
             </div>
             <div className="text-[9px] font-mono text-slate-400">
@@ -527,13 +548,13 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
     : null;
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
-      {/* COMPACT TOOLBAR */}
-      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
+    <div className="relative h-full flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2 gap-1.5">
+      {/* COMPACT TOOLBAR — ALL 6 SUB-TABS ALWAYS VISIBLE */}
+      <div className="shrink-0 flex flex-nowrap items-center justify-between gap-1 rounded-xl border border-white/10 bg-[#151D28] px-1.5 py-1 overflow-hidden">
+        <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
           {(
             [
-              ['CLASSIFIEDS', Search, bi('Sarı İlan & Kargo', 'Classifieds')],
+              ['CLASSIFIEDS', Search, bi('Sarı İlan', 'Classifieds')],
               [
                 'AUCTION',
                 Gavel,
@@ -543,11 +564,11 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 'KERMES',
                 Tag,
                 kermesOpen
-                  ? bi('Esnaf Kermesi · AÇIK!', 'Sunday Fair · OPEN!')
-                  : bi(`Esnaf Kermesi (Paz)`, `Sunday Fair (Sun)`),
+                  ? bi('Kermes·AÇIK', 'Fair·OPEN')
+                  : bi('Kermes', 'Fair'),
               ],
-              ['BRANCHES', Building2, bi('Şube & Rakip', 'Branches')],
-              ['FINANCE', Landmark, bi('Banka & Vergi', 'Bank & Tax')],
+              ['BRANCHES', Building2, bi('Şube', 'Branches')],
+              ['FINANCE', Landmark, bi('Banka', 'Bank')],
               [
                 'MUSEUM',
                 Award,
@@ -559,7 +580,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               key={id}
               type="button"
               onClick={() => setSubTab(id)}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 subTab === id
                   ? id === 'KERMES' && kermesOpen
                     ? 'bg-emerald-500 text-slate-950'
@@ -569,8 +590,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
+              <Icon className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+              <span>{label}</span>
             </button>
           ))}
         </div>
@@ -578,7 +599,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         <button
           type="button"
           onClick={onBackToCounter}
-          className="rounded-lg border border-white/10 bg-[#1B2432] px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
+          className="rounded-lg border border-white/10 bg-[#1B2432] px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap shrink-0 cursor-pointer"
         >
           ← {bi('Tezgah', 'Counter')}
         </button>
@@ -587,18 +608,18 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       {/* SUB-TAB 1: CLASSIFIEDS & INTERCITY SHIPPING */}
       {subTab === 'CLASSIFIEDS' && (
         !classifiedsLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-5 gap-1.5 [@media(min-height:560px)]:gap-3 overflow-hidden">
-            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
-              <Search className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
+          <div className="h-full flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-4 gap-1.5 [@media(min-height:560px)]:gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 [@media(min-height:560px)]:w-10 [@media(min-height:560px)]:h-10 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Search className="w-4 h-4 [@media(min-height:560px)]:w-5 [@media(min-height:560px)]:h-5 text-amber-400" />
             </div>
-            <div className="space-y-0.5 [@media(min-height:540px)]:space-y-1 max-w-lg">
-              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 max-w-lg">
+              <div className="text-[9px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi('YENİ İŞ KOLU · SARI İLAN & KARGO AĞI', 'NEW BUSINESS LINE · CLASSIFIEDS & CARGO')}
               </div>
-              <h3 className="font-display text-sm [@media(min-height:540px)]:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
                 {bi('Sarı İlan & Şehir Dışı Kargo Yetkisi', 'Classifieds & Intercity Cargo Permit')}
               </h3>
-              <p className="text-[10.5px] [@media(min-height:540px)]:text-xs text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {bi(
                   'Şehir içindeki kelepir 2. el ilanları yerinde ekspertiz veya kapıda kontrollü kargo ile kapat; temiz cihazlarını şehir dışındaki alıcılara ekstra kâr marjıyla gönder!',
                   'Hunt underpriced local listings with onsite inspection or COD cargo, and ship clean devices nationwide for extra profit margins!'
@@ -632,7 +653,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </button>
           </div>
         ) : (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           <div className="shrink-0 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <button
@@ -669,11 +690,11 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
           </div>
 
           {classifiedView === 'LISTINGS' ? (
-            <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+            <div className="h-full flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {shop.onlineListings.slice(0, 4).map(renderListingCard)}
             </div>
           ) : (
-            <div className="flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+            <div className="h-full flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {shop.shippingOrders.slice(0, 3).map((order) => {
                 const eligible: PhoneDevice[] = (
                   order.requireClean ? cleanInventory : allInventory
@@ -770,18 +791,18 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       {/* SUB-TAB 2: 6-TIER DAILY CUSTOMS & LIQUIDATION AUCTION HALL (STRICT ZERO SCROLL) */}
       {subTab === 'AUCTION' && (
         !auctionLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-5 gap-1.5 [@media(min-height:560px)]:gap-3 overflow-hidden">
-            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
-              <Gavel className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
+          <div className="h-full flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-4 gap-1.5 [@media(min-height:560px)]:gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 [@media(min-height:560px)]:w-10 [@media(min-height:560px)]:h-10 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Gavel className="w-4 h-4 [@media(min-height:560px)]:w-5 [@media(min-height:560px)]:h-5 text-amber-400" />
             </div>
-            <div className="space-y-0.5 [@media(min-height:540px)]:space-y-1 max-w-lg">
-              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 max-w-lg">
+              <div className="text-[9px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi('YENİ İŞ KOLU · RESMİ İHALE SALONU', 'NEW BUSINESS LINE · OFFICIAL AUCTION HALL')}
               </div>
-              <h3 className="font-display text-sm [@media(min-height:540px)]:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
                 {bi('Resmi Gümrük & İcra İhale Kartı', 'Official Customs & Liquidation Auction Pass')}
               </h3>
-              <p className="text-[10.5px] [@media(min-height:540px)]:text-xs text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {bi(
                   'Her gün 6 farklı kademede mühürlü koli ihalesine katıl! Rakip esnaflarla canlı pey yarıştır, toplu cihaz ve bonus aksesuarları ucuza kapat.',
                   'Enter 6 progressive sealed-crate auctions daily! Outbid rival merchants for bulk devices and bonus accessory crates.'
@@ -815,9 +836,9 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </button>
           </div>
         ) : activeLot && (
-        <div className="flex-1 min-h-0 flex gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
-          {/* Left: All 6 Dynamic Cash-Unlocked Auction Tiers — Strict 6-Row Zero Scroll */}
-          <div className="w-[185px] lg:w-[294px] shrink-0 grid grid-rows-6 gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-row gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* Left: All 6 Dynamic Cash-Unlocked Auction Tiers — 6-Row Rail */}
+          <div className="h-full w-[165px] sm:w-[190px] lg:w-[240px] shrink-0 grid grid-cols-1 grid-rows-6 gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden">
             {auctionLots.slice(0, 6).map((lot, idx) => {
               const selected = idx === selectedLotIdx;
               const reqCash = lot.requiredCash ?? 0;
@@ -873,28 +894,28 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             })}
           </div>
 
-          {/* Right: Rich Auction Hall Stage — Strict Zero Scroll */}
-          <div className="flex-1 min-w-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* Right: Rich Auction Hall Stage */}
+          <div className="md:h-full flex-1 min-w-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1.5 [@media(min-height:560px)]:gap-2 md:overflow-hidden">
             {/* Stage Header */}
             <div className="shrink-0 flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[9.5px] font-bold uppercase tracking-wider text-amber-400 truncate">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-amber-400 truncate">
                   {activeLot.difficultyTag ?? bi('GÜMRÜK MEZATI', 'CUSTOMS AUCTION')} ·{' '}
                   {activeLot.riskTag ?? bi('Standart', 'Standard')}
                 </div>
-                <h3 className="text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-100 truncate">
+                <h3 className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
                   {activeLot.lotTitle}
                 </h3>
-                <div className="hidden [@media(min-height:480px)]:block text-[10px] text-slate-400 truncate">
+                <div className="hidden [@media(min-height:480px)]:block text-[9.5px] text-slate-400 truncate">
                   {activeLot.manifestHint ?? activeLot.description}
                 </div>
               </div>
 
               <div className="text-right shrink-0 tabular-nums">
-                <div className="text-[9.5px] text-slate-400">
+                <div className="text-[9px] text-slate-400">
                   {bi('Güncel Pey', 'Current Bid')}
                 </div>
-                <div className="font-mono text-sm [@media(min-height:560px)]:text-lg font-extrabold text-amber-300 leading-tight">
+                <div className="font-mono text-xs [@media(min-height:560px)]:text-sm font-extrabold text-amber-300 leading-tight">
                   {formatTRY(activeLot.resolved ? activeLot.winningBid : currentBid)}
                 </div>
                 <div className="text-[9.5px] text-emerald-400 font-mono font-bold">
@@ -904,8 +925,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
 
             {/* Sealed Crate Manifest + Mystery Boxes + Bonus Accessories */}
-            <div className="shrink-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2">
-              <div className="col-span-7 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex items-center justify-around gap-1 overflow-hidden">
+            <div className="shrink-0 grid grid-cols-1 sm:grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2">
+              <div className="sm:col-span-7 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex items-center justify-around gap-1 overflow-hidden">
                 {activeLot.devices.map((d) => (
                   <div key={d.uid} className="flex flex-col items-center gap-0.5 min-w-0">
                     <div className="w-6 h-9 [@media(min-height:540px)]:w-8 [@media(min-height:540px)]:h-12 rounded-lg border border-white/15 bg-[#1B2432] flex flex-col items-center justify-center relative">
@@ -935,7 +956,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 ))}
               </div>
 
-              <div className="col-span-5 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between text-[9.5px] tabular-nums overflow-hidden">
+              <div className="sm:col-span-5 rounded-xl border border-white/8 bg-[#0E141D] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col justify-between text-[9.5px] tabular-nums overflow-hidden">
                 <div className="font-bold text-slate-200 flex items-center justify-between gap-1">
                   <span className="inline-flex items-center gap-1 truncate">
                     <Package className="w-3 h-3 text-amber-400 shrink-0" />
@@ -997,7 +1018,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 flex flex-col justify-between gap-1 overflow-hidden">
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                     {AUCTION_RIVALS.slice(0, 3).map((r) => (
                       <div
                         key={r.name}
@@ -1069,7 +1090,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                       )}
                 </button>
               ) : (
-                <div className="grid grid-cols-4 gap-1.5 tabular-nums">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 tabular-nums">
                   {bidSteps.map((step, idx) => (
                     <button
                       key={step}
@@ -1102,9 +1123,9 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
 
       {/* SUB-TAB 3: BRANCHES & RIVAL (3x2 SYMMETRICAL GRID — STRICT ZERO SCROLL) */}
       {subTab === 'BRANCHES' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Compact Rival Strip */}
-          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 overflow-hidden">
+          <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 sm:gap-2 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 overflow-hidden">
             <div className="flex items-center gap-1.5 min-w-0">
               <Store className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               <span className="text-[11px] font-bold text-slate-100 truncate">
@@ -1148,8 +1169,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             )}
           </div>
 
-          {/* 5 Branches + 6th Empire Portfolio Card = Perfect 3x2 Zero-Scroll Grid */}
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* 5 Branches + 6th Empire Portfolio Card = Responsive Stack on Portrait, 3x2 Zero-Scroll Grid on Landscape/Desktop */}
+          <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {CITY_BRANCHES.map((raw) => {
               const b = getLocalizedBranch(raw.id, lang);
               const owned = shop.branches.includes(b.id);
@@ -1313,11 +1334,11 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB 4: BANK LOANS & TAX (STRICT ZERO SCROLL) */}
+      {/* SUB-TAB 4: BANK LOANS & TAX */}
       {subTab === 'FINANCE' && (
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Left: Tax & Active Loans */}
-          <div className="col-span-5 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+          <div className="h-full col-span-5 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
             <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 flex items-center gap-1.5">
@@ -1367,7 +1388,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col gap-1.5 overflow-hidden">
+            <div className="h-full flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1.5 overflow-hidden">
               <div className="shrink-0 text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 flex items-center justify-between gap-1">
                 <span>
                   {bi('Aktif Krediler', 'Active Loans')} ({shop.activeLoans.length}/2)
@@ -1402,7 +1423,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 grid grid-rows-2 gap-1.5 overflow-hidden">
+                <div className="h-full flex-1 min-h-0 grid grid-rows-2 gap-1.5 overflow-hidden">
                   {shop.activeLoans.slice(0, 2).map((ln) => (
                     <div
                       key={ln.id}
@@ -1434,8 +1455,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
           </div>
 
-          {/* Right: 6 Bank Loan Offers — Strict 3x2 Zero Scroll */}
-          <div className="col-span-7 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+          {/* Right: 6 Bank Loan Offers */}
+          <div className="h-full col-span-7 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
             {BANK_LOANS.map((raw) => {
               const ln = getLocalizedLoan(raw.id, lang);
               const unlocked = shop.shopTier >= ln.minShopTier;
@@ -1526,7 +1547,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
 
       {/* SUB-TAB 5: NOSTALGIA MUSEUM (5-COL STRICT ZERO SCROLL) */}
       {subTab === 'MUSEUM' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {/* Museum Collection Header Bar */}
           <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#151D28] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 text-[10.5px] tabular-nums">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -1548,8 +1569,8 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
             </div>
           </div>
 
-          {/* 5 Museum Cards — Strict 5-Col Zero Scroll */}
-          <div className="flex-1 min-h-0 grid grid-cols-5 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* 5 Museum Cards — 5-Col Zero Scroll */}
+          <div className="h-full flex-1 min-h-0 grid grid-cols-5 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {MUSEUM_ITEMS.map((raw) => {
               const item = getLocalizedMuseumItem(raw.id, lang);
               const owned = shop.museumItems.includes(item.id);
@@ -1642,24 +1663,24 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
       {/* SUB-TAB 6: PAZAR GÜNÜ ESNAF KERMESİ (STRICT ZERO SCROLL + PAGINATED CLEARANCE) */}
       {subTab === 'KERMES' && (
         !kermesOpen || !kermes ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/30 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-5 gap-1.5 [@media(min-height:560px)]:gap-3 overflow-hidden">
-            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
-              <Calendar className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
+          <div className="h-full flex-1 min-h-0 rounded-2xl border border-amber-400/30 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-4 gap-1.5 [@media(min-height:560px)]:gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 [@media(min-height:560px)]:w-10 [@media(min-height:560px)]:h-10 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Calendar className="w-4 h-4 [@media(min-height:560px)]:w-5 [@media(min-height:560px)]:h-5 text-amber-400" />
             </div>
-            <div className="space-y-0.5 [@media(min-height:540px)]:space-y-1 max-w-xl">
-              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 max-w-xl">
+              <div className="text-[9px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi(
                   `BUGÜN ${weekday.nameTr.toUpperCase()} (GÜN ${shop.day}) · PAZAR GÜNÜ AÇILIR`,
                   `TODAY IS ${weekday.nameEn.toUpperCase()} (DAY ${shop.day}) · OPENS EVERY SUNDAY`
                 )}
               </div>
-              <h3 className="font-display text-sm [@media(min-height:540px)]:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
                 {bi(
                   `Esnaf Kermesi’ne ${weekday.daysUntilSunday} Gün Kaldı (Gün ${weekday.nextSundayDay} · Pazar)`,
                   `Sunday Merchants Fair Opens in ${weekday.daysUntilSunday} Day(s) (Day ${weekday.nextSundayDay} · Sun)`
                 )}
               </h3>
-              <p className="text-[10.5px] [@media(min-height:540px)]:text-xs text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug line-clamp-2 [@media(min-height:540px)]:line-clamp-none">
                 {bi(
                   'Her Pazar günü pasaj meydanında kurulan Esnaf Kermesi’nde elinde bekleyen tüm telefonları beklemeden anında nakde çevirebilir, tamir parçalarını yarı fiyatına toplayabilirsin!',
                   'Every Sunday the Arcade Merchants Fair opens! Instantly liquidate sitting inventory for cash and snatch rare repair parts & bargain phones at up to 60% off!'
@@ -1667,7 +1688,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               </p>
             </div>
 
-            <div className="hidden [@media(min-height:430px)]:grid grid-cols-2 gap-2 max-w-xl w-full text-left">
+            <div className="hidden [@media(min-height:430px)]:grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl w-full text-left">
               <div className="rounded-xl border border-emerald-400/25 bg-[#0E141D] p-2 [@media(min-height:540px)]:p-3 space-y-0.5">
                 <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-300">
                   <Store className="w-3.5 h-3.5 shrink-0" />
@@ -1715,11 +1736,11 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
           );
 
           return (
-          <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {/* FESTIVE SUNDAY KERMES HEADER */}
-            <div className="shrink-0 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-950/80 via-[#151D28] to-amber-950/60 px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-2 flex items-center justify-between gap-2 overflow-hidden">
+            <div className="shrink-0 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-950/80 via-[#151D28] to-amber-950/60 px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 flex items-center justify-between gap-2 overflow-hidden">
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-[9.5px] font-mono font-extrabold text-emerald-300 uppercase tracking-wider truncate">
+                <div className="flex items-center gap-1.5 text-[9px] font-mono font-extrabold text-emerald-300 uppercase tracking-wider truncate">
                   <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
                   <span>
                     {bi(`PAZAR ÖZEL · GÜN ${shop.day}`, `SUNDAY SPECIAL · DAY ${shop.day}`)}
@@ -1729,7 +1750,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     {lang === 'en' ? kermes.enCrowdBuzzLabel : kermes.crowdBuzzLabel}
                   </span>
                 </div>
-                <div className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50 truncate">
+                <div className="font-display text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-50 truncate">
                   {lang === 'en' ? kermes.enHeadline : kermes.headline}
                 </div>
               </div>
@@ -1738,7 +1759,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   <div className="text-[8.5px] text-slate-400 uppercase font-bold">
                     {bi('Alım Oranı', 'Rate')}
                   </div>
-                  <div className="font-mono text-[11px] font-extrabold text-emerald-400">
+                  <div className="font-mono text-[10.5px] font-extrabold text-emerald-400">
                     %{Math.round(kermes.clearanceMultiplier * 100)}
                   </div>
                 </div>
@@ -1746,17 +1767,17 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   <div className="text-[8.5px] text-slate-400 uppercase font-bold">
                     {bi('Satılan', 'Sold')}
                   </div>
-                  <div className="font-mono text-[11px] font-extrabold text-amber-300">
+                  <div className="font-mono text-[10.5px] font-extrabold text-amber-300">
                     {kermes.clearanceSoldCount} {bi('Adet', 'U')}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* TWO-COLUMN KERMES WORKSPACE (STRICT ZERO SCROLL) */}
-            <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+            {/* TWO-COLUMN KERMES WORKSPACE */}
+            <div className="h-full flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {/* LEFT COLUMN (5 cols): INSTANT INVENTORY CLEARANCE STALL (3/PAGE PAGINATED) */}
-              <div className="col-span-5 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1.5 overflow-hidden">
+              <div className="h-full col-span-5 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col gap-1.5 overflow-hidden">
                 <div className="shrink-0 flex items-center justify-between gap-1 border-b border-white/8 pb-1">
                   <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-300 min-w-0">
                     <Store className="w-3.5 h-3.5 shrink-0" />
@@ -1800,7 +1821,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 min-h-0 grid grid-rows-3 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+                  <div className="h-full flex-1 min-h-0 grid grid-rows-3 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
                     {visibleKermesPhones.map((phone) => {
                       const fairVal = calculateMarketValue(
                         phone,
@@ -1871,10 +1892,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                 )}
               </div>
 
-              {/* RIGHT COLUMN (7 cols): ULTRA-CHEAP RARE PARTS & SURPRISE BARGAINS (STRICT 2x2 ZERO SCROLL) */}
-              <div className="col-span-7 min-h-0 rounded-xl border border-amber-400/25 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1.5 overflow-hidden">
+              {/* RIGHT COLUMN (7 cols): ULTRA-CHEAP RARE PARTS & SURPRISE BARGAINS */}
+              <div className="h-full col-span-7 min-h-0 rounded-xl border border-amber-400/25 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col gap-1.5 overflow-hidden">
                 <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/8 pb-1">
-                  <div className="flex items-center gap-1 text-[11px] font-extrabold text-amber-300 min-w-0">
+                  <div className="flex items-center gap-1 text-[10.5px] font-extrabold text-amber-300 min-w-0">
                     <Tag className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">
                       {bi(
@@ -1889,7 +1910,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   </span>
                 </div>
 
-                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+                <div className="h-full flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
                   {kermes.deals.map((deal) => {
                     const canAfford = shop.cash >= deal.kermesPrice;
                     return (
@@ -1938,7 +1959,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                             <div className="font-mono text-[9px] text-slate-500 line-through">
                               {formatTRY(deal.originalPrice)}
                             </div>
-                            <div className="font-mono text-xs [@media(min-height:560px)]:text-sm font-extrabold text-emerald-400 leading-none">
+                            <div className="font-mono text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-emerald-400 leading-none">
                               {formatTRY(deal.kermesPrice)}
                             </div>
                           </div>
@@ -2006,10 +2027,10 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   >
                     {selectedMuseumSpec.eraTag} · {selectedMuseumSpec.rarityLabel}
                   </div>
-                  <h3 className="font-display text-base font-extrabold text-slate-50 mt-0.5">
+                  <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50 mt-0.5">
                     {selectedMuseumSpec.name}
                   </h3>
-                  <div className="text-[11px] text-emerald-400 font-mono font-bold mt-0.5 tabular-nums">
+                  <div className="text-[10.5px] text-emerald-400 font-mono font-bold mt-0.5 tabular-nums">
                     +{formatTRY(selectedMuseumSpec.dailyPassiveCash)}/{bi('gün', 'day')} · +
                     {selectedMuseumSpec.prestigeBonus} {bi('Prestij', 'Prestige')}
                   </div>
@@ -2027,18 +2048,18 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
               </button>
             </div>
 
-            <div className="rounded-xl border border-white/8 bg-[#0E141D] p-3 space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+            <div className="rounded-xl border border-white/8 bg-[#0E141D] p-2.5 space-y-1.5">
+              <div className="text-[9.5px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5" />
                 {bi('CİHAZIN GEÇMİŞ HİKAYESİ', 'DEVICE BACKSTORY & ARCHIVE')}
               </div>
-              <p className="text-xs italic text-amber-100/95 leading-relaxed">
+              <p className="text-[10.5px] [@media(min-height:560px)]:text-[11px] italic text-amber-100/95 leading-snug">
                 “{selectedMuseumSpec.story}”
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed border-t border-white/8 pt-2">
+              <p className="text-[10.5px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug border-t border-white/8 pt-1.5">
                 {selectedMuseumSpec.fullHistory}
               </p>
-              <div className="border-t border-white/8 pt-2 text-[11px] font-semibold text-emerald-300">
+              <div className="border-t border-white/8 pt-1.5 text-[10.5px] font-semibold text-emerald-300">
                 {selectedMuseumSpec.collectorPerk}
               </div>
             </div>
@@ -2091,7 +2112,7 @@ export const EmpireView: React.FC<EmpireViewProps> = ({
                   <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-fuchsia-300">
                     {bi('İHALE GANİMETİ & GİZEMLİ KUTULAR AÇILDI', 'AUCTION LOOT & MYSTERY BOXES OPENED')}
                   </div>
-                  <h3 className="font-display text-sm font-extrabold text-slate-50">
+                  <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
                     {wonMysteryLot.lotTitle}
                   </h3>
                 </div>

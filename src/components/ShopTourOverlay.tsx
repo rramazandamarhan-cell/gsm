@@ -205,10 +205,10 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
   }, [stepIdx, steps.length, onComplete, onSkip]);
 
   // Compute smart viewport-clamped tooltip card position
-  const cardWidth = Math.min(340, viewport.w - 24);
-  const approxCardHeight = 186;
+  const cardWidth = Math.min(285, viewport.w - 20);
+  const approxCardHeight = 205;
   let cardLeft = Math.round((viewport.w - cardWidth) / 2);
-  let cardTop = Math.round((viewport.h - approxCardHeight) / 2);
+  let cardTop = Math.max(12, Math.round((viewport.h - approxCardHeight) / 2));
 
   if (rect) {
     if (currentStep.placement === 'below') {
@@ -278,7 +278,7 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
 
       {/* Floating Tour Card */}
       <div
-        className="fixed z-10 rounded-2xl border border-amber-400/50 bg-[#151E2B] p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] transition-all duration-200 flex flex-col gap-2"
+        className="fixed z-10 max-h-[calc(100dvh-24px)] overflow-y-auto pasaj-scroll rounded-xl border border-amber-400/50 bg-[#151E2B] p-2.5 shadow-[0_18px_40px_rgba(0,0,0,0.85)] transition-all duration-200 flex flex-col gap-1.5"
         style={{
           width: cardWidth,
           left: cardLeft,
@@ -286,9 +286,9 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
         }}
       >
         {/* Top Row: Step Badge + Skip Button */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
-            <Compass className="w-3.5 h-3.5 shrink-0" />
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-300">
+            <Compass className="w-3 h-3 shrink-0" />
             <span>
               {bi('Ustanın Dükkan Turu', 'Master Shop Tour')} · {stepIdx + 1}/{steps.length}
             </span>
@@ -299,30 +299,30 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
               soundFX.playClick();
               onSkip();
             }}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/12 bg-[#1D2736] px-2 py-0.5 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-[#273549] cursor-pointer touch-manipulation"
+            className="inline-flex items-center gap-0.5 rounded-md border border-white/12 bg-[#1D2736] px-1.5 py-0.5 text-[9.5px] font-bold text-slate-300 hover:text-white hover:bg-[#273549] cursor-pointer touch-manipulation"
           >
             <span>{bi('Turu Geç', 'Skip')}</span>
-            <X className="w-3 h-3" />
+            <X className="w-2.5 h-2.5" />
           </button>
         </div>
 
         {/* Title & Body */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5 font-display text-sm font-extrabold text-slate-50 leading-snug">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 font-display text-xs font-extrabold text-slate-50 leading-snug">
             {currentStep.icon}
             <span>{bi(currentStep.titleTr, currentStep.titleEn)}</span>
           </div>
-          <p className="text-[11.5px] text-slate-200 leading-relaxed">
+          <p className="text-[10px] text-slate-200 leading-snug">
             {bi(currentStep.bodyTr, currentStep.bodyEn)}
           </p>
-          <p className="text-[10px] text-amber-200/85 font-medium leading-snug">
+          <p className="text-[9.5px] text-amber-200/85 font-medium leading-snug">
             {bi(currentStep.tipTr, currentStep.tipEn)}
           </p>
         </div>
 
         {/* Footer: Progress Dots + Back/Next Controls */}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {steps.map((s, idx) => (
               <button
                 key={s.id}
@@ -334,16 +334,16 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
                 }}
                 className={`h-1.5 rounded-full transition-all cursor-pointer ${
                   idx === stepIdx
-                    ? 'w-5 bg-amber-400'
+                    ? 'w-4 bg-amber-400'
                     : idx < stepIdx
-                    ? 'w-2 bg-emerald-400/75'
-                    : 'w-2 bg-white/20'
+                    ? 'w-1.5 bg-emerald-400/75'
+                    : 'w-1.5 bg-white/20'
                 }`}
               />
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {stepIdx > 0 && (
               <button
                 type="button"
@@ -351,9 +351,9 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
                   soundFX.playClick();
                   setStepIdx((i) => Math.max(0, i - 1));
                 }}
-                className="inline-flex items-center gap-0.5 rounded-lg border border-white/15 bg-[#1D2736] px-2.5 py-1.5 text-[11px] font-bold text-slate-200 hover:bg-[#273549] cursor-pointer touch-manipulation"
+                className="inline-flex items-center gap-0.5 rounded-lg border border-white/15 bg-[#1D2736] px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-[#273549] cursor-pointer touch-manipulation"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3 h-3" />
                 <span>{bi('Geri', 'Back')}</span>
               </button>
             )}
@@ -367,10 +367,10 @@ export const ShopTourOverlay: React.FC<ShopTourOverlayProps> = ({
                   setStepIdx((i) => i + 1);
                 }
               }}
-              className="inline-flex items-center gap-0.5 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer touch-manipulation"
+              className="inline-flex items-center gap-0.5 rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer touch-manipulation"
             >
               <span>{isLast ? bi('Başla!', 'Start!') : bi('İleri', 'Next')}</span>
-              {!isLast && <ChevronRight className="w-3.5 h-3.5" />}
+              {!isLast && <ChevronRight className="w-3 h-3" />}
             </button>
           </div>
         </div>

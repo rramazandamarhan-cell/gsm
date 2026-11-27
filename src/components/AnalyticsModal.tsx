@@ -223,17 +223,17 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2">
-      <div className="w-full max-w-5xl max-h-[95dvh] flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#141C27] shadow-2xl">
+      <div className="w-full max-w-3xl max-h-[86dvh] flex flex-col overflow-hidden rounded-xl border border-white/12 bg-[#141C27] shadow-2xl">
         {/* Header + Tabs */}
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#10161F] px-3.5 py-2">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 bg-[#10161F] px-3 py-1.5">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-              <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+              <BarChart3 className="w-3 h-3 shrink-0" />
               <span className="truncate">
                 {bi('CANLI SATIŞ & BAŞARIM ANALİTİĞİ', 'LIVE SALES & ACHIEVEMENT ANALYTICS')} · {rank}
               </span>
             </div>
-            <h2 className="font-display text-sm sm:text-lg font-extrabold text-slate-50 leading-tight truncate">
+            <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 leading-tight truncate">
               {bi(
                 `Gün ${shop.day} Haftalık Satış, Kâr Trendi & Başarımlar`,
                 `Day ${shop.day} Weekly Sales, Profit Trend & Achievements`
@@ -242,29 +242,29 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <div className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-[#182230] p-0.5">
+            <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#182230] p-0.5">
               <button
                 type="button"
                 onClick={() => setActiveTab('WEEKLY')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   activeTab === 'WEEKLY'
                     ? 'bg-amber-500 text-slate-950'
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <TrendingUp className="w-3.5 h-3.5" />
+                <TrendingUp className="w-3 h-3" />
                 <span>{bi('Haftalık Trend', 'Weekly Trend')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('ACHIEVEMENTS')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   activeTab === 'ACHIEVEMENTS'
                     ? 'bg-amber-500 text-slate-950'
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Trophy className="w-3.5 h-3.5" />
+                <Trophy className="w-3 h-3" />
                 <span>
                   {bi('Başarımlar', 'Achievements')} ({achievementStats.unlockedCount}/
                   {achievementStats.totalCount})
@@ -276,23 +276,23 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label={bi('İstatistik panelini kapat', 'Close analytics modal')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#202B3A] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-[#202B3A] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
           {/* Top KPI Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 tabular-nums">
-            <div className="rounded-xl border border-emerald-500/25 bg-[#101822] px-3 py-2">
-              <div className="text-[10px] text-slate-400 flex items-center justify-between">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 tabular-nums">
+            <div className="rounded-lg border border-emerald-500/25 bg-[#101822] px-2.5 py-1.5">
+              <div className="text-[9px] text-slate-400 flex items-center justify-between">
                 <span>{bi('Toplam Kariyer Kârı', 'Total Career Profit')}</span>
                 <TrendingUp className="w-3 h-3 text-emerald-400" />
               </div>
-              <div className="font-mono text-sm sm:text-base font-extrabold text-emerald-400 mt-0.5">
+              <div className="font-mono text-xs sm:text-[13px] font-extrabold text-emerald-400 mt-0.5">
                 {formatTRY(shop.totalProfitEarned)}
               </div>
               <div className="text-[9.5px] text-slate-400">
@@ -304,46 +304,46 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
               </div>
             </div>
 
-            <div className="rounded-xl border border-sky-500/25 bg-[#101822] px-3 py-2">
-              <div className="text-[10px] text-slate-400 flex items-center justify-between">
+            <div className="rounded-lg border border-sky-500/25 bg-[#101822] px-2.5 py-1.5">
+              <div className="text-[9px] text-slate-400 flex items-center justify-between">
                 <span>{bi('Toplam Satış Hacmi', 'Total Sales Volume')}</span>
                 <ShoppingBag className="w-3 h-3 text-sky-400" />
               </div>
-              <div className="font-mono text-sm sm:text-base font-extrabold text-sky-300 mt-0.5">
+              <div className="font-mono text-xs sm:text-[13px] font-extrabold text-sky-300 mt-0.5">
                 {shop.totalPhonesSold} {bi('cihaz', 'phones')}
               </div>
-              <div className="text-[9.5px] text-slate-400">
+              <div className="text-[9px] text-slate-400">
                 +{shop.totalAccessoriesSold} {bi('aksesuar', 'accessories')} ·{' '}
                 {shop.totalBrandNewSold} {bi('sıfır', 'new')}
               </div>
             </div>
 
-            <div className="rounded-xl border border-amber-500/25 bg-[#101822] px-3 py-2">
-              <div className="text-[10px] text-slate-400 flex items-center justify-between">
+            <div className="rounded-lg border border-amber-500/25 bg-[#101822] px-2.5 py-1.5">
+              <div className="text-[9px] text-slate-400 flex items-center justify-between">
                 <span>{bi('Rekor Satış & Seri', 'Best Deal & Streak')}</span>
                 <Flame className="w-3 h-3 text-amber-400" />
               </div>
-              <div className="font-mono text-sm sm:text-base font-extrabold text-amber-400 mt-0.5">
+              <div className="font-mono text-xs sm:text-[13px] font-extrabold text-amber-400 mt-0.5">
                 {shop.bestSingleDealProfit > 0
                   ? `+${formatTRY(shop.bestSingleDealProfit)}`
                   : '—'}
               </div>
-              <div className="text-[9.5px] text-slate-400">
+              <div className="text-[9px] text-slate-400">
                 {bi('En İyi Seri:', 'Best Streak:')}{' '}
                 <span className="font-mono text-amber-200">{shop.bestDealStreak}x</span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-purple-500/25 bg-[#101822] px-3 py-2">
-              <div className="text-[10px] text-slate-400 flex items-center justify-between">
+            <div className="rounded-lg border border-purple-500/25 bg-[#101822] px-2.5 py-1.5">
+              <div className="text-[9px] text-slate-400 flex items-center justify-between">
                 <span>{bi('Mağaza Başarımları', 'Store Achievements')}</span>
                 <Award className="w-3 h-3 text-purple-400" />
               </div>
-              <div className="font-mono text-sm sm:text-base font-extrabold text-purple-300 mt-0.5">
+              <div className="font-mono text-xs sm:text-[13px] font-extrabold text-purple-300 mt-0.5">
                 {achievementStats.unlockedCount} / {achievementStats.totalCount}{' '}
-                <span className="text-xs text-emerald-400">(%{achievementStats.pct})</span>
+                <span className="text-[10.5px] text-emerald-400">(%{achievementStats.pct})</span>
               </div>
-              <div className="text-[9.5px] text-slate-400">
+              <div className="text-[9px] text-slate-400">
                 {achievementStats.earnedPoints} / {achievementStats.maxPoints} P
               </div>
             </div>
@@ -394,7 +394,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="w-full h-[220px] sm:h-[245px]">
+                <div className="w-full h-[170px] sm:h-[185px]">
                   <ResponsiveContainer width="100%" height="100%">
                     {chartMetric === 'REVENUE_PROFIT' ? (
                       <ComposedChart
@@ -611,7 +611,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
                 </div>
 
                 {revenueMixData.length > 0 ? (
-                  <div className="w-full h-[165px] my-1">
+                  <div className="w-full h-[135px] my-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -620,8 +620,8 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          innerRadius={42}
-                          outerRadius={68}
+                          innerRadius={34}
+                          outerRadius={56}
                           paddingAngle={3}
                           stroke="none"
                         >
@@ -742,7 +742,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
                   <div className="text-xs font-extrabold text-slate-100 mb-1.5">
                     {bi('Toplam Satış & Esnaf Performans Kanalları', 'Career Sales & Craft Channels')}
                   </div>
-                  <div className="w-full h-[145px]">
+                  <div className="w-full h-[120px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={salesChannelsData}

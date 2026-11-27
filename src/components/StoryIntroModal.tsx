@@ -137,11 +137,11 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
-        className="w-full max-w-4xl max-h-[96dvh] flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#141C27] shadow-[0_28px_80px_rgba(0,0,0,0.75)]"
+        className="w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden rounded-xl border border-white/12 bg-[#141C27] shadow-[0_28px_80px_rgba(0,0,0,0.75)]"
       >
         {/* Pinned Compact Header */}
-        <div className="shrink-0 px-3.5 py-2 border-b border-white/8 flex items-center justify-between gap-3 bg-[#101721]">
-          <div className="flex items-center gap-2 text-[11px] font-mono font-bold text-amber-400">
+        <div className="shrink-0 px-3 py-1.5 border-b border-white/8 flex items-center justify-between gap-2 bg-[#101721]">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-400">
             <span>{bi('KARİYER HİKAYESİ & MİRAS', 'CAREER STORY & LEGACY')}</span>
             <span aria-hidden="true" className="text-white/25">·</span>
             <span className="text-slate-400">{beat.step} / 03</span>
@@ -150,39 +150,39 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
             <button
               type="button"
               onClick={() => setBeatIndex(2)}
-              className="text-[11px] font-semibold text-slate-300 hover:text-amber-300 transition-colors cursor-pointer"
+              className="text-[10px] font-semibold text-slate-300 hover:text-amber-300 transition-colors cursor-pointer"
             >
               {bi('Miras Seçimine Geç →', 'Skip to Legacy →')}
             </button>
           )}
         </div>
 
-        {/* Zero-Scroll Middle Content */}
-        <div className="flex-1 min-h-0 overflow-hidden px-3.5 py-2.5 sm:px-5 sm:py-3 flex flex-col justify-center">
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/12 bg-[#1B2635] shrink-0">
+        {/* Scrollable Middle Content on Portrait Mobile */}
+        <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll overscroll-contain touch-pan-y px-3 py-2 sm:px-4 sm:py-2.5 flex flex-col sm:justify-center">
+          <div className="flex items-center gap-2 mb-1.5 shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/12 bg-[#1B2635] shrink-0">
               {beat.icon}
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-semibold text-amber-400 tracking-wide">
+              <div className="text-[9.5px] font-semibold text-amber-400 tracking-wide">
                 {beat.kicker}
               </div>
-              <h1 className="font-display text-base sm:text-lg font-extrabold text-slate-50 leading-tight truncate">
+              <h1 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 leading-tight">
                 {beat.title}
               </h1>
             </div>
           </div>
 
-          <p className="text-[11.5px] sm:text-xs text-slate-200 leading-snug mb-2">
+          <p className="text-[10.5px] sm:text-[11px] text-slate-200 leading-snug mb-1.5">
             {beat.body}
           </p>
 
           {!isLast ? (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3 py-2 text-xs text-amber-100 italic leading-snug">
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/8 px-2.5 py-1.5 text-[10.5px] text-amber-100 italic leading-snug">
               {beat.quote}
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {LEGACY_PATH_LIST.map((path) => {
                 const active = selectedLegacy === path.id;
                 const copy = lang === 'en' ? LEGACY_EN[path.id] : path;
@@ -246,7 +246,7 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
         </div>
 
         {/* Pinned Footer */}
-        <div className="shrink-0 px-4 py-2.5 sm:px-6 sm:py-3 border-t border-white/10 bg-[#101721] flex items-center justify-between gap-3">
+        <div className="shrink-0 px-3 py-2 border-t border-white/10 bg-[#101721] flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             {storyBeats.map((b, i) => (
               <button
@@ -254,12 +254,12 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
                 type="button"
                 onClick={() => setBeatIndex(i)}
                 aria-label={bi(`Adım ${i + 1}`, `Step ${i + 1}`)}
-                className={`h-2 rounded-full transition-all cursor-pointer ${
+                className={`h-1.5 rounded-full transition-all cursor-pointer ${
                   i === beatIndex
-                    ? 'w-7 bg-amber-400'
+                    ? 'w-6 bg-amber-400'
                     : i < beatIndex
-                    ? 'w-2.5 bg-emerald-400/70'
-                    : 'w-2.5 bg-white/15'
+                    ? 'w-2 bg-emerald-400/70'
+                    : 'w-2 bg-white/15'
                 }`}
               />
             ))}
@@ -269,9 +269,9 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
             <button
               type="button"
               onClick={() => onComplete(selectedLegacy)}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2 lg:px-6 lg:py-2.5 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Package className="w-4 h-4" />
+              <Package className="w-3.5 h-3.5" />
               <span>
                 {bi('Kepengi Kaldır & 1. Güne Başla', 'Raise Shutter & Start Day 1')}
               </span>
@@ -280,10 +280,10 @@ export const StoryIntroModal: React.FC<StoryIntroModalProps> = ({ onComplete }) 
             <button
               type="button"
               onClick={() => setBeatIndex((i) => i + 1)}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2 lg:px-6 lg:py-2.5 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
             >
               <span>{bi('Devam Et', 'Continue')}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

@@ -25,7 +25,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           src="/brand-logo.png"
           alt={altText}
           draggable={false}
-          className="h-[26px] md:h-[30px] lg:h-9 w-auto object-contain drop-shadow-[0_2px_10px_rgba(245,158,11,0.28)]"
+          className="h-[22px] [@media(min-height:560px)]:h-[26px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(245,158,11,0.28)]"
         />
       </div>
     );
@@ -38,7 +38,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           src="/brand-logo.png"
           alt={altText}
           draggable={false}
-          className="h-12 sm:h-14 w-auto object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.65)]"
+          className="h-10 sm:h-12 w-auto object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.65)]"
         />
       </div>
     );
@@ -50,7 +50,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         src="/brand-logo.png"
         alt={altText}
         draggable={false}
-        className="w-full max-w-[230px] sm:max-w-[280px] lg:max-w-[380px] h-auto object-contain drop-shadow-[0_14px_34px_rgba(0,0,0,0.85)]"
+        className="w-full max-w-[170px] [@media(min-height:480px)]:max-w-[200px] [@media(min-height:660px)]:max-w-[240px] h-auto object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.85)]"
       />
     </div>
   );

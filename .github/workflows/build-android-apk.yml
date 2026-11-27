@@ -34,8 +34,8 @@ jobs:
           VITE_ADMOB_TESTING: 'true'
         run: npm run build
 
-      - name: Install Capacitor CLI, Android platform & AdMob plugin
-        run: npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor-community/admob@7
+      - name: Install Capacitor CLI & Android platform
+        run: npm install --legacy-peer-deps @capacitor/cli@7 @capacitor/android@7
 
       - name: Add Android native project & sync web assets
         run: |
@@ -43,6 +43,9 @@ jobs:
             npx cap add android
           fi
           npx cap sync android
+          echo "=== Verifying AdMob native plugin linking ==="
+          grep -i "admob" android/capacitor.settings.gradle
+          grep -i "AdMob" android/app/src/main/assets/capacitor.plugins.json
 
       - name: Configure Landscape Fullscreen, Store Icons & Version Stamping
         run: |
@@ -50,13 +53,18 @@ jobs:
           import glob, os, re
           import xml.etree.ElementTree as ET
 
-          # 1. Patch AndroidManifest.xml for sensorLandscape, AD_ID permission, game category & Google AdMob App ID
+          # 1. Patch AndroidManifest.xml for sensorLandscape, network & AD_ID permissions, game category & Google AdMob App ID
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           if os.path.exists(manifest_path):
               txt = open(manifest_path, encoding="utf-8").read()
-              ad_id_perm = '<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>'
-              if 'com.google.android.gms.permission.AD_ID' not in txt and '<application' in txt:
-                  txt = txt.replace('<application', f'{ad_id_perm}\n\n    <application', 1)
+              extra_perms = [
+                  '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
+                  '<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>',
+              ]
+              for perm in extra_perms:
+                  perm_name = perm.split('android:name="')[1].split('"')[0]
+                  if perm_name not in txt and '<application' in txt:
+                      txt = txt.replace('<application', f'{perm}\n    <application', 1)
               if 'android:appCategory' not in txt and '<application' in txt:
                   txt = txt.replace('<application', '<application android:appCategory="game"', 1)
               if 'android:screenOrientation' not in txt:
@@ -66,7 +74,7 @@ jobs:
                   txt = txt.replace('</application>', f'    {admob_meta}\n    </application>', 1)
               open(manifest_path, "w", encoding="utf-8").write(txt)
               ET.parse(manifest_path)
-              print("Configured AndroidManifest.xml AD_ID + game category + sensorLandscape + AdMob App ID OK")
+              print("Configured AndroidManifest.xml ACCESS_NETWORK_STATE + AD_ID + game category + sensorLandscape + AdMob App ID OK")
 
           # 2. Patch res/values/styles.xml for dark edge-to-edge fullscreen & notch cutout coverage
           styles_path = "android/app/src/main/res/values/styles.xml"
@@ -276,7 +284,8 @@ jobs:
           VITE_ADMOB_TESTING: 'false'
         run: |
           npm run build
-          npx cap copy android
+          npx cap sync android
+          grep -i "AdMob" android/app/src/main/assets/capacitor.plugins.json
 
       - name: Build Signed Google Play Release AAB (when Keystore Secrets are configured)
         if: steps.signing_check.outputs.has_keystore == 'true'

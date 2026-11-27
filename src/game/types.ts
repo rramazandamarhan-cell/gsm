@@ -453,6 +453,7 @@ export interface CustomerEncounter {
 export type UpgradeId =
   | 'repair_bench'
   | 'tea_samovar'
+  | 'spare_parts_license'
   | 'accessory_license'
   | 'pro_diagnostic'
   | 'display_cabinet'

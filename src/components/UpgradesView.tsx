@@ -108,6 +108,7 @@ interface UpgradesViewProps {
 const UPGRADE_ICONS: Record<UpgradeId, React.ReactNode> = {
   repair_bench: <Wrench className="w-4 h-4 text-amber-400" />,
   tea_samovar: <Coffee className="w-4 h-4 text-amber-400" />,
+  spare_parts_license: <Wrench className="w-4 h-4 text-emerald-400" />,
   accessory_license: <ShoppingBag className="w-4 h-4 text-emerald-400" />,
   pro_diagnostic: <Cpu className="w-4 h-4 text-sky-400" />,
   display_cabinet: <LayoutGrid className="w-4 h-4 text-emerald-400" />,
@@ -204,10 +205,10 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
-      {/* SINGLE-ROW SUB-TAB BAR + PRESTIGE & PENDING CHIP */}
-      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
+    <div className="h-full flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2 gap-1.5">
+      {/* RESPONSIVE SUB-TAB BAR + PRESTIGE & PENDING CHIP */}
+      <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0 w-full sm:w-auto">
           {(
             [
               ['EQUIPMENT', Wrench, bi(`Ekipman & Lisans (${SHOP_UPGRADES.length})`, `Gear & Permits (${SHOP_UPGRADES.length})`)],
@@ -221,33 +222,33 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
               key={id}
               type="button"
               onClick={() => setSubTab(id)}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[10px] [@media(min-height:560px)]:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 subTab === id
                   ? 'bg-amber-500 text-slate-950'
                   : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-3 h-3" />
               {label}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5 text-[11px] tabular-nums shrink-0">
+        <div className="flex items-center gap-1 text-[10px] tabular-nums shrink-0">
           {pendingProjects.length > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-sky-400/35 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-200 whitespace-nowrap">
-              <Clock className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 rounded-md border border-sky-400/35 bg-sky-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-sky-200 whitespace-nowrap">
+              <Clock className="w-2.5 h-2.5" />
               {pendingProjects.length} {bi('Kurulum', 'Active')}
             </span>
           )}
-          <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10.5px] font-bold text-amber-300 whitespace-nowrap">
-            <Sparkles className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9.5px] [@media(min-height:560px)]:text-[10px] font-bold text-amber-300 whitespace-nowrap">
+            <Sparkles className="w-2.5 h-2.5" />
             {bi('Prestij', 'Prestige')}: {prestige}
           </span>
           <button
             type="button"
             onClick={onBackToCounter}
-            className="rounded-lg border border-white/15 bg-[#1B2432] px-2.5 py-1 text-[11px] font-bold text-slate-100 hover:bg-[#253246] whitespace-nowrap cursor-pointer"
+            className="rounded-lg border border-white/15 bg-[#1B2432] px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[10px] [@media(min-height:560px)]:text-[10.5px] font-bold text-slate-100 hover:bg-[#253246] whitespace-nowrap cursor-pointer"
           >
             ← {bi('Tezgah', 'Counter')}
           </button>
@@ -256,13 +257,13 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
 
       {/* TAB 1: EQUIPMENT + SHOWCASE RACK (3x2 PAGINATED, ZERO SCROLL) */}
       {subTab === 'EQUIPMENT' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
           {/* Compact Inline Showcase Rack Bar */}
-          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-[#17202D] px-2.5 py-1 [@media(min-height:560px)]:px-3 [@media(min-height:560px)]:py-1.5 tabular-nums">
-            <div className="flex items-center gap-2 min-w-0">
-              <LayoutGrid className="w-3.5 h-3.5 [@media(min-height:560px)]:w-4 [@media(min-height:560px)]:h-4 text-amber-400 shrink-0" />
+          <div className="shrink-0 flex items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-[#17202D] px-2.5 py-1 tabular-nums">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <LayoutGrid className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <div className="min-w-0 truncate">
-                <span className="text-[11px] font-bold text-slate-100">
+                <span className="text-[10px] [@media(min-height:560px)]:text-[11px] font-bold text-slate-100">
                   {bi('Vitrin Rafı', 'Showcase Rack')}{' '}
                   <strong className="font-mono text-amber-300">
                     {showcaseUpgradeLevel}/{SHOWCASE_UPGRADE_MAX_LEVEL}
@@ -299,8 +300,8 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
             )}
           </div>
 
-          {/* 3x2 Equipment Grid — Strict Zero-Scroll Overflow Hidden */}
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          {/* Equipment Grid — 3x2 Paginated, Strict Zero Scroll */}
+          <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleUpgrades.map((up) => {
               const loc = getLocalizedUpgrade(up.id, lang);
               const owned = ownedUpgrades.includes(up.id);
@@ -339,14 +340,14 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                   }`}
                 >
                   <div className="flex items-start gap-1.5 [@media(min-height:560px)]:gap-2 min-w-0">
-                    <div className="w-6 h-6 [@media(min-height:540px)]:w-8 [@media(min-height:540px)]:h-8 rounded-lg bg-[#0D131C] border border-white/8 flex items-center justify-center shrink-0">
+                    <div className="w-6 h-6 [@media(min-height:540px)]:w-7 [@media(min-height:540px)]:h-7 rounded-lg bg-[#0D131C] border border-white/8 flex items-center justify-center shrink-0">
                       {UPGRADE_ICONS[up.id]}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10.5px] [@media(min-height:540px)]:text-[11px] font-bold text-slate-100 truncate">
+                      <div className="text-[10px] [@media(min-height:560px)]:text-[10.5px] font-bold text-slate-100 truncate">
                         {loc.name}
                       </div>
-                      <div className="text-[9px] [@media(min-height:540px)]:text-[9.5px] font-semibold text-amber-300 truncate">
+                      <div className="text-[8.5px] [@media(min-height:560px)]:text-[9.5px] font-semibold text-amber-300 truncate">
                         {loc.benefitText}
                       </div>
                     </div>
@@ -431,9 +432,9 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: 6 SHOP TIERS (3x2 ZERO SCROLL — CASH & REPUTATION ONLY) */}
+      {/* TAB 2: 6 SHOP TIERS — 3x2 STRICT ZERO SCROLL */}
       {subTab === 'EXPANSION' && (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {ALL_TIERS.map((tier) => {
             const info = getLocalizedShopTier(tier, lang);
             const raw = SHOP_TIERS[tier];
@@ -466,10 +467,10 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       {bi('Kira', 'Rent')}: {formatTRY(raw.baseRent)}/{bi('g', 'd')}
                     </span>
                   </div>
-                  <div className="text-[11px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-100 truncate mt-0.5">
+                  <div className="text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 truncate mt-0.5">
                     {info.name}
                   </div>
-                  <div className="text-[9px] [@media(min-height:540px)]:text-[10px] text-slate-400 line-clamp-1 [@media(min-height:520px)]:line-clamp-2 mt-0.5 leading-tight">
+                  <div className="text-[8.5px] [@media(min-height:560px)]:text-[9.5px] text-slate-400 line-clamp-1 [@media(min-height:520px)]:line-clamp-2 mt-0.5 leading-tight">
                     {info.unlocksText}
                   </div>
                 </div>
@@ -519,8 +520,8 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
 
       {/* TAB 3: DECORATIONS (3x2 PAGINATED, STRICT ZERO SCROLL) */}
       {subTab === 'DECOR' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
-          <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {visibleDecorations.map((dec) => {
               const loc = getLocalizedDecoration(dec.id, lang);
               const isPlaque = dec.id === 'prestige_plaque';
@@ -673,9 +674,9 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 4: STAFF TEAM (2x2 ZERO SCROLL — PURE CASH HIRE + RANK TRAINING) */}
+      {/* TAB 4: STAFF TEAM — 2x2 STRICT ZERO SCROLL */}
       {subTab === 'STAFF' && (
-        <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {SHOP_STAFF.map((member) => {
             const loc = getLocalizedStaff(member.id, lang);
             const hired = hiredStaff.includes(member.id);
@@ -703,11 +704,11 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                       ) : (
                         <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       )}
-                      <span className="text-[11px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-100 truncate">
+                      <span className="text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 truncate">
                         {loc.name}
                       </span>
                     </div>
-                    <div className="text-[9.5px] [@media(min-height:540px)]:text-[10px] text-amber-300 font-semibold mt-0.5 truncate">
+                    <div className="text-[9px] [@media(min-height:560px)]:text-[9.5px] text-amber-300 font-semibold mt-0.5 truncate">
                       {loc.role} · {loc.benefitText}
                     </div>
                   </div>
@@ -764,9 +765,9 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 5: BOSS WARDROBE (3x2 ZERO SCROLL — PURE CASH) */}
+      {/* TAB 5: BOSS WARDROBE — 3x2 STRICT ZERO SCROLL */}
       {subTab === 'WARDROBE' && (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="h-full flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {PLAYER_OUTFITS.map((outfit) => {
             const loc = getLocalizedOutfit(outfit.id, lang);
             const owned = ownedOutfits.includes(outfit.id);
@@ -782,7 +783,7 @@ export const UpgradesView: React.FC<UpgradesViewProps> = ({
                 }`}
               >
                 <div className="shrink-0 flex items-center justify-between gap-1">
-                  <div className="text-[10.5px] [@media(min-height:540px)]:text-xs font-extrabold text-slate-100 truncate">
+                  <div className="text-[10px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 truncate">
                     {loc.name}
                   </div>
                   <span className="text-[9px] font-semibold text-emerald-300 truncate shrink-0">

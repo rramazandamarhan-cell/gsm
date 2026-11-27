@@ -67,30 +67,30 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       />
 
       {/* Top Bar: App Icon + Version Tag | TR/EN Switch + Settings & Privacy */}
-      <header className="relative z-20 flex items-center justify-between safe-px pt-2 lg:pt-3.5 shrink-0 gap-2">
-        <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#0E141D]/80 backdrop-blur-sm px-2 py-1 text-[11px] font-mono text-slate-200">
+      <header className="relative z-20 flex-shrink-0 flex items-center justify-between safe-px pt-1.5 [@media(min-height:600px)]:pt-2.5 gap-2">
+        <div className="h-[20px] [@media(min-height:600px)]:h-[24px] inline-flex items-center gap-1 rounded border border-white/12 bg-[#0E141D]/80 backdrop-blur-sm px-1.5 text-[9px] [@media(min-height:600px)]:text-[10px] leading-none font-mono text-slate-200 flex-shrink-0">
           <img
             src="/pwa-192x192.png"
             alt="GSM Simulator"
-            className="w-4 h-4 rounded object-cover shrink-0"
+            className="w-2.5 h-2.5 [@media(min-height:600px)]:w-3 [@media(min-height:600px)]:h-3 rounded-[2px] object-cover flex-shrink-0"
           />
           <span>v{STORE_RELEASE_META.versionName}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <div
             role="group"
             aria-label={bi('Dil seçimi', 'Language selector')}
-            className="inline-flex items-center rounded-lg border border-white/15 bg-[#101722]/85 backdrop-blur-sm p-0.5 text-[10.5px] font-bold"
+            className="h-[20px] [@media(min-height:600px)]:h-[24px] inline-flex items-center rounded border border-white/15 bg-[#101722]/85 backdrop-blur-sm p-[2px] text-[9px] [@media(min-height:600px)]:text-[10px] leading-none font-bold flex-shrink-0"
           >
-            <Globe className="w-3.5 h-3.5 text-amber-400 ml-1.5 mr-1 shrink-0" />
+            <Globe className="w-2.5 h-2.5 [@media(min-height:600px)]:w-3 [@media(min-height:600px)]:h-3 text-amber-400 ml-1 mr-0.5 flex-shrink-0" />
             <button
               type="button"
               onClick={() => {
                 soundFX.playClick();
                 setLang('tr');
               }}
-              className={`rounded-md px-2 py-0.5 transition-colors cursor-pointer ${
+              className={`h-full inline-flex items-center justify-center rounded-[3px] px-1.5 transition-colors cursor-pointer touch-manipulation ${
                 lang === 'tr'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-white'
@@ -104,7 +104,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 soundFX.playClick();
                 setLang('en');
               }}
-              className={`rounded-md px-2 py-0.5 transition-colors cursor-pointer ${
+              className={`h-full inline-flex items-center justify-center rounded-[3px] px-1.5 transition-colors cursor-pointer touch-manipulation ${
                 lang === 'en'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-white'
@@ -117,42 +117,42 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <button
             type="button"
             onClick={() => onOpenCompliance('SETTINGS')}
-            className="inline-flex items-center gap-1.5 min-h-[34px] rounded-lg border border-white/15 bg-[#101722]/85 backdrop-blur-sm px-3 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#1C2736] hover:border-amber-400/40 transition-colors cursor-pointer whitespace-nowrap touch-manipulation"
+            className="h-[20px] [@media(min-height:600px)]:h-[24px] inline-flex items-center gap-1 rounded border border-white/15 bg-[#101722]/85 backdrop-blur-sm px-1.5 [@media(min-height:600px)]:px-2 text-[9px] [@media(min-height:600px)]:text-[10px] leading-none font-semibold text-slate-200 hover:bg-[#1C2736] hover:border-amber-400/40 transition-colors cursor-pointer whitespace-nowrap touch-manipulation flex-shrink-0"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <ShieldCheck className="w-2.5 h-2.5 [@media(min-height:600px)]:w-3 [@media(min-height:600px)]:h-3 text-sky-400 flex-shrink-0" />
             <span>{bi('Ayarlar & Gizlilik', 'Settings & Privacy')}</span>
           </button>
         </div>
       </header>
 
       {/* Center Stage: Clean Centered Brand Logo + Hook + High-Impact CTAs */}
-      <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-center safe-px py-2 text-center overflow-hidden">
+      <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-center safe-px py-1.5 text-center overflow-hidden">
         <motion.div
-          initial={{ opacity: 0, y: 12, scale: 0.97 }}
+          initial={{ opacity: 0, y: 10, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col items-center max-w-xl w-full"
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col items-center max-w-md w-full"
         >
-          <div className="mb-2.5 lg:mb-4 w-full flex justify-center">
+          <div className="mb-1.5 [@media(min-height:660px)]:mb-2.5 w-full flex justify-center">
             <BrandLogo size="hero" />
           </div>
 
-          <p className="max-w-lg text-[11.5px] sm:text-xs lg:text-sm text-slate-200/95 leading-snug lg:leading-relaxed mb-3.5 lg:mb-5 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+          <p className="max-w-md text-[10.5px] [@media(min-height:520px)]:text-[11px] [@media(min-height:660px)]:text-[12px] text-slate-200/95 leading-snug mb-2.5 [@media(min-height:660px)]:mb-3.5 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
             {bi(
               '23 yaşında kendi telefoncu dükkanını aç! Dedektif ekspertiz, mikro tamir tezgahı, ateşli pazarlık ve marka bayilikleriyle pasajdan dev GSM Showroom’una büyü.',
               'Open your own phone shop at age 23! Spot hidden defects with your optical loupe, run micro-repairs, haggle hard, and grow from a tiny arcade stall to a grand GSM Showroom.'
             )}
           </p>
 
-          <div className="flex flex-row flex-wrap items-center justify-center gap-2.5 lg:gap-3.5">
+          <div className="flex flex-row flex-wrap items-center justify-center gap-2 [@media(min-height:660px)]:gap-2.5">
             {savedState ? (
               <>
                 <button
                   type="button"
                   onClick={onContinue}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-6 py-2.5 lg:px-8 lg:py-3.5 text-xs sm:text-sm lg:text-base font-extrabold text-slate-950 shadow-[0_10px_30px_rgba(245,158,11,0.45)] hover:bg-amber-400 active:scale-[0.98] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-1.5 [@media(min-height:660px)]:px-5 [@media(min-height:660px)]:py-2 text-[11px] [@media(min-height:660px)]:text-xs font-extrabold text-slate-950 shadow-[0_6px_20px_rgba(245,158,11,0.4)] hover:bg-amber-400 active:scale-[0.98] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <Play className="w-4 h-4 lg:w-5 lg:h-5 fill-slate-950" />
+                  <Play className="w-3.5 h-3.5 fill-slate-950" />
                   <span>
                     {bi(
                       `Devam Et (Gün ${savedState.day})`,
@@ -164,9 +164,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 <button
                   type="button"
                   onClick={onStartNew}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/18 bg-[#121A26]/90 backdrop-blur-sm px-5 py-2.5 lg:px-6 lg:py-3.5 text-xs lg:text-sm font-semibold text-slate-200 hover:bg-[#1E2836] active:scale-[0.98] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/18 bg-[#121A26]/90 backdrop-blur-sm px-3.5 py-1.5 [@media(min-height:660px)]:px-4 [@media(min-height:660px)]:py-2 text-[11px] [@media(min-height:660px)]:text-xs font-semibold text-slate-200 hover:bg-[#1E2836] active:scale-[0.98] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <RotateCcw className="w-4 h-4 text-slate-400" />
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
                   <span>{bi('Yeni Kariyer', 'New Career')}</span>
                 </button>
               </>
@@ -174,16 +174,16 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               <button
                 type="button"
                 onClick={onStartNew}
-                className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-amber-500 px-8 py-2.5 lg:px-10 lg:py-3.5 text-sm lg:text-base font-extrabold text-slate-950 shadow-[0_10px_32px_rgba(245,158,11,0.48)] hover:bg-amber-400 active:scale-[0.98] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-5 py-1.5 [@media(min-height:660px)]:px-6 [@media(min-height:660px)]:py-2 text-[11.5px] [@media(min-height:660px)]:text-xs font-extrabold text-slate-950 shadow-[0_6px_20px_rgba(245,158,11,0.42)] hover:bg-amber-400 active:scale-[0.98] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer"
               >
-                <Play className="w-4 h-4 lg:w-5 lg:h-5 fill-slate-950" />
+                <Play className="w-3.5 h-3.5 fill-slate-950" />
                 <span>{bi('Dükkanı Aç', 'Open Shop')}</span>
               </button>
             )}
           </div>
 
           {savedState && (
-            <div className="mt-2.5 lg:mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-xl border border-white/12 bg-[#0E1520]/85 backdrop-blur-sm px-3.5 py-1.5 text-[11px] lg:text-xs text-slate-200 tabular-nums">
+            <div className="mt-2 [@media(min-height:660px)]:mt-2.5 inline-flex flex-wrap items-center justify-center gap-1.5 rounded-lg border border-white/12 bg-[#0E1520]/85 backdrop-blur-sm px-2.5 py-1 text-[10px] [@media(min-height:660px)]:text-[10.5px] text-slate-200 tabular-nums">
               <span className="font-semibold text-amber-300">
                 {getLocalizedShopTierName(savedState.shopTier, lang)}
               </span>
@@ -203,7 +203,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 ·
               </span>
               <span className="inline-flex items-center gap-1 text-amber-300 font-mono">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                 {savedState.reputation.toFixed(1)}
               </span>
             </div>
@@ -212,8 +212,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </main>
 
       {/* Clean Non-Overlapping Legal Footer (In-app modal triggers for Android/iOS WebView safety) */}
-      <footer className="relative z-10 pb-1.5 lg:pb-3 safe-px safe-pb text-center shrink-0">
-        <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-slate-300/85">
+      <footer className="relative z-10 pb-1 [@media(min-height:660px)]:pb-2 safe-px safe-pb text-center shrink-0">
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[9.5px] [@media(min-height:660px)]:text-[10px] text-slate-300/85">
           <span>PEGI 3 / 4+</span>
           <span aria-hidden="true" className="text-slate-600">
             ·
@@ -221,7 +221,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <button
             type="button"
             onClick={() => onOpenCompliance('PRIVACY', 'privacy')}
-            className="underline py-1 px-1 hover:text-amber-300 transition-colors cursor-pointer touch-manipulation"
+            className="underline py-0.5 px-1 hover:text-amber-300 transition-colors cursor-pointer touch-manipulation"
           >
             {bi('Gizlilik Politikası', 'Privacy Policy')}
           </button>
@@ -231,7 +231,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <button
             type="button"
             onClick={() => onOpenCompliance('PRIVACY', 'terms')}
-            className="underline py-1 px-1 hover:text-amber-300 transition-colors cursor-pointer touch-manipulation"
+            className="underline py-0.5 px-1 hover:text-amber-300 transition-colors cursor-pointer touch-manipulation"
           >
             {bi('Kullanım Koşulları', 'Terms of Use')}
           </button>

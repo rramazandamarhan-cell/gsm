@@ -2,6 +2,8 @@
 // Safely routes Haptics, StatusBar, ScreenOrientation, SplashScreen, Platform detection,
 // and Store Review hooks without crashing in plain browser/PWA mode.
 
+import { Capacitor } from '@capacitor/core';
+
 export type RuntimePlatform = 'android' | 'ios' | 'web';
 
 interface CapacitorGlobal {
@@ -47,11 +49,21 @@ export const STORE_RELEASE_META = {
 
 export function getCapacitor(): CapacitorGlobal | null {
   if (typeof window === 'undefined') return null;
-  const cap = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
-  return cap ?? null;
+  const winCap = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
+  if (winCap) return winCap;
+  return Capacitor as unknown as CapacitorGlobal;
 }
 
 export function getRuntimePlatform(): RuntimePlatform {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const p = Capacitor.getPlatform();
+      if (p === 'android') return 'android';
+      if (p === 'ios') return 'ios';
+    }
+  } catch {
+    // Fallback to window.Capacitor check below
+  }
   const cap = getCapacitor();
   if (cap?.isNativePlatform?.()) {
     const p = cap.getPlatform?.();

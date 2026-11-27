@@ -176,6 +176,7 @@ import {
   initializeAdService,
   maybeShowEndOfDayInterstitial,
   normalizeAdState,
+  registerAdStatusListener,
   registerWebAdOverlayListener,
   showRewardedAd,
 } from './game/adService';
@@ -475,6 +476,15 @@ export default function App() {
     []
   );
 
+  useEffect(() => {
+    registerAdStatusListener((notice) => {
+      pushFeedback(lang === 'en' ? notice.messageEn : notice.messageTr, 'amber');
+    });
+    return () => {
+      registerAdStatusListener(null);
+    };
+  }, [lang, pushFeedback]);
+
   const applyXpGain = useCallback(
     (state: ShopState, xpDelta: number): ShopState => {
       if (xpDelta <= 0) return state;
@@ -618,6 +628,9 @@ export default function App() {
         } else if (showComplaintArchive) {
           soundFX.playClick();
           setShowComplaintArchive(false);
+        } else if (inspectingActiveDrama) {
+          soundFX.playClick();
+          setInspectingActiveDrama(false);
         } else if (showComplianceModal) {
           soundFX.playClick();
           setShowComplianceModal(false);
@@ -641,6 +654,7 @@ export default function App() {
         isTypingTarget ||
         activeWarrantyModal ||
         showComplaintArchive ||
+        inspectingActiveDrama ||
         showComplianceModal ||
         showAnalyticsModal ||
         showNewspaperReview ||
@@ -679,6 +693,9 @@ export default function App() {
     savedSnapshot,
     miniRepairJob,
     inspectionOverlay,
+    activeWarrantyModal,
+    showComplaintArchive,
+    inspectingActiveDrama,
     showNewspaperReview,
     showAnalyticsModal,
     showComplianceModal,
@@ -4980,15 +4997,15 @@ export default function App() {
   return (
     <div className="h-dvh w-screen overflow-hidden flex flex-col bg-[#0F141B] text-slate-100 select-none">
       {/* ERGONOMIC FIXED-PX GAME HUD HEADER: Logo + all 6 tabs visible side-by-side without horizontal scroll */}
-      <header className="relative z-30 shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(3px,env(safe-area-inset-top))] pb-[3px] min-h-[36px] [@media(min-height:500px)]:min-h-[42px] [@media(min-height:500px)]:pb-[4px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-[4px] lg:gap-2 overflow-hidden">
-        <div className="flex items-center gap-[5px] lg:gap-2 min-w-0 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
-          <div className="flex items-center shrink-0">
+      <header className="relative z-30 flex-shrink-0 border-b border-white/10 bg-[#131A24] safe-px pt-[max(2px,env(safe-area-inset-top))] pb-[2px] min-h-[30px] [@media(min-height:560px)]:min-h-[36px] [@media(min-height:560px)]:pb-[3px] flex flex-nowrap items-center justify-between gap-[3px] md:gap-1.5 overflow-hidden">
+        <div className="flex items-center gap-[4px] lg:gap-1.5 min-w-0 flex-1 overflow-hidden">
+          <div className="hidden lg:flex items-center flex-shrink-0">
             <BrandLogo size="compact" />
           </div>
 
           <nav
             aria-label="Dükkan bölümleri"
-            className="grid grid-cols-6 sm:flex sm:items-center gap-[2px] md:gap-[4px] lg:gap-1.5 rounded-lg bg-[#0D1219] p-[2px] md:p-[3px] border border-white/10 w-full sm:w-auto shrink-0"
+            className="flex items-center gap-[2px] md:gap-[3px] lg:gap-1 rounded-lg bg-[#0D1219] p-[2px] border border-white/10 max-w-full overflow-hidden"
           >
             <button
               type="button"
@@ -4996,14 +5013,14 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('COUNTER');
               }}
-              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[2px] md:gap-[3px] h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md px-1 sm:px-1.5 md:px-2 lg:px-2.5 text-[9px] sm:text-[9.5px] md:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'COUNTER'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Users className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
-              <span>{bi('Tezgah', 'Counter')}</span>
+              <Users className="w-[10px] h-[10px] md:w-[11px] md:h-[11px] flex-shrink-0" />
+              <span className="leading-none">{bi('Tezgah', 'Counter')}</span>
             </button>
 
             <button
@@ -5013,16 +5030,16 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('WORKSHOP');
               }}
-              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`relative inline-flex items-center justify-center gap-[2px] md:gap-[3px] h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md px-1 sm:px-1.5 md:px-2 lg:px-2.5 text-[9px] sm:text-[9.5px] md:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WORKSHOP'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Wrench className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
-              <span>
+              <Wrench className="w-[10px] h-[10px] md:w-[11px] md:h-[11px] flex-shrink-0" />
+              <span className="leading-none">
                 {bi('Atölye', 'Workshop')}
-                {shop.inventory.length > 0 ? ` (${shop.inventory.length})` : ''}
+                {shop.inventory.length > 0 && `(${shop.inventory.length})`}
               </span>
             </button>
 
@@ -5034,14 +5051,14 @@ export default function App() {
                 setActiveTab('WHOLESALE');
               }}
               title={bi('Toptancı, Aksesuar & Sıfır Bayilik', 'Wholesale, Accessories & Flagship Supply')}
-              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[2px] md:gap-[3px] h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md px-1 sm:px-1.5 md:px-2 lg:px-2.5 text-[9px] sm:text-[9.5px] md:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'WHOLESALE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Package className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
-              <span>{bi('Toptan', 'Supply')}</span>
+              <Package className="w-[10px] h-[10px] md:w-[11px] md:h-[11px] flex-shrink-0" />
+              <span className="leading-none">{bi('Toptan', 'Supply')}</span>
             </button>
 
             <button
@@ -5052,21 +5069,21 @@ export default function App() {
                 setActiveTab('EMPIRE');
               }}
               title={bi('Sarı İlan, İhale, Şube, Banka & Müze', 'Classifieds, Auctions, Branches, Bank & Museum')}
-              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`relative inline-flex items-center justify-center gap-[2px] md:gap-[3px] h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md px-1 sm:px-1.5 md:px-2 lg:px-2.5 text-[9px] sm:text-[9.5px] md:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'EMPIRE'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Building2 className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
-              <span>{bi('Piyasa', 'Market')}</span>
+              <Building2 className="w-[10px] h-[10px] md:w-[11px] md:h-[11px] flex-shrink-0" />
+              <span className="leading-none">{bi('Piyasa', 'Market')}</span>
               {getWeekdayInfo(shop.day).isSunday && (
-                <span className="font-mono text-[9px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                <span className="hidden lg:inline font-mono text-[8.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
                   {bi('Kermes', 'Fair')}
                 </span>
               )}
               {shop.weeklyTaxDue > 0 && (
-                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-rose-500 text-white">
+                <span className="font-mono text-[8px] leading-none font-extrabold rounded px-0.5 bg-rose-500 text-white">
                   !
                 </span>
               )}
@@ -5079,16 +5096,16 @@ export default function App() {
                 soundFX.playClick();
                 setActiveTab('MISSIONS');
               }}
-              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`relative inline-flex items-center justify-center gap-[2px] md:gap-[3px] h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md px-1 sm:px-1.5 md:px-2 lg:px-2.5 text-[9px] sm:text-[9.5px] md:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'MISSIONS'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Target className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
-              <span>{bi('Görev', 'Quests')}</span>
+              <Target className="w-[10px] h-[10px] md:w-[11px] md:h-[11px] flex-shrink-0" />
+              <span className="leading-none">{bi('Görev', 'Quests')}</span>
               {(claimableCount > 0 || !shop.dailyStreakClaimed) && (
-                <span className="font-mono text-[9.5px] font-extrabold rounded px-1 bg-emerald-400 text-slate-950">
+                <span className="font-mono text-[8px] leading-none font-extrabold rounded px-0.5 bg-emerald-400 text-slate-950">
                   +{claimableCount + (shop.dailyStreakClaimed ? 0 : 1)}
                 </span>
               )}
@@ -5102,20 +5119,20 @@ export default function App() {
                 setActiveTab('UPGRADES');
               }}
               title={bi('Ekipman, Dükkan, Dekor, Ekip & Gardırop', 'Equipment, Shops, Decor, Staff & Wardrobe')}
-              className={`inline-flex items-center justify-center gap-[3px] lg:gap-1 min-h-[30px] lg:min-h-[34px] rounded-md px-[5px] md:px-[8px] lg:px-3 py-[3px] text-[10px] md:text-[11px] lg:text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
+              className={`inline-flex items-center justify-center gap-[2px] md:gap-[3px] h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md px-1 sm:px-1.5 md:px-2 lg:px-2.5 text-[9px] sm:text-[9.5px] md:text-[10.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer touch-manipulation ${
                 activeTab === 'UPGRADES'
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-300 hover:text-slate-50 active:bg-white/10'
               }`}
             >
-              <Sparkles className="w-[12px] h-[12px] lg:w-[14px] lg:h-[14px] shrink-0" />
-              <span>{bi('Büyüt', 'Upgrade')}</span>
+              <Sparkles className="w-[10px] h-[10px] md:w-[11px] md:h-[11px] flex-shrink-0" />
+              <span className="leading-none">{bi('Büyüt', 'Upgrade')}</span>
             </button>
           </nav>
         </div>
 
         {/* Compact Tabular HUD Readouts — Day, Infinite Level, Cash & Pause Menu */}
-        <div className="flex items-center justify-between sm:justify-end gap-[4px] md:gap-2 lg:gap-2.5 tabular-nums shrink-0 w-full sm:w-auto order-1 sm:order-2">
+        <div className="flex items-center justify-end gap-[3px] md:gap-1.5 tabular-nums flex-shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -5126,10 +5143,10 @@ export default function App() {
               `Gün ${shop.day} · Sv.${shop.level} · Dükkan Kademesi ${shop.shopTier}/6`,
               `Day ${shop.day} · Lv.${shop.level} · Shop Tier ${shop.shopTier}/6`
             )}
-            className="inline-flex items-center gap-1 min-h-[30px] rounded-md border border-amber-400/30 bg-amber-500/10 px-1.5 lg:px-2 py-0.5 hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 touch-manipulation"
+            className="inline-flex items-center gap-0.5 md:gap-1 h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md border border-amber-400/30 bg-amber-500/10 px-1.5 lg:px-2 hover:bg-amber-500/20 transition-colors cursor-pointer flex-shrink-0 touch-manipulation text-[9.5px] md:text-[10.5px]"
           >
             <span
-              className={`font-mono text-[10px] lg:text-[11px] font-extrabold whitespace-nowrap ${
+              className={`font-mono font-extrabold whitespace-nowrap ${
                 getWeekdayInfo(shop.day).isSunday ? 'text-emerald-300' : 'text-amber-300'
               }`}
             >
@@ -5142,151 +5159,151 @@ export default function App() {
               </span>
             </span>
             <span aria-hidden="true" className="text-amber-300/40">·</span>
-            <span className="font-mono text-[10px] lg:text-[10.5px] font-extrabold text-emerald-300 whitespace-nowrap">
+            <span className="font-mono font-extrabold text-emerald-300 whitespace-nowrap">
               {bi(`Sv.${shop.level}`, `Lv.${shop.level}`)}
             </span>
             {(shop.prestigeLevel ?? 0) > 0 && (
               <>
                 <span aria-hidden="true" className="text-amber-300/40">·</span>
-                <span className="font-mono text-[10px] font-extrabold text-purple-300 whitespace-nowrap">
+                <span className="font-mono font-extrabold text-purple-300 whitespace-nowrap">
                   P{shop.prestigeLevel}
                 </span>
               </>
             )}
             <span aria-hidden="true" className="hidden xl:inline text-amber-300/40">·</span>
-            <span className="hidden xl:inline font-mono text-[10.5px] font-bold text-slate-200 whitespace-nowrap">
+            <span className="hidden xl:inline font-mono font-bold text-slate-200 whitespace-nowrap">
               {bi(`Dük.${shop.shopTier}/6`, `T${shop.shopTier}/6`)}
             </span>
           </button>
 
-              <div className="hidden xl:flex items-center gap-2 text-xs text-slate-400">
-                <span className="inline-flex items-center gap-1">
-                  <Store className="w-3.5 h-3.5 text-slate-400" />
-                  <strong className="text-slate-100 font-mono">{listedCount}</strong>
-                </span>
-                <span aria-hidden="true" className="text-white/20">·</span>
-                <span>
-                  {bi('Prestij', 'Prestige')}{' '}
-                  <strong className="text-amber-300 font-mono">{prestige}</strong>
-                </span>
-              </div>
+          <div className="hidden xl:flex items-center gap-2 text-responsive text-slate-400 flex-shrink-0">
+            <span className="inline-flex items-center gap-1">
+              <Store className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              <strong className="text-slate-100 font-mono">{listedCount}</strong>
+            </span>
+            <span aria-hidden="true" className="text-white/20">·</span>
+            <span>
+              {bi('Prestij', 'Prestige')}{' '}
+              <strong className="text-amber-300 font-mono">{prestige}</strong>
+            </span>
+          </div>
 
-              <div className="flex items-center gap-1 md:gap-1.5">
-                {(() => {
-                  const adBoostActive =
-                    (shop.adState?.cashMultiplier ?? 1) === 2 &&
-                    (shop.adState?.cashMultiplierDealsLeft ?? 0) > 0;
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => void handleActivate2xCashAd()}
-                      title={
-                        adBoostActive
-                          ? bi(
-                              `2x Para Çarpanı Aktif (${shop.adState?.cashMultiplierDealsLeft ?? 0} işlem kaldı)`,
-                              `2x Cash Multiplier Active (${shop.adState?.cashMultiplierDealsLeft ?? 0} deals left)`
-                            )
-                          : bi(
-                              'Ödüllü reklam izle · Sonraki 3 işlemde 2x Para Çarpanı aç',
-                              'Watch Rewarded Ad · Unlock 2x Cash Multiplier for next 3 deals'
-                            )
-                      }
-                      className={`inline-flex items-center gap-1 min-h-[28px] lg:min-h-[30px] rounded-md border px-1.5 lg:px-2 py-0.5 font-mono text-[10px] lg:text-[10.5px] font-extrabold transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation ${
-                        adBoostActive
-                          ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.22)]'
-                          : 'border-amber-400/45 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
-                      }`}
-                    >
-                      {adBoostActive ? (
-                        <>
-                          <Zap className="w-3 h-3 text-emerald-300 shrink-0" />
-                          <span>2x ({shop.adState?.cashMultiplierDealsLeft})</span>
-                        </>
-                      ) : (
-                        <>
-                          <PlayCircle className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span>{bi('2x Para', '2x Cash')}</span>
-                        </>
-                      )}
-                    </button>
-                  );
-                })()}
-
-                {shop.activeDrama?.phase === 'ACTIVE_QUEST' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundFX.playClick();
-                      setInspectingActiveDrama(true);
-                    }}
-                    title={
-                      lang === 'en'
-                        ? shop.activeDrama.objectiveLabelEn
-                        : shop.activeDrama.objectiveLabelTr
-                    }
-                    className="inline-flex items-center gap-1 min-h-[28px] lg:min-h-[30px] rounded-md border border-rose-400/55 bg-rose-500/20 px-1.5 lg:px-2 py-0.5 font-mono text-[10px] lg:text-[10.5px] font-extrabold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer shrink-0 whitespace-nowrap touch-manipulation"
-                  >
-                    <Flame className="w-3 h-3 text-amber-300 shrink-0" />
-                    <span>
-                      {shop.activeDrama.objectiveKind === 'EARN_PROFIT'
-                        ? `${Math.round((shop.activeDrama.progress / Math.max(1, shop.activeDrama.target)) * 100)}%`
-                        : `${shop.activeDrama.progress}/${shop.activeDrama.target}`}{' '}
-                      · {shop.activeDrama.daysLeft}g
-                    </span>
-                  </button>
-                )}
-
-                <div className="inline-flex items-center gap-0.5 text-[10.5px] lg:text-xs font-semibold text-amber-400">
-                  <Star className="w-[12px] h-[12px] lg:w-[13px] lg:h-[13px] fill-amber-400" />
-                  <span className="font-mono">{shop.reputation.toFixed(1)}</span>
-                </div>
-
-                <div className="text-right">
-                  <div className="font-mono text-[12px] sm:text-[13px] lg:text-base font-extrabold text-emerald-400 leading-none">
-                    {formatTRY(shop.cash)}
-                  </div>
-                  {!shop.endlessMode && (
-                    <div className="hidden xl:block text-[9.5px] text-slate-400 leading-tight mt-0.5">
-                      {bi('Showroom Hedef', 'Showroom Goal')} %{victoryProgress}
-                    </div>
+          <div className="flex items-center gap-[3px] md:gap-1.5 flex-shrink-0">
+            {(() => {
+              const adBoostActive =
+                (shop.adState?.cashMultiplier ?? 1) === 2 &&
+                (shop.adState?.cashMultiplierDealsLeft ?? 0) > 0;
+              return (
+                <button
+                  type="button"
+                  onClick={() => void handleActivate2xCashAd()}
+                  title={
+                    adBoostActive
+                      ? bi(
+                          `2x Para Çarpanı Aktif (${shop.adState?.cashMultiplierDealsLeft ?? 0} işlem kaldı)`,
+                          `2x Cash Multiplier Active (${shop.adState?.cashMultiplierDealsLeft ?? 0} deals left)`
+                        )
+                      : bi(
+                          'Ödüllü reklam izle · Sonraki 3 işlemde 2x Para Çarpanı aç',
+                          'Watch Rewarded Ad · Unlock 2x Cash Multiplier for next 3 deals'
+                        )
+                  }
+                  className={`inline-flex items-center gap-0.5 md:gap-1 h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md border px-1.5 lg:px-2 font-mono text-[9.5px] md:text-[10.5px] font-extrabold transition-colors cursor-pointer flex-shrink-0 whitespace-nowrap touch-manipulation ${
+                    adBoostActive
+                      ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.22)]'
+                      : 'border-amber-400/45 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
+                  }`}
+                >
+                  {adBoostActive ? (
+                    <>
+                      <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 text-emerald-300 flex-shrink-0" />
+                      <span>2x({shop.adState?.cashMultiplierDealsLeft})</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-300 flex-shrink-0" />
+                      <span>{bi('2x', '2x')}</span>
+                    </>
                   )}
-                </div>
-              </div>
+                </button>
+              );
+            })()}
 
-              <div className="flex items-center gap-[4px]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playClick();
-                    setLang(lang === 'tr' ? 'en' : 'tr');
-                  }}
-                  aria-label={bi('Dili İngilizce yap', 'Switch language to Turkish')}
-                  title={bi('Dil: Türkçe (EN için tıkla)', 'Language: English (tap for TR)')}
-                  className="hidden xl:flex h-[32px] px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-[10.5px] font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
-                >
-                  {lang.toUpperCase()}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playClick();
-                    setScreen('PAUSED');
-                  }}
-                  aria-label={bi('Duraklat, Pasaj Postası, İstatistikler ve Ses', 'Pause, Daily Gazette, Analytics & Sound')}
-                  title={bi('Menü: Pasaj Postası, İstatistikler, Ses & Ayarlar', 'Menu: Gazette, Analytics, Sound & Settings')}
-                  className="flex h-[30px] w-[30px] lg:h-[32px] lg:w-[32px] items-center justify-center rounded-lg border border-white/15 bg-[#1B2432] text-slate-200 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation"
-                >
-                  <Pause className="w-[15px] h-[15px]" />
-                </button>
-              </div>
+            {shop.activeDrama?.phase === 'ACTIVE_QUEST' && (
+              <button
+                type="button"
+                onClick={() => {
+                  soundFX.playClick();
+                  setInspectingActiveDrama(true);
+                }}
+                title={
+                  lang === 'en'
+                    ? shop.activeDrama.objectiveLabelEn
+                    : shop.activeDrama.objectiveLabelTr
+                }
+                className="inline-flex items-center gap-0.5 md:gap-1 h-[24px] [@media(min-height:560px)]:h-[28px] rounded-md border border-rose-400/55 bg-rose-500/20 px-1.5 lg:px-2 font-mono text-[9.5px] md:text-[10.5px] font-extrabold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer flex-shrink-0 whitespace-nowrap touch-manipulation"
+              >
+                <Flame className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-300 flex-shrink-0" />
+                <span>
+                  {shop.activeDrama.objectiveKind === 'EARN_PROFIT'
+                    ? `${Math.round((shop.activeDrama.progress / Math.max(1, shop.activeDrama.target)) * 100)}%`
+                    : `${shop.activeDrama.progress}/${shop.activeDrama.target}`}
+                  ·{shop.activeDrama.daysLeft}g
+                </span>
+              </button>
+            )}
+
+            <div className="inline-flex items-center gap-0.5 text-[9.5px] md:text-[10.5px] font-semibold text-amber-400 flex-shrink-0">
+              <Star className="w-[10px] h-[10px] md:w-[12px] md:h-[12px] fill-amber-400 flex-shrink-0" />
+              <span className="font-mono">{shop.reputation.toFixed(1)}</span>
             </div>
+
+            <div className="text-right flex-shrink-0">
+              <div className="font-mono text-[10.5px] md:text-xs font-extrabold text-emerald-400 leading-none whitespace-nowrap">
+                {formatTRY(shop.cash)}
+              </div>
+              {!shop.endlessMode && (
+                <div className="hidden xl:block text-[9px] text-slate-400 leading-tight mt-0.5">
+                  {bi('Showroom Hedef', 'Showroom Goal')} %{victoryProgress}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-[4px] flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setLang(lang === 'tr' ? 'en' : 'tr');
+              }}
+              aria-label={bi('Dili İngilizce yap', 'Switch language to Turkish')}
+              title={bi('Dil: Türkçe (EN için tıkla)', 'Language: English (tap for TR)')}
+              className="hidden xl:flex h-[26px] [@media(min-height:560px)]:h-[28px] px-2 items-center justify-center rounded-lg border border-amber-400/30 bg-[#1B2432] font-mono text-responsive-sm font-extrabold text-amber-300 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation flex-shrink-0"
+            >
+              {lang.toUpperCase()}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setScreen('PAUSED');
+              }}
+              aria-label={bi('Duraklat, Pasaj Postası, İstatistikler ve Ses', 'Pause, Daily Gazette, Analytics & Sound')}
+              title={bi('Menü: Pasaj Postası, İstatistikler, Ses & Ayarlar', 'Menu: Gazette, Analytics, Sound & Settings')}
+              className="flex h-[26px] w-[26px] [@media(min-height:560px)]:h-[28px] [@media(min-height:560px)]:w-[28px] items-center justify-center rounded-lg border border-white/15 bg-[#1B2432] text-slate-200 hover:text-slate-50 hover:bg-[#243042] transition-colors cursor-pointer touch-manipulation flex-shrink-0"
+            >
+              <Pause className="w-[13px] h-[13px]" />
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Non-blocking Portrait Orientation Helper Banner (Mobile Browser Fallback) */}
       {isPortraitMobile && !portraitHintDismissed && (
-        <div className="shrink-0 bg-amber-500/15 border-b border-amber-400/35 px-2.5 py-1.5 flex items-center justify-between gap-2 text-[11px] text-amber-100">
+        <div className="flex-shrink-0 bg-amber-500/15 border-b border-amber-400/35 px-2.5 py-1.5 flex items-center justify-between gap-2 text-responsive text-amber-100">
           <div className="flex items-center gap-1.5 min-w-0">
-            <RotateCw className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <RotateCw className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
             <span className="truncate font-medium">
               {bi(
                 'En iyi tezgah deneyimi için telefonu yatay çevir',
@@ -5294,7 +5311,7 @@ export default function App() {
               )}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -5318,7 +5335,7 @@ export default function App() {
       )}
 
       {/* ACTIVE SHOP PLAYFIELD — STRICT ZERO-SCROLL FLEX CONTAINER */}
-      <main className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="relative flex-1 h-full min-h-0 flex flex-col overflow-hidden">
         {activeTab !== 'COUNTER' && (
           <TabFirstVisitTip tab={activeTab} resetSignal={tabTipsResetSignal} />
         )}
@@ -5562,11 +5579,11 @@ export default function App() {
         )}
 
         {/* Non-blocking Floating Feedback Delta Toasts */}
-        <div className="pointer-events-none fixed top-16 right-5 z-40 flex flex-col items-end gap-2">
+        <div className="pointer-events-none fixed top-10 right-2 sm:right-3 z-40 flex flex-col items-end gap-1 max-w-[calc(100vw-1rem)]">
           {feedbacks.map((fb) => (
             <div
               key={fb.id}
-              className={`animate-float-delta rounded-lg border px-3.5 py-1.5 text-xs font-bold shadow-lg tabular-nums ${
+              className={`animate-float-delta rounded-md border px-2 py-0.5 text-[10px] sm:text-[10.5px] font-bold shadow-md tabular-nums leading-snug break-words max-w-[260px] sm:max-w-xs ${
                 fb.tone === 'positive'
                   ? 'border-emerald-500/40 bg-[#102620]/95 text-emerald-300'
                   : fb.tone === 'negative'

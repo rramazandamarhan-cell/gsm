@@ -348,28 +348,28 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
   const activeZoneChecked = device.inspected[activeTool];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-2 sm:p-3 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-1 sm:p-1.5 select-none">
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-4xl max-h-[94dvh] flex flex-col overflow-hidden rounded-2xl border border-amber-400/30 bg-[#121923] shadow-[0_28px_80px_rgba(0,0,0,0.85)]"
+        className="w-full max-w-3xl h-[96dvh] max-h-[480px] flex flex-col overflow-hidden rounded-xl border border-amber-400/30 bg-[#121923] shadow-[0_24px_60px_rgba(0,0,0,0.85)]"
       >
-        {/* Compact Header */}
-        <div className="shrink-0 px-3.5 py-2 border-b border-white/10 bg-[#0E141D] flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-400/40 text-amber-400 shrink-0">
-              <Search className="w-4 h-4" />
+        {/* Compact Single-Line Header */}
+        <div className="shrink-0 px-2.5 py-1 border-b border-white/10 bg-[#0E141D] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/15 border border-amber-400/40 text-amber-400 shrink-0">
+              <Search className="w-3 h-3" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-sm font-extrabold text-slate-50 truncate leading-tight">
+              <div className="font-display text-[11px] sm:text-xs font-extrabold text-slate-50 truncate leading-tight">
                 {bi('Elle Ekspertiz Masası', 'Hands-On Inspection Desk')} ·{' '}
                 <span className="text-amber-400">
                   {device.brand} {device.model}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
+              <div className="hidden [@media(min-height:520px)]:block text-[9.5px] text-slate-400 truncate">
                 {bi(
                   'Ekranı elle kontrol et, USB-C pil ölçümü yap, IMEI son 4 hanesini sorgula ve SIM sıvı bandına bak!',
                   'Test screen touch points, run USB-C battery load, query last 4 IMEI digits & inspect SIM liquid strip!'
@@ -378,8 +378,8 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="font-mono text-xs font-bold text-amber-300 tabular-nums">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="font-mono text-[10.5px] font-bold text-amber-300 tabular-nums">
               {inspectedCount}/4
             </span>
             <button
@@ -389,22 +389,22 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                 onClose();
               }}
               aria-label={bi('Kapat', 'Close')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-[#1B2533] text-slate-300 hover:text-white cursor-pointer"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-white/12 bg-[#1B2533] text-slate-300 hover:text-white cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* 12-Col Landscape Workbench Body (Zero Scroll) */}
-        <div className="flex-1 min-h-0 overflow-hidden grid grid-cols-12 gap-2.5 p-2.5">
+        {/* Strict Zero-Scroll 12-Col Workbench Body */}
+        <div className="flex-1 min-h-0 overflow-hidden grid grid-cols-12 gap-1.5 p-1.5">
           {/* LEFT: Interactive Phone Surface + Live Visual Indicators */}
-          <div className="col-span-5 flex flex-col items-center justify-between rounded-xl border border-white/10 bg-[#0D151E] p-2 relative overflow-hidden min-h-0">
-            <div className="w-full flex items-center justify-between gap-2 mb-1 z-10 shrink-0">
-              <span className="text-[10px] font-mono font-bold text-slate-300 truncate">
+          <div className="col-span-5 min-h-0 flex flex-col items-center justify-between rounded-xl border border-white/10 bg-[#0D151E] p-1.5 relative overflow-hidden">
+            <div className="w-full flex items-center justify-between gap-1 mb-1 z-10 shrink-0">
+              <span className="text-[9px] sm:text-[9.5px] font-mono font-bold text-slate-300 truncate">
                 {side === 'front'
                   ? bi('ÖN YÜZ · EKRAN & PİL', 'FRONT · DISPLAY & BATTERY')
-                  : bi('ARKA YÜZ · SIVI BANDI & IMEI', 'BACK · LIQUID STRIP & IMEI')}
+                  : bi('ARKA YÜZ · SIVI & IMEI', 'BACK · LIQUID & IMEI')}
               </span>
               <button
                 type="button"
@@ -414,9 +414,9 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   setSide(nextSide);
                   setActiveTool(nextSide === 'front' ? 'screen' : 'imei');
                 }}
-                className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-[#1C2634] px-2 py-1 text-[10.5px] font-bold text-slate-200 hover:bg-[#263447] cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-[#1C2634] px-1.5 py-0.5 text-[9.5px] font-bold text-slate-200 hover:bg-[#263447] cursor-pointer whitespace-nowrap shrink-0"
               >
-                <RotateCw className="w-3 h-3" />
+                <RotateCw className="w-2.5 h-2.5" />
                 <span>{side === 'front' ? bi('Arka Yüz', 'Back') : bi('Ön Yüz', 'Front')}</span>
               </button>
             </div>
@@ -855,11 +855,11 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
             </div>
           </div>
 
-          {/* RIGHT: 4 Tool Switcher + Active Hands-On Diagnostic Bench */}
-          <div className="col-span-7 min-h-0 flex flex-col justify-between gap-2 overflow-hidden">
+          {/* RIGHT: 4 Tool Switcher + Active Hands-On Diagnostic Bench (Strict Zero Scroll) */}
+          <div className="col-span-7 min-h-0 flex flex-col justify-between gap-1 [@media(min-height:500px)]:gap-1.5 overflow-hidden">
             {/* Top: Tool Tabs + Seller Claim */}
-            <div className="shrink-0 space-y-1.5">
-              <div className="grid grid-cols-4 gap-1.5">
+            <div className="shrink-0 space-y-1">
+              <div className="grid grid-cols-4 gap-1">
                 {TOOL_TABS.map((tab) => {
                   const checked = device.inspected[tab.category];
                   const hasDefect =
@@ -871,7 +871,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                       key={tab.category}
                       type="button"
                       onClick={() => handleSelectTool(tab.category)}
-                      className={`rounded-lg border px-2 py-1.5 text-[10.5px] font-bold flex items-center justify-between gap-1 transition-all cursor-pointer ${
+                      className={`rounded-lg border px-1.5 py-1 text-[9.5px] sm:text-[10px] font-bold flex items-center justify-between gap-0.5 transition-all cursor-pointer min-w-0 ${
                         isActive
                           ? 'border-amber-400 bg-amber-500/18 text-amber-200'
                           : checked
@@ -881,7 +881,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           : 'border-white/10 bg-[#182332] text-slate-300 hover:border-white/25'
                       }`}
                     >
-                      <span className="inline-flex items-center gap-1 truncate">
+                      <span className="inline-flex items-center gap-1 truncate min-w-0">
                         {tab.icon}
                         <span className="truncate">
                           {lang === 'en' ? tab.enLabel : tab.trLabel}
@@ -889,9 +889,9 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                       </span>
                       {checked &&
                         (hasDefect ? (
-                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          <ShieldAlert className="w-3 h-3 text-rose-400 shrink-0" />
                         ) : (
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                         ))}
                     </button>
                   );
@@ -900,7 +900,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
 
               {device.sellerClaim && (
                 <div
-                  className={`rounded-lg border px-2.5 py-1 text-[10.5px] flex items-center justify-between gap-2 ${
+                  className={`rounded-md border px-2 py-0.5 text-[9.5px] flex items-center justify-between gap-1.5 ${
                     claimIsLie
                       ? 'border-rose-500/50 bg-rose-500/14 text-rose-100'
                       : claimChecked
@@ -908,18 +908,18 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                       : 'border-amber-500/25 bg-amber-500/8 text-amber-100'
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1 min-w-0">
                     {claimIsLie ? (
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
                     ) : claimChecked ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                     ) : (
-                      <MessageSquareQuote className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <MessageSquareQuote className="w-3 h-3 text-amber-400 shrink-0" />
                     )}
                     <div className="min-w-0 truncate italic">“{device.sellerClaim}”</div>
                   </div>
                   {claimIsLie && (
-                    <span className="shrink-0 rounded bg-rose-500 px-1.5 py-0.5 font-mono text-[9px] font-extrabold text-white">
+                    <span className="shrink-0 rounded bg-rose-500 px-1 py-0.2 font-mono text-[8.5px] font-extrabold text-white">
                       {bi('YALAN!', 'LIE!')}
                     </span>
                   )}
@@ -927,24 +927,24 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
               )}
             </div>
 
-            {/* Middle: Active Tool Interactive Area */}
-            <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151E2B] p-2 sm:p-2.5 flex flex-col justify-center overflow-hidden">
+            {/* Middle: Active Tool Interactive Area (Zero Clip, Zero Scroll) */}
+            <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151E2B] p-1.5 [@media(min-height:500px)]:p-2 flex flex-col justify-center overflow-hidden">
               {activeZoneChecked ? (
-                <div className="space-y-2 text-center">
+                <div className="space-y-1.5 text-center">
                   <div
-                    className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                    className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full border-2 ${
                       activeZoneDefects.length > 0
                         ? 'border-rose-500/60 bg-rose-500/15 text-rose-400'
                         : 'border-emerald-500/60 bg-emerald-500/15 text-emerald-400'
                     }`}
                   >
                     {activeZoneDefects.length > 0 ? (
-                      <ShieldAlert className="w-5 h-5" />
+                      <ShieldAlert className="w-4 h-4" />
                     ) : (
-                      <Check className="w-5 h-5" />
+                      <Check className="w-4 h-4" />
                     )}
                   </div>
-                  <div className="font-display text-sm font-extrabold text-slate-100">
+                  <div className="font-display text-xs sm:text-sm font-extrabold text-slate-100 leading-tight">
                     {activeZoneDefects.length > 0
                       ? activeZoneDefects.map((d) => getLocalizedDefect(d, lang).name).join(' · ')
                       : `${getLocalizedCategoryLabel(activeTool, lang)} — ${bi(
@@ -954,7 +954,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   </div>
                   {activeTool === 'imei' && (
                     <div
-                      className={`rounded-xl border p-2.5 text-left font-mono text-[10.5px] space-y-1 tabular-nums ${
+                      className={`rounded-lg border p-1.5 text-left font-mono text-[9.5px] space-y-0.5 tabular-nums ${
                         showUnregistered
                           ? 'border-rose-500/45 bg-rose-500/10'
                           : 'border-emerald-500/40 bg-emerald-500/10'
@@ -978,32 +978,25 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                             : bi('TR RESMİ KAYITLI ✓', 'TR OFFICIALLY REGISTERED ✓')}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-400">{bi('Kasa Eşleşmesi', 'Chassis Match')}:</span>
-                        <span className="text-slate-200 font-sans font-bold truncate">
-                          {device.brand} {device.model} ✓
-                        </span>
-                      </div>
-                      <div className="font-sans text-[10px] text-slate-300 border-t border-white/10 pt-1">
+                      <div className="font-sans text-[9px] text-slate-300 border-t border-white/10 pt-0.5 truncate">
                         {showUnregistered
                           ? bi(
-                              'BTK Kaydı Yok: 120 gün içinde şebekeye kapanır — pasaport kaydı gerekir!',
-                              'No BTK Record: Cellular signal locks after 120 days unless registered!'
+                              'BTK Kaydı Yok: 120 gün sonra şebekeye kapanır!',
+                              'No BTK Record: Cellular signal locks after 120 days!'
                             )
                           : bi(
-                              'İthalat yoluyla kaydedilen resmi Türkiye cihazı — şebeke sorunu yok.',
-                              'Officially imported & registered device — clean network status.'
+                              'Resmi Türkiye ithalat kayıtlı — şebeke sorunu yok.',
+                              'Officially imported & registered — clean network status.'
                             )}
                       </div>
                     </div>
                   )}
                   {activeTool === 'battery' && (
-                    <div className="font-mono text-xs text-slate-300 tabular-nums">
+                    <div className="font-mono text-[11px] text-slate-300 tabular-nums">
                       {bi('Gerçek Sağlık', 'True Health')}: %{device.batteryHealth} ·{' '}
                       {device.batteryCycles} {bi('Döngü', 'Cycles')}
                     </div>
                   )}
-                  {/* Quick jump to next unchecked tool */}
                   {!allChecked && (
                     <button
                       type="button"
@@ -1011,7 +1004,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                         const nextTab = TOOL_TABS.find((t) => !device.inspected[t.category]);
                         if (nextTab) handleSelectTool(nextTab.category);
                       }}
-                      className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
                     >
                       <span>{bi('Sıradaki Kontrole Geç →', 'Next Inspection Tool →')}</span>
                     </button>
@@ -1019,19 +1012,19 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                 </div>
               ) : activeTool === 'screen' ? (
                 /* HANDS-ON 1: SCREEN TOUCH & PANEL CHECK */
-                <div className="space-y-2.5">
+                <div className="space-y-1.5 [@media(min-height:500px)]:space-y-2">
                   <div>
-                    <div className="text-xs font-extrabold text-amber-400">
+                    <div className="text-[11px] font-extrabold text-amber-400 leading-tight">
                       {bi('Ekran Camı & Dokunmatik Kontrolü', 'Display Glass & Touch Check')}
                     </div>
-                    <p className="text-[11px] text-slate-300 leading-snug">
+                    <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
                       {bi(
-                        'Soldaki ekranda veya aşağıdaki 3 bölgede parlayan noktalara dokunarak cam, OLED rengi ve dokunmatik hassasiyetini test et.',
-                        'Tap all 3 zones on the phone display or below to verify glass, OLED tint & touch matrix.'
+                        'Soldaki ekranda veya aşağıdaki 3 bölgeye dokunarak cam ve dokunmatiği test et.',
+                        'Tap all 3 zones on the display or below to verify glass & touch matrix.'
                       )}
                     </p>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {SCREEN_CHECK_POINTS.map((pt) => {
                       const done = screenPoints[pt.id];
                       return (
@@ -1039,17 +1032,17 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           key={pt.id}
                           type="button"
                           onClick={() => handleTapScreenPoint(pt.id)}
-                          className={`rounded-xl border px-2 py-2.5 text-center transition-all cursor-pointer ${
+                          className={`rounded-lg border px-1.5 py-2 text-center transition-all cursor-pointer ${
                             done
                               ? 'border-emerald-500/45 bg-emerald-500/15 text-emerald-200'
                               : 'border-amber-400/45 bg-amber-500/12 text-amber-100 hover:bg-amber-500/20'
                           }`}
                         >
-                          <div className="text-[11px] font-extrabold">
+                          <div className="text-[10.5px] font-extrabold leading-tight">
                             {done ? '✓' : '●'} {lang === 'en' ? pt.en : pt.tr}
                           </div>
-                          <div className="text-[9.5px] opacity-80 mt-0.5">
-                            {done ? bi('Kontrol Edildi', 'Checked') : bi('Dokun', 'Tap')}
+                          <div className="text-[9px] opacity-80 mt-0.5">
+                            {done ? bi('Tamam', 'Checked') : bi('Dokun', 'Tap')}
                           </div>
                         </button>
                       );
@@ -1057,25 +1050,25 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   </div>
                 </div>
               ) : activeTool === 'battery' ? (
-                /* HANDS-ON 2: USB-C AMPEREMETER LOAD TEST */
-                <div className="space-y-2.5">
+                /* HANDS-ON 2: USB-C AMPEREMETER LOAD TEST — COMPACT & ALWAYS 100% VISIBLE */
+                <div className="space-y-1.5 [@media(min-height:500px)]:space-y-2">
                   <div>
-                    <div className="text-xs font-extrabold text-amber-400">
+                    <div className="text-[11px] font-extrabold text-amber-400 leading-tight">
                       {bi('USB-C Ampermetre & Pil Yük Testi', 'USB-C Amperemeter & Battery Load')}
                     </div>
-                    <p className="text-[11px] text-slate-300 leading-snug">
+                    <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
                       {bi(
                         'Ekranda %' +
                           device.reportedBatteryHealth +
-                          ' yazıyor ama BMS çipi kandırılmış olabilir! USB-C ölçeri bağlayıp basılı tut.',
+                          ' yazıyor ama BMS çipi kandırılmış olabilir! USB-C ölçeri basılı tut.',
                         'Screen reports ' +
                           device.reportedBatteryHealth +
                           '%, but BMS chips can be spoofed! Hold the USB-C load test.'
                       )}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-[#0F1722] p-2.5 space-y-1.5 tabular-nums">
-                    <div className="flex justify-between text-[11px]">
+                  <div className="rounded-lg border border-white/10 bg-[#0F1722] px-2 py-1.5 space-y-1 tabular-nums">
+                    <div className="flex justify-between text-[10px]">
                       <span className="text-slate-400">
                         {bi('Ölçüm İlerlemesi', 'Load Diagnostic')}
                       </span>
@@ -1083,7 +1076,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                         {batteryLoadPct}% · {(3.82 + (batteryLoadPct / 100) * 0.35).toFixed(2)}V
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-100"
                         style={{ width: `${batteryLoadPct}%` }}
@@ -1096,13 +1089,13 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                     onPointerUp={() => setBatteryTesting(false)}
                     onPointerLeave={() => setBatteryTesting(false)}
                     onPointerCancel={() => setBatteryTesting(false)}
-                    className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition-all cursor-pointer select-none ${
+                    className={`w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-extrabold transition-all cursor-pointer select-none touch-manipulation ${
                       batteryTesting
                         ? 'bg-emerald-500 text-slate-950 scale-[0.98]'
                         : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                     }`}
                   >
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {batteryTesting
                         ? bi(`Akım Ölçülüyor... (%${batteryLoadPct})`, `Measuring Load... (${batteryLoadPct}%)`)
@@ -1111,11 +1104,11 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   </button>
                 </div>
               ) : activeTool === 'imei' ? (
-                /* HANDS-ON 3: BTK IMEI SORGU PANELI — KLASİK 3x4 TUŞLU TELEFON MANTIĞI */
-                <div className="flex-1 h-full flex flex-col justify-between gap-1.5 min-h-0">
+                /* HANDS-ON 3: BTK IMEI SORGU PANELI — ALL 12 KEYS ALWAYS VISIBLE ZERO CLIP */
+                <div className="flex-1 h-full flex flex-col justify-between gap-1 min-h-0 overflow-hidden">
                   {imeiQuerying ? (
-                    <div className="my-auto rounded-xl border border-sky-400/40 bg-sky-500/10 p-3.5 space-y-2 tabular-nums">
-                      <div className="flex items-center justify-between text-xs font-bold text-sky-200">
+                    <div className="my-auto rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 space-y-1.5 tabular-nums">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-sky-200">
                         <span>
                           {imeiQueryPct < 50
                             ? bi('BTK Sunucusuna Bağlanılıyor...', 'Connecting to BTK Server...')
@@ -1123,37 +1116,37 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                         </span>
                         <span className="font-mono text-amber-300">{imeiQueryPct}%</span>
                       </div>
-                      <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                         <div
                           className="h-full bg-sky-400 transition-all duration-150"
                           style={{ width: `${imeiQueryPct}%` }}
                         />
                       </div>
-                      <div className="font-mono text-[10.5px] text-slate-300">
+                      <div className="font-mono text-[10px] text-slate-300">
                         IMEI: {cleanImei} · {device.brand} {device.model}
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 items-stretch overflow-hidden">
+                    <div className="flex-1 h-full min-h-0 grid grid-cols-12 gap-1.5 items-stretch overflow-hidden">
                       {/* Left: Chassis IMEI & Retro Phosphor LCD Screen */}
-                      <div className="col-span-5 flex flex-col justify-center gap-1.5 min-w-0 min-h-0">
+                      <div className="col-span-5 flex flex-col justify-center gap-1 min-w-0 min-h-0 overflow-hidden">
                         <div>
-                          <div className="text-xs font-extrabold text-amber-400 leading-tight">
+                          <div className="text-[11px] font-extrabold text-amber-400 leading-tight truncate">
                             {bi('BTK IMEI Terminali', 'BTK IMEI Terminal')}
                           </div>
-                          <div className="text-[9.5px] text-slate-400 leading-snug mt-0.5">
+                          <div className="text-[9px] text-slate-400 leading-tight mt-0.5 line-clamp-2">
                             {bi(
-                              'Son 4 haneyi tuşlayıp Sorgula tuşuna bas:',
-                              'Dial the last 4 digits and press Query:'
+                              'Son 4 haneyi tuşlayıp Sorgula’ya bas:',
+                              'Dial last 4 digits & press Query:'
                             )}
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-amber-400/35 bg-[#0C121B] px-2 py-1.5 font-mono tabular-nums">
-                          <div className="text-[8px] text-slate-400">
+                        <div className="rounded-lg border border-amber-400/35 bg-[#0C121B] px-1.5 py-1 font-mono tabular-nums">
+                          <div className="text-[7.5px] text-slate-400 leading-none">
                             {bi('KASA LAZER IMEI', 'CHASSIS IMEI')}
                           </div>
-                          <div className="text-[11px] sm:text-xs font-extrabold text-slate-200 tracking-wide truncate">
+                          <div className="text-[10.5px] sm:text-[11px] font-extrabold text-slate-200 tracking-wide truncate mt-0.5">
                             {imeiPrefix}
                             <span className="text-amber-400 underline decoration-amber-400/60">
                               {imeiLast4}
@@ -1161,17 +1154,17 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Retro Keypad Phone Green-Phosphor LCD Display with Live Key-Press Backlight */}
+                        {/* Retro Keypad Phone Green-Phosphor LCD Display */}
                         <div
-                          className={`rounded-xl border-2 px-2 py-1.5 font-mono tabular-nums transition-all duration-150 ${
+                          className={`rounded-lg border-2 px-1.5 py-1 font-mono tabular-nums transition-all duration-150 ${
                             imeiError
-                              ? 'border-rose-500 bg-rose-950/40 text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.35)]'
+                              ? 'border-rose-500 bg-rose-950/40 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
                               : lcdPulse
-                              ? 'border-amber-400/80 bg-[#0D231C] text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.38)]'
+                              ? 'border-amber-400/80 bg-[#0D231C] text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.38)]'
                               : 'border-emerald-500/45 bg-[#0A1814] text-emerald-300'
                           }`}
                         >
-                          <div className="flex items-center justify-between text-[8px] opacity-80">
+                          <div className="flex items-center justify-between text-[7.5px] opacity-80 leading-none mb-0.5">
                             <span className="inline-flex items-center gap-1">
                               <span
                                 className={`inline-block w-1.5 h-1.5 rounded-full transition-colors ${
@@ -1199,12 +1192,12 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                               }
                             }}
                             placeholder={`_ _ _ _`}
-                            className="w-full bg-transparent text-base sm:text-lg font-extrabold tracking-[0.22em] outline-none placeholder:text-emerald-300/35 placeholder:tracking-widest"
+                            className="w-full bg-transparent text-sm sm:text-base font-extrabold tracking-[0.2em] outline-none placeholder:text-emerald-300/35 placeholder:tracking-widest leading-tight"
                           />
                         </div>
 
                         {imeiError && (
-                          <div className="text-[9.5px] font-bold text-rose-400 leading-tight">
+                          <div className="text-[9px] font-bold text-rose-400 leading-tight truncate">
                             {bi(
                               `Hatalı! Son 4: ${imeiLast4}`,
                               `Mismatch! Last 4: ${imeiLast4}`
@@ -1213,16 +1206,16 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                         )}
                       </div>
 
-                      {/* Right: Authentic Retro Tuşlu Telefon 3x4 Bezel Keypad — Always fits all 4 rows cleanly */}
-                      <div className="col-span-7 h-full min-h-0 rounded-2xl border-2 border-slate-500/35 bg-gradient-to-b from-[#172233] via-[#101824] to-[#0B111A] p-1.5 flex flex-col gap-1 shadow-[inset_0_1px_4px_rgba(255,255,255,0.08),0_8px_22px_rgba(0,0,0,0.5)] overflow-hidden">
-                        {/* Classic Phone Earpiece & Keypad Brand Strip */}
-                        <div className="shrink-0 flex items-center justify-between px-1">
+                      {/* Right: Authentic Retro Tuşlu Telefon 3x4 Bezel Keypad — Strictly Fits All 4 Rows Zero Clip */}
+                      <div className="col-span-7 h-full min-h-0 rounded-xl border-2 border-slate-500/35 bg-gradient-to-b from-[#172233] via-[#101824] to-[#0B111A] p-1 flex flex-col gap-0.5 shadow-[inset_0_1px_4px_rgba(255,255,255,0.08),0_8px_22px_rgba(0,0,0,0.5)] overflow-hidden">
+                        {/* Classic Phone Earpiece & Keypad Brand Strip (Only when vertical room allows) */}
+                        <div className="hidden [@media(min-height:460px)]:flex shrink-0 items-center justify-between px-1">
                           <div className="flex items-center gap-1">
                             <span className="h-1 w-1 rounded-full bg-slate-500/80" />
                             <span className="h-1 w-5 rounded-full bg-slate-600/80" />
                             <span className="h-1 w-1 rounded-full bg-slate-500/80" />
                           </div>
-                          <span className="font-mono text-[7.5px] font-bold uppercase tracking-widest text-slate-400">
+                          <span className="font-mono text-[7px] font-bold uppercase tracking-widest text-slate-400">
                             PASAJ-BTK T9
                           </span>
                         </div>
@@ -1245,21 +1238,21 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                                 key={btn.k}
                                 type="button"
                                 onClick={() => handleImeiDigit(btn.k)}
-                                className={`h-full min-h-[26px] rounded-lg border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
+                                className={`h-full min-h-0 rounded-md border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
                                   isPressed
-                                    ? 'border-amber-300 border-b-amber-500 bg-gradient-to-b from-amber-400/35 to-amber-500/20 translate-y-[1px] scale-[0.96] shadow-[0_0_14px_rgba(251,191,36,0.55)]'
+                                    ? 'border-amber-300 border-b-amber-500 bg-gradient-to-b from-amber-400/35 to-amber-500/20 translate-y-[1px] scale-[0.96] shadow-[0_0_12px_rgba(251,191,36,0.55)]'
                                     : 'border-white/18 border-b-black/75 bg-gradient-to-b from-[#2B3B52] to-[#1A2536] hover:from-[#344864] hover:to-[#223147] active:translate-y-[1px] active:scale-[0.96] shadow-sm'
                                 }`}
                               >
                                 <span
-                                  className={`font-mono text-sm sm:text-base font-extrabold leading-none transition-colors ${
+                                  className={`font-mono text-xs sm:text-sm font-extrabold leading-none transition-colors ${
                                     isPressed ? 'text-amber-200' : 'text-slate-50'
                                   }`}
                                 >
                                   {btn.k}
                                 </span>
                                 <span
-                                  className={`text-[6.5px] sm:text-[7px] font-mono font-bold tracking-wider leading-none mt-0.5 ${
+                                  className={`hidden [@media(min-height:430px)]:block text-[6px] font-mono font-bold tracking-wider leading-none mt-0.5 ${
                                     isPressed ? 'text-amber-300' : 'text-slate-400'
                                   }`}
                                 >
@@ -1274,13 +1267,13 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                             type="button"
                             onClick={handleImeiBackspace}
                             aria-label={bi('Sil', 'Delete')}
-                            className={`h-full min-h-[26px] rounded-lg border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
+                            className={`h-full min-h-0 rounded-md border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
                               pressedKey === 'DEL'
-                                ? 'border-rose-300 border-b-rose-500 bg-rose-500/40 text-white translate-y-[1px] scale-[0.96] shadow-[0_0_14px_rgba(244,63,94,0.55)]'
+                                ? 'border-rose-300 border-b-rose-500 bg-rose-500/40 text-white translate-y-[1px] scale-[0.96]'
                                 : 'border-rose-500/45 border-b-black/75 bg-gradient-to-b from-rose-500/28 to-rose-950/55 hover:from-rose-500/38 text-rose-200 active:translate-y-[1px] active:scale-[0.96]'
                             }`}
                           >
-                            <Delete className="w-3.5 h-3.5" />
+                            <Delete className="w-3 h-3" />
                             <span className="text-[7px] font-extrabold tracking-wide leading-none mt-0.5">
                               {bi('SİL', 'DEL')}
                             </span>
@@ -1290,21 +1283,21 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleImeiDigit('0')}
-                            className={`h-full min-h-[26px] rounded-lg border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
+                            className={`h-full min-h-0 rounded-md border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 cursor-pointer touch-manipulation select-none ${
                               pressedKey === '0'
-                                ? 'border-amber-300 border-b-amber-500 bg-gradient-to-b from-amber-400/35 to-amber-500/20 translate-y-[1px] scale-[0.96] shadow-[0_0_14px_rgba(251,191,36,0.55)]'
+                                ? 'border-amber-300 border-b-amber-500 bg-gradient-to-b from-amber-400/35 to-amber-500/20 translate-y-[1px] scale-[0.96]'
                                 : 'border-white/18 border-b-black/75 bg-gradient-to-b from-[#2B3B52] to-[#1A2536] hover:from-[#344864] hover:to-[#223147] active:translate-y-[1px] active:scale-[0.96] shadow-sm'
                             }`}
                           >
                             <span
-                              className={`font-mono text-sm sm:text-base font-extrabold leading-none ${
+                              className={`font-mono text-xs sm:text-sm font-extrabold leading-none ${
                                 pressedKey === '0' ? 'text-amber-200' : 'text-slate-50'
                               }`}
                             >
                               0
                             </span>
                             <span
-                              className={`text-[7px] font-mono font-bold leading-none mt-0.5 ${
+                              className={`hidden [@media(min-height:430px)]:block text-[6px] font-mono font-bold leading-none mt-0.5 ${
                                 pressedKey === '0' ? 'text-amber-300' : 'text-slate-400'
                               }`}
                             >
@@ -1312,7 +1305,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                             </span>
                           </button>
 
-                          {/* Green BTK Query Key (Renamed from ARA to SORGULA) */}
+                          {/* Green BTK Query Key */}
                           <button
                             type="button"
                             disabled={imeiInput.length < 4}
@@ -1321,13 +1314,13 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                               handleSubmitImei();
                             }}
                             aria-label={bi('Sorgula', 'Query')}
-                            className={`h-full min-h-[26px] rounded-lg border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 disabled:opacity-35 cursor-pointer touch-manipulation select-none ${
+                            className={`h-full min-h-0 rounded-md border border-b-[2px] flex flex-col items-center justify-center leading-none transition-all duration-100 disabled:opacity-35 cursor-pointer touch-manipulation select-none ${
                               pressedKey === 'CALL'
-                                ? 'border-emerald-200 border-b-emerald-400 bg-emerald-400/45 text-white translate-y-[1px] scale-[0.96] shadow-[0_0_14px_rgba(16,185,129,0.6)]'
+                                ? 'border-emerald-200 border-b-emerald-400 bg-emerald-400/45 text-white translate-y-[1px] scale-[0.96]'
                                 : 'border-emerald-400/55 border-b-black/75 bg-gradient-to-b from-emerald-500/35 to-emerald-950/60 hover:from-emerald-500/48 text-emerald-200 active:translate-y-[1px] active:scale-[0.96]'
                             }`}
                           >
-                            <Search className="w-3.5 h-3.5" />
+                            <Search className="w-3 h-3" />
                             <span className="text-[7px] font-extrabold tracking-wide leading-none mt-0.5">
                               {bi('SORGULA', 'QUERY')}
                             </span>
@@ -1339,24 +1332,24 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                 </div>
               ) : (
                 /* HANDS-ON 4: SIM TRAY LIQUID STRIP (LCI) & REAR CAMERA FLASHLIGHT */
-                <div className="space-y-2.5">
+                <div className="space-y-1.5 [@media(min-height:500px)]:space-y-2">
                   <div>
-                    <div className="text-xs font-extrabold text-amber-400">
+                    <div className="text-[11px] font-extrabold text-amber-400 leading-tight">
                       {bi('Sıvı Bandı (LCI) & Arka Kamera Kontrolü', 'Liquid Strip (LCI) & Rear Lens Check')}
                     </div>
-                    <p className="text-[11px] text-slate-300 leading-snug">
+                    <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
                       {bi(
-                        'SIM tepsisini çıkarıp içindeki sıvı bandının rengine bak (Beyaz = Kuru, Kırmızı = Sıvı Teması!) ve kamera merceğine fener tut.',
-                        'Eject the SIM tray to check the LCI moisture strip (White = Dry, Red = Liquid!) and shine light into the rear lens.'
+                        'SIM tepsisini çıkarıp sıvı bandına bak (Beyaz = Kuru, Kırmızı = Sıvı!) ve kamera merceğine fener tut.',
+                        'Eject the SIM tray to check the LCI strip (White = Dry, Red = Liquid!) and shine light into the rear lens.'
                       )}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={handleEjectSim}
-                      className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
+                      className={`rounded-lg border p-2 text-left transition-all cursor-pointer ${
                         simEjected
                           ? showLiquid
                             ? 'border-rose-500/50 bg-rose-500/15 text-rose-100'
@@ -1364,11 +1357,11 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           : 'border-amber-400/45 bg-amber-500/12 text-amber-100 hover:bg-amber-500/20'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 text-xs font-extrabold">
-                        <Droplets className="w-3.5 h-3.5" />
-                        <span>{bi('1. SIM Tepsisini Çıkar', '1. Eject SIM Tray')}</span>
+                      <div className="flex items-center gap-1 text-[11px] font-extrabold leading-tight">
+                        <Droplets className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{bi('1. SIM Tepsisini Çıkar', '1. Eject SIM Tray')}</span>
                       </div>
-                      <div className="text-[10px] mt-1 opacity-85">
+                      <div className="text-[9.5px] mt-0.5 opacity-85 leading-tight">
                         {simEjected
                           ? showLiquid
                             ? bi('LCI Bandı KIRMIZI — Sıvı var!', 'LCI Strip RED — Liquid damage!')
@@ -1380,7 +1373,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                     <button
                       type="button"
                       onClick={handleShineLens}
-                      className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
+                      className={`rounded-lg border p-2 text-left transition-all cursor-pointer ${
                         lensLit
                           ? showCameraFog
                             ? 'border-rose-500/50 bg-rose-500/15 text-rose-100'
@@ -1388,11 +1381,11 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                           : 'border-sky-400/45 bg-sky-500/12 text-sky-100 hover:bg-sky-500/20'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 text-xs font-extrabold">
-                        <Flashlight className="w-3.5 h-3.5" />
-                        <span>{bi('2. Lense Fener Tut', '2. Shine Lens Light')}</span>
+                      <div className="flex items-center gap-1 text-[11px] font-extrabold leading-tight">
+                        <Flashlight className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{bi('2. Lense Fener Tut', '2. Shine Lens Light')}</span>
                       </div>
-                      <div className="text-[10px] mt-1 opacity-85">
+                      <div className="text-[9.5px] mt-0.5 opacity-85 leading-tight">
                         {lensLit
                           ? showCameraFog
                             ? bi('Mercekte BUĞU / Nem var!', 'Lens FOG / Moisture detected!')
@@ -1408,7 +1401,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
             {/* Bottom Summary & Compact Single-Row Revealed Defects Strip (Never Clips Keypad!) */}
             <div className="shrink-0 space-y-1 pt-1 border-t border-white/10">
               {revealedDefects.length > 0 && (
-                <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 px-2 py-1 flex items-center gap-1.5 min-w-0">
+                <div className="rounded-md border border-rose-500/30 bg-rose-950/20 px-2 py-0.5 flex items-center gap-1.5 min-w-0">
                   <span className="shrink-0 text-[8.5px] font-extrabold uppercase tracking-wide text-rose-300 whitespace-nowrap">
                     {bi(`Kusur (${revealedDefects.length}):`, `Faults (${revealedDefects.length}):`)}
                   </span>
@@ -1417,7 +1410,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                       <span
                         key={d}
                         title={getLocalizedDefect(d, lang).name}
-                        className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/18 px-1.5 py-0.5 text-[9px] font-bold text-rose-100 whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1 rounded border border-rose-500/40 bg-rose-500/18 px-1.5 py-0.2 text-[8.5px] font-bold text-rose-100 whitespace-nowrap shrink-0"
                       >
                         <AlertTriangle className="w-2.5 h-2.5 text-rose-400 shrink-0" />
                         {getLocalizedDefect(d, lang).shortLabel}
@@ -1428,9 +1421,9 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
               )}
 
               {allChecked && (
-                <div className="rounded-lg border border-emerald-500/35 bg-emerald-500/12 px-2.5 py-1 flex items-center justify-between gap-2 text-[11px]">
-                  <span className="inline-flex items-center gap-1.5 font-bold text-emerald-300 truncate">
-                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <div className="rounded-md border border-emerald-500/35 bg-emerald-500/12 px-2 py-0.5 flex items-center justify-between gap-2 text-[10px]">
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-300 truncate">
+                    <Sparkles className="w-3 h-3 shrink-0" />
                     <span className="truncate">
                       {revealedDefects.length > 0
                         ? bi(
@@ -1444,7 +1437,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                     </span>
                   </span>
                   {bonusAwarded && (
-                    <span className="font-mono text-[10px] font-extrabold text-amber-300 shrink-0">
+                    <span className="font-mono text-[9.5px] font-extrabold text-amber-300 shrink-0">
                       {bi('✓ Dedektif', '✓ Detective')}
                     </span>
                   )}
@@ -1457,7 +1450,7 @@ export const PhysicalInspectModal: React.FC<PhysicalInspectModalProps> = ({
                   soundFX.playClick();
                   onClose();
                 }}
-                className={`w-full rounded-xl py-2 text-xs font-extrabold transition-colors cursor-pointer ${
+                className={`w-full rounded-lg py-1.5 text-[11px] font-extrabold transition-colors cursor-pointer ${
                   allChecked
                     ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                     : 'border border-white/15 bg-[#1B2533] text-slate-100 hover:bg-[#243244]'

@@ -365,6 +365,11 @@ export function getLocalizedUpgrade(id: UpgradeId, lang: Language): ShopUpgrade 
       benefitText: 'Tea adds +38 patience and softens customer price stance by +4%.',
       summary: 'Brew fresh Turkish tea to win over even the toughest street hagglers.',
     },
+    spare_parts_license: {
+      name: 'Spare Parts Wholesale License',
+      benefitText: 'Unlocks the Wholesale Spare Parts page with 15% off 5-packs!',
+      summary: 'Unlock bulk ordering for OEM screens, batteries & board kits to repair for 0 ₺ part cost.',
+    },
     accessory_license: {
       name: 'Accessory Rack & Wholesale License',
       benefitText: 'Unlocks Accessory Wholesale, Retail Shelf & Phone Cross-Sell bundles!',

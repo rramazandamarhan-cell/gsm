@@ -52,26 +52,26 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
       : 0;
 
   return (
-    <div className="fixed inset-0 z-[72] flex items-center justify-center bg-black/82 backdrop-blur-sm p-2 sm:p-3">
+    <div className="fixed inset-0 z-[72] flex items-center justify-center bg-black/82 backdrop-blur-sm p-2">
       <motion.div
-        initial={{ scale: 0.94, opacity: 0, y: 12 }}
+        initial={{ scale: 0.94, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="w-full max-w-2xl max-h-[94dvh] flex flex-col overflow-hidden rounded-2xl border border-amber-400/40 bg-[#121924] shadow-[0_28px_80px_rgba(0,0,0,0.85)]"
+        className="w-full max-w-lg max-h-[86dvh] flex flex-col overflow-hidden rounded-xl border border-amber-400/40 bg-[#121924] shadow-[0_24px_60px_rgba(0,0,0,0.85)]"
       >
         {/* Header */}
-        <div className="shrink-0 px-4 py-2.5 border-b border-white/10 bg-[#0D131D] flex items-center justify-between gap-2">
+        <div className="shrink-0 px-3 py-1.5 border-b border-white/10 bg-[#0D131D] flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span
-                className={`rounded border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold uppercase ${triggerColor}`}
+                className={`rounded border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold uppercase ${triggerColor}`}
               >
                 {lang === 'en' ? drama.triggerBadgeEn : drama.triggerBadgeTr}
               </span>
-              <span className="font-mono text-[10px] font-bold text-slate-400">
+              <span className="font-mono text-[9px] font-bold text-slate-400">
                 {bi('ESNAF DRAMASI · KADER GÖREVİ', 'MERCHANT DRAMA · FATE ARC')}
               </span>
             </div>
-            <h2 className="font-display text-base sm:text-lg font-extrabold text-slate-50 leading-tight mt-0.5 truncate">
+            <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 leading-tight mt-0.5 truncate">
               {lang === 'en' ? drama.titleEn : drama.titleTr}
             </h2>
           </div>
@@ -84,51 +84,51 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
                 onCloseInspect();
               }}
               aria-label={bi('Kapat', 'Close')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/12 bg-[#1A2432] text-slate-300 hover:text-white cursor-pointer shrink-0"
+              className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/12 bg-[#1A2432] text-slate-300 hover:text-white cursor-pointer shrink-0"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
           {/* Character & Narrative Box */}
-          <div className="rounded-xl border border-white/10 bg-[#17202D] p-3 space-y-1.5">
+          <div className="rounded-lg border border-white/10 bg-[#17202D] p-2 space-y-1">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-lg border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-lg border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
                   {isFail ? (
-                    <AlertTriangle className="w-4 h-4 text-rose-400" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
                   ) : isSuccess ? (
-                    <Award className="w-4 h-4 text-emerald-400" />
+                    <Award className="w-3.5 h-3.5 text-emerald-400" />
                   ) : (
-                    <Flame className="w-4 h-4 text-amber-400" />
+                    <Flame className="w-3.5 h-3.5 text-amber-400" />
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-extrabold text-amber-300 truncate">
+                  <div className="text-[11px] font-extrabold text-amber-300 truncate">
                     {drama.characterName}
                   </div>
-                  <div className="text-[10px] text-slate-400 truncate">
+                  <div className="text-[9.5px] text-slate-400 truncate">
                     {lang === 'en' ? drama.characterRoleEn : drama.characterRoleTr}
                   </div>
                 </div>
               </div>
-              <span className="font-mono text-[10px] text-slate-400 shrink-0">
+              <span className="font-mono text-[9.5px] text-slate-400 shrink-0">
                 {bi(`Gün ${drama.startedDay}`, `Day ${drama.startedDay}`)}
               </span>
             </div>
-            <p className="text-xs text-slate-200 leading-relaxed">
+            <p className="text-[10.5px] text-slate-200 leading-snug">
               “{lang === 'en' ? drama.storyEn : drama.storyTr}”
             </p>
           </div>
 
           {/* PHASE 1: FATEFUL CHOICES */}
           {isChoice && template && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-300">
-                <Scale className="w-3.5 h-3.5" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-amber-300">
+                <Scale className="w-3 h-3" />
                 <span>
                   {bi(
                     'Dükkanının Kaderini Seç (Kararın günlerce etki edecek!):',
@@ -137,7 +137,7 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 gap-1.5">
                 {template.choices.map((ch) => {
                   const upfrontCost =
                     ch.immediateCashDelta && ch.immediateCashDelta < 0
@@ -156,21 +156,21 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
                       type="button"
                       disabled={!canAfford}
                       onClick={() => onSelectChoice(ch.id)}
-                      className={`w-full rounded-xl border p-2.5 text-left transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${toneBorder}`}
+                      className={`w-full rounded-lg border p-2 text-left transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${toneBorder}`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-display text-xs sm:text-sm font-extrabold text-slate-50">
+                        <span className="font-display text-[11px] font-extrabold text-slate-50">
                           {lang === 'en' ? ch.labelEn : ch.labelTr}
                         </span>
-                        <span className="rounded bg-black/35 border border-white/10 px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-amber-300 shrink-0">
+                        <span className="rounded bg-black/35 border border-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-bold text-amber-300 shrink-0">
                           {lang === 'en' ? ch.riskTagEn : ch.riskTagTr}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+                      <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
                         {lang === 'en' ? ch.descEn : ch.descTr}
                       </p>
                       {!canAfford && (
-                        <div className="text-[10px] font-bold text-rose-400 mt-1">
+                        <div className="text-[9.5px] font-bold text-rose-400 mt-0.5">
                           {bi(
                             `Yetersiz kasa (Gerekli: ${formatTRY(upfrontCost)})`,
                             `Not enough cash (Need: ${formatTRY(upfrontCost)})`
@@ -186,19 +186,19 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
 
           {/* PHASE 2: ACTIVE MULTI-DAY QUEST TRACKER */}
           {isActive && (
-            <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-3 space-y-2.5">
+            <div className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-2.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-extrabold text-amber-200">
+                <div className="text-[11px] font-extrabold text-amber-200">
                   {lang === 'en' ? drama.objectiveLabelEn : drama.objectiveLabelTr}
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-2 py-0.5 font-mono text-[11px] font-extrabold text-amber-300">
+                <span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-0.5 font-mono text-[10px] font-extrabold text-amber-300">
                   <Clock className="w-3 h-3" />
                   {bi(`${drama.daysLeft} gün kaldı`, `${drama.daysLeft}d left`)}
                 </span>
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between font-mono text-xs font-bold tabular-nums">
+                <div className="flex justify-between font-mono text-[10.5px] font-bold tabular-nums">
                   <span className="text-slate-300">
                     {drama.objectiveKind === 'EARN_PROFIT'
                       ? `${formatTRY(drama.progress)} / ${formatTRY(drama.target)}`
@@ -206,7 +206,7 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
                   </span>
                   <span className="text-emerald-300">%{pct}</span>
                 </div>
-                <div className="h-2.5 rounded-full bg-slate-900/90 overflow-hidden">
+                <div className="h-2 rounded-full bg-slate-900/90 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-300"
                     style={{ width: `${pct}%` }}
@@ -220,7 +220,7 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
                   soundFX.playClick();
                   onCloseInspect();
                 }}
-                className="w-full rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                className="w-full rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
               >
                 {bi('Tezgaha Dön & Göreve Devam Et', 'Return to Counter')}
               </button>
@@ -230,28 +230,28 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
           {/* PHASE 3: RESOLVED FINALE (SUCCESS OR FAIL) */}
           {(isSuccess || isFail) && (
             <div
-              className={`rounded-xl border p-3.5 space-y-2.5 text-center ${
+              className={`rounded-lg border p-2.5 space-y-2 text-center ${
                 isSuccess
                   ? 'border-emerald-400/45 bg-emerald-500/12'
                   : 'border-rose-400/45 bg-rose-500/12'
               }`}
             >
-              <div className="mx-auto w-11 h-11 rounded-2xl border border-white/15 bg-black/25 flex items-center justify-center">
+              <div className="mx-auto w-9 h-9 rounded-xl border border-white/15 bg-black/25 flex items-center justify-center">
                 {isSuccess ? (
-                  <Sparkles className="w-6 h-6 text-emerald-400" />
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
                 ) : (
-                  <AlertTriangle className="w-6 h-6 text-rose-400" />
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
                 )}
               </div>
-              <div className="font-display text-base font-extrabold text-slate-50">
+              <div className="font-display text-xs sm:text-sm font-extrabold text-slate-50">
                 {lang === 'en' ? drama.outcomeTitleEn : drama.outcomeTitleTr}
               </div>
-              <p className="text-xs text-slate-200 leading-relaxed">
+              <p className="text-[10.5px] text-slate-200 leading-snug">
                 {lang === 'en' ? drama.outcomeDescEn : drama.outcomeDescTr}
               </p>
               {(drama.outcomeSummaryTr || drama.outcomeSummaryEn) && (
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/30 px-3 py-1 font-mono text-xs font-extrabold text-amber-300">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <div className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-black/30 px-2.5 py-0.5 font-mono text-[10.5px] font-extrabold text-amber-300">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                   <span>
                     {lang === 'en' ? drama.outcomeSummaryEn : drama.outcomeSummaryTr}
                   </span>
@@ -263,7 +263,7 @@ export const EsnafDramaModal: React.FC<EsnafDramaModalProps> = ({
                   soundFX.playClick();
                   onDismissResolved();
                 }}
-                className="w-full rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                className="w-full rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
               >
                 {bi('Dükkanına Dön & Devam Et →', 'Continue Managing Shop →')}
               </button>

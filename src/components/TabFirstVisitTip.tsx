@@ -106,10 +106,10 @@ export const TabFirstVisitTip: React.FC<TabFirstVisitTipProps> = ({
   };
 
   return (
-    <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/12 safe-px py-1 [@media(min-height:560px)]:py-1.5 flex items-center justify-between gap-2 text-[10.5px] [@media(min-height:560px)]:text-[11px] text-amber-100">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <Lightbulb className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-        <span className="shrink-0 rounded bg-amber-400/20 border border-amber-400/35 px-1.5 py-0.5 text-[9.5px] font-extrabold text-amber-200 whitespace-nowrap">
+    <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/12 safe-px py-0.5 flex items-center justify-between gap-1.5 text-[9.5px] text-amber-100 leading-tight">
+      <div className="flex items-center gap-1 min-w-0">
+        <Lightbulb className="w-3 h-3 text-amber-300 shrink-0" />
+        <span className="shrink-0 rounded bg-amber-400/20 border border-amber-400/35 px-1 py-0 text-[8.5px] font-extrabold text-amber-200 whitespace-nowrap">
           {bi(tip.badgeTr, tip.badgeEn)}
         </span>
         <span className="truncate font-medium text-slate-100">
@@ -119,10 +119,10 @@ export const TabFirstVisitTip: React.FC<TabFirstVisitTipProps> = ({
       <button
         type="button"
         onClick={handleDismiss}
-        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap touch-manipulation"
+        className="shrink-0 inline-flex items-center gap-0.5 rounded border border-amber-400/40 bg-amber-500/20 px-1.5 py-0 text-[9px] font-extrabold text-amber-200 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap touch-manipulation"
       >
         <span>{bi('Anladım', 'Got it')}</span>
-        <X className="w-3 h-3" />
+        <X className="w-2.5 h-2.5" />
       </button>
     </div>
   );

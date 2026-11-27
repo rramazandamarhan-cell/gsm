@@ -235,23 +235,23 @@ export const SoftwareRecoveryModal: React.FC<SoftwareRecoveryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-1 sm:p-1.5">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-3xl max-h-[92dvh] rounded-2xl border border-sky-400/35 bg-[#0E1520] shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-xl h-[95dvh] max-h-[450px] rounded-xl border border-sky-400/35 bg-[#0E1520] shadow-2xl flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/10 bg-[#121C2A] px-3.5 py-2">
+        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/10 bg-[#121C2A] px-3 py-1.5">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/15 border border-sky-400/35 text-sky-300 shrink-0">
-              <Database className="w-4 h-4" />
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-sky-500/15 border border-sky-400/35 text-sky-300 shrink-0">
+              <Database className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-xs sm:text-sm font-extrabold text-slate-50 truncate">
+              <div className="font-display text-xs font-extrabold text-slate-50 truncate">
                 {bi('Veri Kurtarma Yazılım İstasyonu', 'Software Data Recovery Station')} · {job.title}
               </div>
-              <div className="text-[10px] text-slate-400 truncate tabular-nums">
+              <div className="text-[9.5px] text-slate-400 truncate tabular-nums">
                 {device.brand} {device.model} · {bi('Lisans Ücreti', 'Tool Fee')}: {formatTRY(softwareCost)} ·{' '}
                 {bi('Ödül', 'Payout')}: +{formatTRY(job.softwarePayout)}
               </div>
@@ -265,17 +265,17 @@ export const SoftwareRecoveryModal: React.FC<SoftwareRecoveryModalProps> = ({
                 onCancel();
               }}
               aria-label={bi('Vazgeç', 'Cancel')}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-[#1B2533] text-slate-300 hover:text-white cursor-pointer shrink-0"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-[#1B2533] text-slate-300 hover:text-white cursor-pointer shrink-0"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* 2-Column Zero-Scroll Body */}
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-hidden">
+        {/* Strict Zero-Scroll 2-Column Body */}
+        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 p-2 overflow-hidden">
           {/* LEFT: Live NAND Memory Sector Matrix & Terminal Log */}
-          <div className="col-span-5 flex flex-col justify-between gap-2 rounded-xl border border-white/10 bg-[#0A1019] p-2.5 min-h-0 overflow-hidden">
+          <div className="col-span-5 flex flex-col justify-between gap-1.5 rounded-xl border border-white/10 bg-[#0A1019] p-2 min-h-0 overflow-hidden">
             <div className="flex items-center justify-between text-[10px] font-mono tabular-nums">
               <span className="inline-flex items-center gap-1 font-bold text-sky-300">
                 <HardDrive className="w-3.5 h-3.5" />
@@ -341,7 +341,7 @@ export const SoftwareRecoveryModal: React.FC<SoftwareRecoveryModalProps> = ({
           </div>
 
           {/* RIGHT: Interactive Recovery Controls */}
-          <div className="col-span-7 flex flex-col justify-between gap-2.5 min-h-0 overflow-hidden">
+          <div className="col-span-7 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden">
             {phase === 'SELECT_MODE' && (
               <>
                 <div className="space-y-2">

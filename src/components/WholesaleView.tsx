@@ -30,6 +30,7 @@ import {
   getTotalAccessoryStock,
   hasAccessoryLicense,
   hasBrandNewLicense,
+  hasSparePartsLicense,
   isAccessoryUnlocked,
   isDistributorUnlocked,
 } from '../game/engine';
@@ -83,13 +84,18 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   const { lang, bi } = useLanguage();
   const accLicensed = hasAccessoryLicense(shop.upgrades);
   const brandNewLicensed = hasBrandNewLicense(shop.upgrades);
+  const sparePartsLicensed = hasSparePartsLicense(shop.upgrades);
   const accLicenseSpec = SHOP_UPGRADES.find((u) => u.id === 'accessory_license')!;
   const brandNewLicenseSpec = SHOP_UPGRADES.find((u) => u.id === 'brand_new_license')!;
+  const sparePartsLicenseSpec = SHOP_UPGRADES.find((u) => u.id === 'spare_parts_license')!;
   const pendingAccLicense = (shop.pendingProjects ?? []).find(
     (p) => p.kind === 'UPGRADE' && p.targetId === 'accessory_license'
   );
   const pendingBrandNewLicense = (shop.pendingProjects ?? []).find(
     (p) => p.kind === 'UPGRADE' && p.targetId === 'brand_new_license'
+  );
+  const pendingSparePartsLicense = (shop.pendingProjects ?? []).find(
+    (p) => p.kind === 'UPGRADE' && p.targetId === 'spare_parts_license'
   );
 
   const flashDeal = shop.flashWholesaleDeal;
@@ -137,22 +143,22 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2.5 gap-1.5 [@media(min-height:560px)]:gap-2">
-      {/* COMPACT SINGLE-ROW TOOLBAR */}
-      <div className="shrink-0 flex items-center justify-between gap-1.5 rounded-xl border border-white/10 bg-[#151D28] px-2 py-1">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
+    <div className="flex-1 h-full min-h-0 flex flex-col overflow-hidden bg-[#0F141B] p-1.5 [@media(min-height:560px)]:p-2 gap-1.5 [@media(min-height:560px)]:gap-2">
+      {/* COMPACT RESPONSIVE TOOLBAR — ALL 4 TABS + CARGO TOGGLE ALWAYS VISIBLE */}
+      <div className="shrink-0 flex flex-nowrap items-center justify-between gap-1 rounded-xl border border-white/10 bg-[#151D28] px-1.5 py-1 overflow-hidden">
+        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
           <button
             type="button"
             onClick={() => setSubTab('ACCESSORIES')}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               subTab === 'ACCESSORIES'
                 ? 'bg-amber-500 text-slate-950'
                 : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
             }`}
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            {bi('Aksesuarlar', 'Accessories')}
-            <span className="font-mono text-[10px] opacity-80">
+            <ShoppingBag className="w-3 h-3 shrink-0" />
+            <span>{bi('Aksesuar', 'Accessories')}</span>
+            <span className="font-mono text-[9px] opacity-80">
               ({totalAccStock})
             </span>
           </button>
@@ -160,16 +166,16 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('BRAND_NEW')}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               subTab === 'BRAND_NEW'
                 ? 'bg-amber-500 text-slate-950'
                 : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            {bi('Sıfır Telefon', 'Sealed Phones')}
+            <Sparkles className="w-3 h-3 shrink-0" />
+            <span>{bi('Sıfır', 'Sealed')}</span>
             {flashActive && (
-              <span className="rounded bg-rose-500 px-1 py-0.2 text-[9px] font-extrabold text-white">
+              <span className="rounded bg-rose-500 px-1 py-0.2 text-[8.5px] font-extrabold text-white">
                 {bi('FLAŞ', 'FLASH')}
               </span>
             )}
@@ -178,32 +184,36 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
           <button
             type="button"
             onClick={() => setSubTab('SPARE_PARTS')}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               subTab === 'SPARE_PARTS'
                 ? 'bg-emerald-500 text-slate-950'
                 : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
             }`}
           >
-            <Wrench className="w-3.5 h-3.5" />
-            {bi('Yedek Parça', 'Spare Parts')}
-            <span className="font-mono text-[10px] opacity-80">
-              ({totalSpareStock})
-            </span>
+            <Wrench className="w-3 h-3 shrink-0" />
+            <span>{bi('Yedek Parça', 'Spare Parts')}</span>
+            {sparePartsLicensed ? (
+              <span className="font-mono text-[9px] opacity-80">
+                ({totalSpareStock})
+              </span>
+            ) : (
+              <Lock className="w-2.5 h-2.5 opacity-80 shrink-0" />
+            )}
           </button>
 
           <button
             type="button"
             onClick={() => setSubTab('CARGO')}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               subTab === 'CARGO'
                 ? 'bg-sky-500 text-slate-950'
                 : 'bg-[#0E141D] text-slate-300 hover:text-white border border-white/10'
             }`}
           >
-            <Truck className="w-3.5 h-3.5" />
-            {bi('Yoldaki Kargo', 'In Transit')}
+            <Truck className="w-3 h-3 shrink-0" />
+            <span>{bi('Yoldaki Kargo', 'In Transit')}</span>
             {pendingOrders.length > 0 && (
-              <span className="font-mono rounded bg-sky-400/20 px-1 text-[10px] text-sky-300">
+              <span className="font-mono rounded bg-sky-400/20 px-1 text-[9px] text-sky-300">
                 {pendingOrders.length}
               </span>
             )}
@@ -211,30 +221,30 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
         </div>
 
         {/* Cargo vs Express Switch + Back */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 shrink-0">
           <div className="inline-flex rounded-lg border border-white/10 bg-[#0E141D] p-0.5">
             <button
               type="button"
               onClick={() => setExpressDelivery(false)}
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
                 !expressDelivery
                   ? 'bg-sky-500 text-slate-950'
                   : 'text-slate-400 hover:text-slate-100'
               }`}
             >
-              <Clock className="w-3 h-3" />
-              {bi('Kargo (Ücretsiz)', 'Standard (Free)')}
+              <Clock className="w-2.5 h-2.5" />
+              <span>{bi('Kargo', 'Standard')}</span>
             </button>
             <button
               type="button"
               onClick={() => setExpressDelivery(true)}
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold transition-colors whitespace-nowrap cursor-pointer ${
                 expressDelivery
                   ? 'bg-amber-500 text-slate-950'
                   : 'text-slate-400 hover:text-slate-100'
               }`}
             >
-              <Zap className="w-3 h-3" />
+              <Zap className="w-2.5 h-2.5" />
               {bi('Ekspres', 'Express')}
             </button>
           </div>
@@ -242,7 +252,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
           <button
             type="button"
             onClick={onBackToCounter}
-            className="rounded-lg border border-white/10 bg-[#1B2432] px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
+            className="rounded-lg border border-white/10 bg-[#1B2432] px-1.5 sm:px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] sm:text-[10px] font-semibold text-slate-200 hover:bg-[#243042] whitespace-nowrap cursor-pointer"
           >
             ← {bi('Tezgah', 'Counter')}
           </button>
@@ -252,32 +262,32 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
       {/* TAB 1: ALL 6 ACCESSORIES WITH HERO PRODUCT SHOWCASE (3x2 ZERO SCROLL) */}
       {subTab === 'ACCESSORIES' && (
         !accLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-3 [@media(min-height:540px)]:p-5 gap-1.5 [@media(min-height:540px)]:gap-3 overflow-hidden">
-            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
-              <ShoppingBag className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
+          <div className="flex-1 h-full min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-4 gap-1.5 [@media(min-height:560px)]:gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 [@media(min-height:560px)]:w-10 [@media(min-height:560px)]:h-10 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <ShoppingBag className="w-4 h-4 [@media(min-height:560px)]:w-5 [@media(min-height:560px)]:h-5 text-amber-400" />
             </div>
-            <div className="space-y-1 max-w-md">
-              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 max-w-md">
+              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi('YENİ İŞ KOLU · AKSESUAR REYONU', 'NEW BUSINESS LINE · ACCESSORY RACK')}
               </div>
-              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
                 {bi('Aksesuar Reyonu & Toptan Lisansı', 'Accessory Rack & Wholesale License')}
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug">
                 {bi(
                   'Kırılmaz cam, kılıf, araç tutucu, hızlı şarj ve kulaklık toptan alımını aç! Müşterilere hem tezgahtan hem telefon yanında çapraz satış yaparak günlük kârını katla.',
                   'Unlock wholesale ordering for glass, cases, car mounts, chargers & earbuds! Boost daily profits with counter retail and phone cross-sell bundles.'
                 )}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
-              <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1 font-extrabold text-amber-300">
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[10.5px] font-mono">
+              <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-2.5 py-0.5 font-extrabold text-amber-300">
                 {formatTRY(accLicenseSpec.cost)} · {bi('Anında Açılır', 'Instant Unlock')}
               </span>
             </div>
             {pendingAccLicense ? (
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-4 py-2 text-xs font-bold text-sky-300">
-                <Clock className="w-4 h-4" />
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-3.5 py-1.5 text-[10.5px] font-bold text-sky-300">
+                <Clock className="w-3.5 h-3.5" />
                 {bi(`Kurulumda (${pendingAccLicense.daysRemaining} gün kaldı)`, `Installing (${pendingAccLicense.daysRemaining}d left)`)}
               </span>
             ) : (
@@ -285,9 +295,9 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                 type="button"
                 disabled={shop.cash < accLicenseSpec.cost}
                 onClick={() => onBuyUpgrade('accessory_license')}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
               >
-                <ShoppingBag className="w-4 h-4" />
+                <ShoppingBag className="w-3.5 h-3.5" />
                 {shop.cash < accLicenseSpec.cost
                   ? bi(`Yetersiz Kasa (${formatTRY(accLicenseSpec.cost)} Gerekli)`, `Need ${formatTRY(accLicenseSpec.cost)}`)
                   : bi(`Aksesuar Lisansını Aç (${formatTRY(accLicenseSpec.cost)})`, `Unlock Accessory License (${formatTRY(accLicenseSpec.cost)})`)}
@@ -295,7 +305,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             )}
           </div>
         ) : (
-        <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+        <div className="flex-1 h-full min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
           {ACCESSORY_CATALOG.map((spec) => {
             const loc = getLocalizedAccessory(spec.id, lang);
             const stock = shop.accessories[spec.id];
@@ -459,32 +469,32 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
       {/* TAB 2: FACTORY-SEALED BRAND DISTRIBUTORS WITH LARGE BOX + PHONE MODEL VISUALS */}
       {subTab === 'BRAND_NEW' && (
         !brandNewLicensed ? (
-          <div className="flex-1 min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-3 [@media(min-height:540px)]:p-5 gap-1.5 [@media(min-height:540px)]:gap-3 overflow-hidden">
-            <div className="w-9 h-9 [@media(min-height:540px)]:w-12 [@media(min-height:540px)]:h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 [@media(min-height:540px)]:w-6 [@media(min-height:540px)]:h-6 text-amber-400" />
+          <div className="flex-1 h-full min-h-0 rounded-2xl border border-amber-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-4 gap-1.5 [@media(min-height:560px)]:gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 [@media(min-height:560px)]:w-10 [@media(min-height:560px)]:h-10 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 [@media(min-height:560px)]:w-5 [@media(min-height:560px)]:h-5 text-amber-400" />
             </div>
-            <div className="space-y-1 max-w-md">
-              <div className="text-[10.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <div className="space-y-0.5 max-w-md">
+              <div className="text-[9.5px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {bi('YENİ İŞ KOLU · RESMİ BAYİLİK', 'NEW BUSINESS LINE · OFFICIAL DEALERSHIP')}
               </div>
-              <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-50">
+              <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
                 {bi('Sıfır Kutu Resmi Bayilik Lisansı', 'Sealed Brand-New Dealership License')}
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug">
                 {bi(
                   '2. el ticaretin ötesine geç! Resmi marka distribütörlerinden 24 ay garantili sıfır kapalı kutu telefon getirme yetkisi ve flaş toptan indirimleri aç.',
                   'Go beyond 2nd-hand flipping! Unlock official 24-month warranty factory-sealed brand distributors and live flash wholesale deals.'
                 )}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
-              <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-1 font-extrabold text-amber-300">
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[10.5px] font-mono">
+              <span className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-2.5 py-0.5 font-extrabold text-amber-300">
                 {formatTRY(brandNewLicenseSpec.cost)} · {brandNewLicenseSpec.installDays} {bi('gün', 'd')}
               </span>
             </div>
             {pendingBrandNewLicense ? (
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-4 py-2 text-xs font-bold text-sky-300">
-                <Clock className="w-4 h-4" />
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-3.5 py-1.5 text-[10.5px] font-bold text-sky-300">
+                <Clock className="w-3.5 h-3.5" />
                 {bi(`Bayilik Onayında (${pendingBrandNewLicense.daysRemaining} gün kaldı)`, `Approval Pending (${pendingBrandNewLicense.daysRemaining}d left)`)}
               </span>
             ) : (
@@ -492,9 +502,9 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                 type="button"
                 disabled={shop.cash < brandNewLicenseSpec.cost}
                 onClick={() => onBuyUpgrade('brand_new_license')}
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-40 cursor-pointer tabular-nums"
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-3.5 h-3.5" />
                 {shop.cash < brandNewLicenseSpec.cost
                   ? bi(`Yetersiz Kasa (${formatTRY(brandNewLicenseSpec.cost)} Gerekli)`, `Need ${formatTRY(brandNewLicenseSpec.cost)}`)
                   : bi(`Bayilik Lisansı Al (${formatTRY(brandNewLicenseSpec.cost)})`, `Buy Dealership License (${formatTRY(brandNewLicenseSpec.cost)})`)}
@@ -502,7 +512,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             )}
           </div>
         ) : (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+        <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
           {flashActive && flashDeal && (
             <div className="shrink-0 flex items-center justify-between gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11px]">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -524,7 +534,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
           )}
 
           {/* Distributor Selector Tabs */}
-          <div className="shrink-0 grid grid-cols-4 gap-1.5">
+          <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             {BRAND_DISTRIBUTORS.map((d) => {
               const loc = getLocalizedDistributor(d.id, lang);
               const unlocked = isDistributorUnlocked(
@@ -568,15 +578,15 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
 
           {/* Selected Distributor Models Grid */}
           {!distUnlocked ? (
-            <div className="flex-1 min-h-0 rounded-xl border border-dashed border-amber-400/25 bg-[#151D28] flex flex-col items-center justify-center text-center p-4">
-              <Lock className="w-8 h-8 text-amber-400 mb-2" />
-              <div className="text-sm font-bold text-slate-100">
+            <div className="flex-1 h-full min-h-0 rounded-xl border border-dashed border-amber-400/25 bg-[#151D28] flex flex-col items-center justify-center text-center p-3 overflow-hidden">
+              <Lock className="w-6 h-6 text-amber-400 mb-1.5" />
+              <div className="text-xs font-bold text-slate-100">
                 {activeDistLoc.name}
               </div>
-              <p className="text-xs text-slate-400 mt-1 max-w-md">
+              <p className="text-[10.5px] text-slate-400 mt-1 max-w-md">
                 {activeDistLoc.description}
               </p>
-              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-1 font-mono text-xs font-bold text-amber-300">
+              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[10.5px] font-bold text-amber-300">
                 {bi(
                   `Gereken: ${activeDist.minShopTier}. Dükkan · ${activeDist.minReputation.toFixed(1)}★ İtibar`,
                   `Requires: Shop Tier ${activeDist.minShopTier} · ${activeDist.minReputation.toFixed(1)}★ Rep`
@@ -584,8 +594,8 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
-              <div className="flex-1 min-h-0 grid grid-cols-4 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+            <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
+              <div className="flex-1 h-full min-h-0 grid grid-cols-4 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
                 {visibleModels.map((spec) => {
                   const baseWholesale = getDistributorWholesalePrice(
                     spec,
@@ -618,7 +628,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                   return (
                     <div
                       key={spec.id}
-                      className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden ${
+                      className={`rounded-xl border p-1.5 [@media(min-height:560px)]:p-2 flex flex-col gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden ${
                         isFlashBrand
                           ? 'border-rose-400/50 bg-[#1B1722]'
                           : 'border-white/10 bg-[#151D28]'
@@ -627,10 +637,10 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                       {/* Model Title Header */}
                       <div className="shrink-0 flex items-start justify-between gap-1">
                         <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-slate-100 truncate">
+                          <div className="text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-100 truncate">
                             {spec.brand} {spec.model}
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-[9px] text-slate-400">
                             {spec.storage} · {bi('Sıfır Kutu', 'Sealed Box')}
                           </div>
                         </div>
@@ -743,10 +753,54 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
         )
       )}
 
-      {/* TAB 3: SPARE PARTS STOCK (SCREEN / BATTERY / BOARD KIT) */}
+      {/* TAB 3: SPARE PARTS STOCK (PAID LICENSE GATE + SCREEN / BATTERY / BOARD KIT) */}
       {subTab === 'SPARE_PARTS' && (
-        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
-          <div className="shrink-0 rounded-xl border border-emerald-400/25 bg-emerald-500/8 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px]">
+        !sparePartsLicensed ? (
+          <div className="flex-1 h-full min-h-0 rounded-2xl border border-emerald-400/35 bg-[#151D28] flex flex-col items-center justify-center text-center p-2.5 [@media(min-height:560px)]:p-4 gap-1.5 [@media(min-height:560px)]:gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 [@media(min-height:560px)]:w-10 [@media(min-height:560px)]:h-10 rounded-xl border border-emerald-400/40 bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <Wrench className="w-4 h-4 [@media(min-height:560px)]:w-5 [@media(min-height:560px)]:h-5 text-emerald-400" />
+            </div>
+            <div className="space-y-0.5 max-w-md">
+              <div className="text-[9.5px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                {bi('YENİ İŞ KOLU · YEDEK PARÇA STOĞU', 'NEW BUSINESS LINE · SPARE PARTS STOCK')}
+              </div>
+              <h3 className="font-display text-xs [@media(min-height:560px)]:text-sm font-extrabold text-slate-50">
+                {bi('Yedek Parça Toptan Lisansı', 'Spare Parts Wholesale License')}
+              </h3>
+              <p className="text-[10px] [@media(min-height:560px)]:text-[11px] text-slate-300 leading-snug">
+                {bi(
+                  'Orijinal ekran, pil ve anakart kitlerini toptan alıp stokla! Stoktaki parçalar atölye tamirlerinde parça masrafını 0 ₺’ye indirir ve 5’li paketlerde %15 indirim sağlar.',
+                  'Stock OEM screens, batteries & board kits at wholesale! Stocked parts drop workshop repair part costs to 0 ₺ with 15% off 5-packs.'
+                )}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[10.5px] font-mono">
+              <span className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 px-2.5 py-0.5 font-extrabold text-emerald-300">
+                {formatTRY(sparePartsLicenseSpec.cost)} · {bi('Anında Açılır', 'Instant Unlock')}
+              </span>
+            </div>
+            {pendingSparePartsLicense ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/20 px-3.5 py-1.5 text-[10.5px] font-bold text-sky-300">
+                <Clock className="w-3.5 h-3.5" />
+                {bi(`Kurulumda (${pendingSparePartsLicense.daysRemaining} gün kaldı)`, `Installing (${pendingSparePartsLicense.daysRemaining}d left)`)}
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={shop.cash < sparePartsLicenseSpec.cost}
+                onClick={() => onBuyUpgrade('spare_parts_license')}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-1.5 [@media(min-height:560px)]:py-2 text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-40 cursor-pointer tabular-nums"
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                {shop.cash < sparePartsLicenseSpec.cost
+                  ? bi(`Yetersiz Kasa (${formatTRY(sparePartsLicenseSpec.cost)} Gerekli)`, `Need ${formatTRY(sparePartsLicenseSpec.cost)}`)
+                  : bi(`Yedek Parça Lisansını Aç (${formatTRY(sparePartsLicenseSpec.cost)})`, `Unlock Spare Parts (${formatTRY(sparePartsLicenseSpec.cost)})`)}
+              </button>
+            )}
+          </div>
+        ) : (
+        <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
+          <div className="shrink-0 rounded-xl border border-emerald-400/25 bg-emerald-500/8 px-2.5 py-1 flex items-center justify-between gap-2 text-[10px]">
             <span className="text-emerald-200 font-semibold truncate">
               {bi(
                 'Stokta yedek parça bulundurursan Atölye tamirlerinde parça masrafı 0 ₺ olur! 5’li paketlerde %15 toptan avantajı.',
@@ -758,20 +812,20 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             </span>
           </div>
 
-          <div className="flex-1 min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+          <div className="flex-1 h-full min-h-0 grid grid-cols-3 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
             {SPARE_PARTS_CATALOG.map((part) => {
               const qty = shop.spareParts?.[part.id] ?? 0;
               return (
                 <div
                   key={part.id}
-                  className="rounded-xl border border-white/10 bg-[#151D28] p-2 [@media(min-height:560px)]:p-3 flex flex-col justify-between gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden"
+                  className="rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 flex flex-col justify-between gap-1 [@media(min-height:560px)]:gap-1.5 min-h-0 overflow-hidden"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0">
-                      <div className="text-sm font-extrabold text-slate-100 truncate">
+                      <div className="text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-100 truncate">
                         {lang === 'en' ? part.nameEn : part.nameTr}
                       </div>
-                      <div className="text-[10px] text-emerald-300 font-semibold mt-0.5">
+                      <div className="text-[9px] text-emerald-300 font-semibold mt-0.5 truncate">
                         {part.id === 'screen'
                           ? bi('Çatlak cam & yan sanayi ekran', 'Cracked glass & aftermarket screen')
                           : part.id === 'battery'
@@ -779,20 +833,20 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                           : bi('Sıvı teması, kamera & kasa', 'Liquid damage, lens & chassis')}
                       </div>
                     </div>
-                    <span className="rounded-lg bg-emerald-500/15 border border-emerald-400/35 px-2 py-0.5 font-mono text-xs font-extrabold text-emerald-300 shrink-0 tabular-nums">
+                    <span className="rounded-lg bg-emerald-500/15 border border-emerald-400/35 px-1.5 py-0.5 font-mono text-[10px] font-extrabold text-emerald-300 shrink-0 tabular-nums">
                       ×{qty}
                     </span>
                   </div>
 
-                  <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0D131C] p-3 flex flex-col items-center justify-center text-center gap-1">
-                    <Wrench className="w-8 h-8 text-amber-400/90" />
-                    <p className="text-[10.5px] text-slate-300 leading-snug max-w-[200px]">
+                  <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#0D131C] p-2 flex flex-col items-center justify-center text-center gap-1 overflow-hidden">
+                    <Wrench className="w-6 h-6 [@media(min-height:560px)]:w-7 [@media(min-height:560px)]:h-7 text-amber-400/90 shrink-0" />
+                    <p className="text-[9.5px] [@media(min-height:560px)]:text-[10px] text-slate-300 leading-snug max-w-[200px] line-clamp-2">
                       {lang === 'en' ? part.descEn : part.descTr}
                     </p>
                   </div>
 
-                  <div className="space-y-1.5 tabular-nums">
-                    <div className="flex justify-between text-[10.5px] text-slate-400">
+                  <div className="space-y-1 tabular-nums">
+                    <div className="flex justify-between text-[9.5px] text-slate-400">
                       <span>{bi('Tekli Toptan', 'Single Unit')}</span>
                       <span className="font-mono font-bold text-slate-100">
                         {formatTRY(part.unitCost)}
@@ -803,7 +857,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                         type="button"
                         disabled={!onBuySparePart || shop.cash < part.unitCost}
                         onClick={() => onBuySparePart?.(part.id, 1)}
-                        className="rounded-lg border border-amber-400/40 bg-amber-500/15 py-1.5 text-[10.5px] font-extrabold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                        className="rounded-lg border border-amber-400/40 bg-amber-500/15 py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                       >
                         +1 ({formatTRY(part.unitCost)})
                       </button>
@@ -811,7 +865,7 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
                         type="button"
                         disabled={!onBuySparePart || shop.cash < part.pack5Cost}
                         onClick={() => onBuySparePart?.(part.id, 5)}
-                        className="rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                        className="rounded-lg bg-amber-500 py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                       >
                         +5 ({formatTRY(part.pack5Cost)})
                       </button>
@@ -822,18 +876,19 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
             })}
           </div>
         </div>
+        )
       )}
 
       {/* TAB 4: IN-TRANSIT CARGO ORDERS */}
       {subTab === 'CARGO' && (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 h-full min-h-0 flex flex-col overflow-hidden">
           {pendingOrders.length === 0 ? (
-            <div className="flex-1 rounded-xl border border-dashed border-white/10 bg-[#151D28] flex flex-col items-center justify-center text-center p-4">
-              <Package className="w-8 h-8 text-slate-500 mb-2" />
-              <div className="text-xs font-bold text-slate-200">
+            <div className="flex-1 h-full rounded-xl border border-dashed border-white/10 bg-[#151D28] flex flex-col items-center justify-center text-center p-4 overflow-hidden">
+              <Package className="w-7 h-7 text-slate-500 mb-1.5" />
+              <div className="text-[11px] font-bold text-slate-200">
                 {bi('Yolda bekleyen toptancı kargon yok', 'No wholesale shipments in transit')}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[10px] text-slate-400 mt-1">
                 {bi(
                   'Standart kargo ile verilen siparişler ertesi sabah dükkanına teslim edilir.',
                   'Standard wholesale orders arrive at your shop the next morning.'
@@ -841,14 +896,14 @@ export const WholesaleView: React.FC<WholesaleViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
+            <div className="flex-1 h-full min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
               {pendingOrders.slice(0, 6).map((ord) => (
                 <div
                   key={ord.id}
                   className="rounded-xl border border-sky-400/25 bg-[#151D28] p-2 flex flex-col justify-between gap-1 min-h-0 overflow-hidden"
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-bold text-slate-100 truncate">
+                    <span className="text-[11px] font-bold text-slate-100 truncate">
                       {ord.label}
                     </span>
                     <span className="font-mono text-[10px] font-bold rounded bg-sky-500/20 px-1.5 py-0.5 text-sky-300 whitespace-nowrap">

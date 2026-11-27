@@ -43,19 +43,19 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
   // Step 1: Explicit Rewarded Ad Confirmation Screen
   if (isConfirm) {
     return (
-      <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/82 backdrop-blur-sm p-3">
+      <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/82 backdrop-blur-sm p-2">
         <motion.div
           initial={{ scale: 0.94, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-full max-w-md rounded-2xl border border-amber-400/45 bg-[#121A26] p-4 shadow-2xl space-y-3"
+          className="w-full max-w-[330px] rounded-xl border border-amber-400/45 bg-[#121A26] p-2.5 sm:p-3 shadow-2xl space-y-2"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
-            <div className="inline-flex items-center gap-1.5">
-              <span className="rounded bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-amber-300 uppercase">
+          <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-1.5">
+            <div className="inline-flex items-center gap-1">
+              <span className="rounded bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold text-amber-300 uppercase">
                 {bi('ÖDÜLLÜ REKLAM ONAYI', 'REWARDED AD CONFIRMATION')}
               </span>
               {session.multiplierBadge && (
-                <span className="rounded bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-emerald-300">
+                <span className="rounded bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold text-emerald-300">
                   {session.multiplierBadge}
                 </span>
               )}
@@ -66,18 +66,18 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
               aria-label={bi('Kapat', 'Close')}
               className="rounded-lg border border-white/10 bg-[#1B2432] p-1 text-slate-400 hover:text-white cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           </div>
 
-          <div className="rounded-xl border border-emerald-400/25 bg-gradient-to-br from-[#192334] via-[#131B28] to-[#13241C] p-3.5 text-center space-y-2">
-            <div className="mx-auto w-11 h-11 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-amber-400" />
+          <div className="rounded-lg border border-emerald-400/25 bg-gradient-to-br from-[#192334] via-[#131B28] to-[#13241C] p-2.5 text-center space-y-1.5">
+            <div className="mx-auto w-9 h-9 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="font-display text-sm sm:text-base font-extrabold text-slate-50 leading-snug">
+            <div className="font-display text-xs sm:text-[13px] font-extrabold text-slate-50 leading-snug">
               {titleText}
             </div>
-            <p className="text-[11px] text-slate-300 leading-snug">
+            <p className="text-[10px] text-slate-300 leading-snug">
               {detailText ||
                 bi(
                   'Kısa bir ödüllü video izleyerek bu bonusu hemen etkinleştirmek ister misin? Video tamamlandığında çarpan ve ödül anında dükkan kasana işlenir.',
@@ -86,8 +86,8 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 px-0.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 px-0.5">
+            <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
             <span>
               {bi(
                 'Tamamen isteğe bağlıdır. İzlemeyi yarıda bırakırsan ödül tanımlanmaz.',
@@ -96,20 +96,20 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-0.5">
+          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
             <button
               type="button"
               onClick={() => session.resolve(false)}
-              className="rounded-xl border border-white/15 bg-[#1B2432] px-3 py-2 text-xs font-bold text-slate-300 hover:bg-[#253143] hover:text-white cursor-pointer"
+              className="rounded-lg border border-white/15 bg-[#1B2432] px-2.5 py-1.5 text-[10.5px] font-bold text-slate-300 hover:bg-[#253143] hover:text-white cursor-pointer"
             >
               {bi('Vazgeç', 'Cancel')}
             </button>
             <button
               type="button"
               onClick={() => session.resolve(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
             >
-              <PlayCircle className="w-4 h-4 shrink-0" />
+              <PlayCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{bi('Onayla & İzle', 'Confirm & Watch')}</span>
             </button>
           </div>
@@ -125,22 +125,22 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
   );
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/90 backdrop-blur-md p-3">
+    <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/90 backdrop-blur-md p-2">
       <motion.div
         initial={{ scale: 0.94, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-md rounded-2xl border border-amber-400/40 bg-[#121924] p-4 shadow-2xl space-y-3"
+        className="w-full max-w-[330px] rounded-xl border border-amber-400/40 bg-[#121924] p-2.5 sm:p-3 shadow-2xl space-y-2"
       >
         {/* Top Bar */}
-        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="rounded bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-amber-300 uppercase">
+        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-1.5">
+          <div className="flex items-center gap-1">
+            <span className="rounded bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold text-amber-300 uppercase">
               {isRewarded
                 ? bi('SPONSORLU ÖDÜL', 'REWARDED VIDEO')
                 : bi('REKLAM ARASI', 'AD BREAK')}
             </span>
             {session.multiplierBadge && (
-              <span className="rounded bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold text-emerald-300">
+              <span className="rounded bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold text-emerald-300">
                 {session.multiplierBadge}
               </span>
             )}
@@ -150,16 +150,16 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
             <button
               type="button"
               onClick={() => session.resolve(true)}
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
+              <CheckCircle2 className="w-3 h-3" />
               {isRewarded ? bi('Ödülü Al', 'Claim Reward') : bi('Devam Et', 'Continue')}
             </button>
           ) : (
             <button
               type="button"
               onClick={() => session.resolve(!isRewarded)}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-[#1B2432] px-2 py-1 text-[10.5px] font-bold text-slate-300 hover:text-white cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-[#1B2432] px-2 py-0.5 text-[10px] font-bold text-slate-300 hover:text-white cursor-pointer"
             >
               <X className="w-3 h-3" />
               {isRewarded ? bi('İptal', 'Skip (No Reward)') : `${secondsLeft}s`}
@@ -168,18 +168,18 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
         </div>
 
         {/* Visual Ad Card */}
-        <div className="rounded-xl border border-white/10 bg-gradient-to-br from-[#1A2434] via-[#131A26] to-[#1D1710] p-4 text-center space-y-2">
-          <div className="mx-auto w-12 h-12 rounded-2xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
+        <div className="rounded-lg border border-white/10 bg-gradient-to-br from-[#1A2434] via-[#131A26] to-[#1D1710] p-2.5 text-center space-y-1.5">
+          <div className="mx-auto w-9 h-9 rounded-xl border border-amber-400/40 bg-amber-500/15 flex items-center justify-center">
             {completed ? (
-              <Sparkles className="w-6 h-6 text-emerald-400" />
+              <Sparkles className="w-4 h-4 text-emerald-400" />
             ) : (
-              <PlayCircle className="w-6 h-6 text-amber-400 animate-pulse" />
+              <PlayCircle className="w-4 h-4 text-amber-400 animate-pulse" />
             )}
           </div>
-          <div className="font-display text-sm font-extrabold text-slate-50">
+          <div className="font-display text-xs font-extrabold text-slate-50">
             {titleText}
           </div>
-          <p className="text-[11px] text-slate-400 leading-snug">
+          <p className="text-[10px] text-slate-400 leading-snug">
             {completed
               ? isRewarded
                 ? bi(
@@ -203,7 +203,7 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
           </p>
 
           {/* Progress Bar */}
-          <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mt-2">
+          <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden mt-1.5">
             <div
               className={`h-full transition-all duration-700 ${
                 completed ? 'bg-emerald-400' : 'bg-amber-400'
@@ -213,9 +213,9 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-slate-400">
+        <div className="flex items-center justify-between text-[9.5px] text-slate-400">
           <span className="inline-flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <ShieldCheck className="w-3 h-3 text-emerald-400" />
             {bi('Düşük frekans · 5-7 günde bir ara', 'Low frequency · 5-7 day pacing')}
           </span>
           <span className="font-mono text-amber-300 font-bold">

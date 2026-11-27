@@ -214,20 +214,8 @@ input[type="range"].pasaj-slider::-moz-range-thumb {
   padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
 }
 
-/* Native Mobile Viewport Scaling:
-   Fluidly scales rem-based paddings, typography, and controls on compact screens
-   so every workbench, grid, and action deck fits inside 100dvh with zero scroll! */
-@media (max-height: 540px) {
-  html {
-    font-size: 11.5px;
-  }
-}
-
+/* Compact slider thumb on short landscape phones without distorting rem spacing vs px typography */
 @media (max-height: 440px) {
-  html {
-    font-size: 10px;
-  }
-
   input[type="range"].pasaj-slider::-webkit-slider-runnable-track {
     height: 6px;
   }
@@ -248,9 +236,20 @@ input[type="range"].pasaj-slider::-moz-range-thumb {
   }
 }
 
-@media (max-height: 375px) {
-  html {
-    font-size: 9.2px;
-  }
+/* Proportional viewport-width responsive typography helpers */
+.text-responsive {
+  font-size: clamp(0.625rem, 0.52rem + 0.35vw, 0.78rem);
+  line-height: 1.3;
 }
+
+.text-responsive-sm {
+  font-size: clamp(0.5625rem, 0.48rem + 0.28vw, 0.7rem);
+  line-height: 1.25;
+}
+
+.text-responsive-title {
+  font-size: clamp(0.72rem, 0.6rem + 0.45vw, 0.92rem);
+  line-height: 1.25;
+}
+
 

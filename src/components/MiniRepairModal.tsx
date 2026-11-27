@@ -309,17 +309,17 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
   const liveTemp = Math.round(24 + (holdProgress / 100) * 82);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-2 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/84 p-1 sm:p-1.5 select-none">
       <motion.div
         initial={{ scale: 0.94, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
-        className="w-full max-w-2xl max-h-[96dvh] flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#141C27] p-3 shadow-2xl"
+        className="w-full max-w-xl h-[95dvh] max-h-[450px] flex flex-col overflow-hidden rounded-xl border border-white/12 bg-[#141C27] p-2 shadow-2xl"
       >
         {/* Compact Header */}
-        <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
+        <div className="shrink-0 flex items-center justify-between gap-2 mb-1">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
+            <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-amber-400">
               {mode === 'LIQUID' ? (
                 <Droplets className="w-3 h-3 text-cyan-400 shrink-0" />
               ) : mode === 'BATTERY' ? (
@@ -338,7 +338,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                 </span>
               )}
             </div>
-            <h2 className="font-display text-sm sm:text-base font-extrabold text-slate-50 truncate">
+            <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 truncate">
               {phone.brand} {phone.model} — {combinedLabel}
             </h2>
           </div>
@@ -346,14 +346,14 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
             type="button"
             onClick={onCancel}
             aria-label={bi('Tamir masasından çık', 'Exit repair bench')}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-[#1D2735] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-[#1D2735] text-slate-300 hover:text-slate-50 cursor-pointer shrink-0"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* 4-Step Mode-Specific Progress Bar */}
-        <div className="shrink-0 grid grid-cols-4 gap-1.5 mb-2">
+        <div className="shrink-0 grid grid-cols-4 gap-1.5 mb-1.5">
           {stepLabels.map((lbl, idx) => {
             const id = idx + 1;
             const done = step > id;
@@ -372,7 +372,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
                   }`}
                 />
                 <div
-                  className={`text-[9.5px] font-medium truncate ${
+                  className={`text-[9px] font-medium truncate ${
                     done
                       ? 'text-emerald-300'
                       : active
@@ -389,9 +389,9 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
           })}
         </div>
 
-        {/* Main 12-Col Landscape ESD Bench */}
+        {/* Main 12-Col Landscape ESD Bench (Strict Zero Scroll) */}
         <div
-          className="flex-1 min-h-0 grid grid-cols-12 gap-3 rounded-xl border border-white/10 bg-[#0E151F] p-2.5 sm:p-3 overflow-hidden"
+          className="flex-1 min-h-0 grid grid-cols-12 gap-2 rounded-lg border border-white/10 bg-[#0E151F] p-1.5 sm:p-2 overflow-hidden"
           style={{
             backgroundImage:
               'radial-gradient(rgba(148,163,184,0.11) 1px, transparent 1px)',
@@ -399,9 +399,9 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
           }}
         >
           {/* Left: Mode-Tailored Interactive Smartphone Cutaway */}
-          <div className="col-span-5 flex flex-col items-center justify-center">
-            <div className="relative w-[156px] h-[190px] lg:w-[184px] lg:h-[224px] flex items-start justify-center">
-              <div className="relative w-[200px] h-[244px] origin-top scale-[0.78] lg:scale-[0.92] rounded-[26px] border-2 border-slate-600 bg-[#151E2C] shadow-[0_14px_30px_rgba(0,0,0,0.65)] overflow-visible shrink-0">
+          <div className="col-span-5 flex flex-col items-center justify-center min-h-0 overflow-hidden">
+            <div className="relative w-[144px] h-[176px] lg:w-[176px] lg:h-[214px] flex items-start justify-center">
+              <div className="relative w-[200px] h-[244px] origin-top scale-[0.72] lg:scale-[0.88] rounded-[26px] border-2 border-slate-600 bg-[#151E2C] shadow-[0_14px_30px_rgba(0,0,0,0.65)] overflow-visible shrink-0">
                 {/* Glow border while heating or hot-air drying */}
                 {isHoldStep && (
                   <div
@@ -742,7 +742,7 @@ export const MiniRepairModal: React.FC<MiniRepairModalProps> = ({
           </div>
 
           {/* Right: Mode-Specific Tactile Action Panel */}
-          <div className="col-span-7 flex flex-col justify-between min-h-0">
+          <div className="col-span-7 flex flex-col justify-between min-h-0 overflow-hidden">
             <AnimatePresence mode="wait">
               {/* === SCREEN REPLACEMENT FLOW === */}
               {mode === 'SCREEN' && step === 1 && (

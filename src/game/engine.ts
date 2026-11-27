@@ -312,6 +312,10 @@ export function getAccessorySpec(id: AccessoryId) {
   return ACCESSORY_CATALOG.find((a) => a.id === id) ?? ACCESSORY_CATALOG[0];
 }
 
+export function hasSparePartsLicense(upgrades?: UpgradeId[]): boolean {
+  return Boolean(upgrades?.includes('spare_parts_license'));
+}
+
 export function hasAccessoryLicense(upgrades?: UpgradeId[]): boolean {
   return Boolean(upgrades?.includes('accessory_license'));
 }

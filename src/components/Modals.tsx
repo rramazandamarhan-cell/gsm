@@ -72,26 +72,26 @@ export const PauseModal: React.FC<PauseModalProps> = ({
 }) => {
   const { lang, setLang, bi } = useLanguage();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-2.5">
-      <div className="w-full max-w-md max-h-[94dvh] overflow-y-auto pasaj-scroll rounded-2xl border border-white/10 bg-[#171F2A] p-3.5 sm:p-4 shadow-2xl flex flex-col gap-2.5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-2">
+      <div className="w-full max-w-[340px] sm:max-w-[380px] max-h-[90dvh] overflow-y-auto pasaj-scroll rounded-xl border border-white/10 bg-[#171F2A] p-2.5 sm:p-3 shadow-2xl flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <BrandLogo size="compact" />
             <div className="min-w-0">
-              <h2 className="font-display text-base sm:text-lg font-extrabold text-slate-50 leading-tight truncate">
+              <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 leading-tight truncate">
                 {bi('Oyun Duraklatıldı', 'Game Paused')}
               </h2>
-              <p className="text-[11px] text-slate-400 truncate">
+              <p className="text-[9.5px] text-slate-400 truncate">
                 {bi('İlerlemen otomatik kaydedildi.', 'Your progress is auto-saved.')}
               </p>
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/12 bg-[#0F151E] p-0.5 shrink-0">
+          <div className="inline-flex items-center gap-0.5 rounded-md border border-white/12 bg-[#0F151E] p-0.5 shrink-0">
             <button
               type="button"
               onClick={() => setLang('tr')}
-              className={`rounded-md px-2 py-1 text-[10.5px] font-extrabold cursor-pointer ${
+              className={`rounded px-1.5 py-0.5 text-[9.5px] font-extrabold cursor-pointer ${
                 lang === 'tr' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
               }`}
             >
@@ -100,7 +100,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             <button
               type="button"
               onClick={() => setLang('en')}
-              className={`rounded-md px-2 py-1 text-[10.5px] font-extrabold cursor-pointer ${
+              className={`rounded px-1.5 py-0.5 text-[9.5px] font-extrabold cursor-pointer ${
                 lang === 'en' ? 'bg-amber-500 text-slate-950' : 'text-slate-300'
               }`}
             >
@@ -112,43 +112,43 @@ export const PauseModal: React.FC<PauseModalProps> = ({
         <button
           type="button"
           onClick={onResume}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap cursor-pointer"
         >
-          <Play className="w-4 h-4 fill-slate-950" />
+          <Play className="w-3.5 h-3.5 fill-slate-950" />
           <span>{bi('Devam Et', 'Resume')}</span>
         </button>
 
-        {onOpenLegacy && (
-          <button
-            type="button"
-            onClick={onOpenLegacy}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/14 px-4 py-2 text-xs font-extrabold text-amber-200 hover:bg-amber-500/22 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Crown className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>{bi('Pasaj Hatıraları (Kariyer Özeti)', 'Shop Legacy Album')}</span>
-          </button>
-        )}
+        <div className="grid grid-cols-2 gap-1.5">
+          {onOpenLegacy && (
+            <button
+              type="button"
+              onClick={onOpenLegacy}
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/45 bg-amber-500/14 px-2 py-1.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/22 transition-colors whitespace-nowrap cursor-pointer truncate"
+            >
+              <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+              <span className="truncate">{bi('Pasaj Hatıraları', 'Legacy Album')}</span>
+            </button>
+          )}
 
-        {onReplayTour && (
-          <button
-            type="button"
-            onClick={onReplayTour}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/12 px-4 py-2 text-xs font-extrabold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Compass className="w-4 h-4 text-sky-300 shrink-0" />
-            <span>{bi('Nasıl Oynanır? (Dükkan Turunu Tekrarla)', 'How to Play (Replay Shop Tour)')}</span>
-          </button>
-        )}
+          {onReplayTour && (
+            <button
+              type="button"
+              onClick={onReplayTour}
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/40 bg-sky-500/12 px-2 py-1.5 text-[10px] font-extrabold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer truncate"
+            >
+              <Compass className="w-3 h-3 text-sky-300 shrink-0" />
+              <span className="truncate">{bi('Nasıl Oynanır?', 'How to Play')}</span>
+            </button>
+          )}
 
-        <div className="grid grid-cols-2 gap-2">
           {onOpenNewspaper && (
             <button
               type="button"
               onClick={onOpenNewspaper}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-400/35 bg-amber-500/12 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition-colors whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/12 px-2 py-1.5 text-[10px] font-bold text-amber-200 hover:bg-amber-500/20 transition-colors whitespace-nowrap cursor-pointer truncate"
             >
-              <Newspaper className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-              <span>{bi('Pasaj Postası', 'Daily Gazette')}</span>
+              <Newspaper className="w-3 h-3 text-amber-300 shrink-0" />
+              <span className="truncate">{bi('Pasaj Postası', 'Daily Gazette')}</span>
             </button>
           )}
 
@@ -156,10 +156,10 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             <button
               type="button"
               onClick={onOpenAnalytics}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/12 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/20 transition-colors whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/12 px-2 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/20 transition-colors whitespace-nowrap cursor-pointer truncate"
             >
-              <BarChart3 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>{bi('İstatistikler', 'Analytics')}</span>
+              <BarChart3 className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span className="truncate">{bi('İstatistikler', 'Analytics')}</span>
             </button>
           )}
 
@@ -167,14 +167,14 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             <button
               type="button"
               onClick={onToggleMute}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-[#1B2432] px-3 py-2 text-xs font-bold text-slate-200 hover:bg-[#243042] transition-colors whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/15 bg-[#1B2432] px-2 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-[#243042] transition-colors whitespace-nowrap cursor-pointer truncate"
             >
               {muted ? (
-                <VolumeX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <VolumeX className="w-3 h-3 text-rose-400 shrink-0" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <Volume2 className="w-3 h-3 text-emerald-400 shrink-0" />
               )}
-              <span>
+              <span className="truncate">
                 {muted
                   ? bi('Ses: Kapalı', 'Sound: Off')
                   : bi('Ses: Açık', 'Sound: On')}
@@ -186,26 +186,26 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             <button
               type="button"
               onClick={onOpenCompliance}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/35 bg-sky-500/12 px-3 py-2 text-xs font-bold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-sky-500/35 bg-sky-500/12 px-2 py-1.5 text-[10px] font-bold text-sky-200 hover:bg-sky-500/20 transition-colors whitespace-nowrap cursor-pointer truncate"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span>{bi('Ayarlar & Gizlilik', 'Settings & Privacy')}</span>
+              <ShieldCheck className="w-3 h-3 text-sky-400 shrink-0" />
+              <span className="truncate">{bi('Ayarlar & Gizlilik', 'Settings & Privacy')}</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={onRestart}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#202B3A] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-[#2A374A] transition-colors whitespace-nowrap cursor-pointer"
+            className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-[#202B3A] px-2 py-1.5 text-[10px] font-semibold text-slate-200 hover:bg-[#2A374A] transition-colors whitespace-nowrap cursor-pointer truncate"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span>{bi('Sıfırdan Başla', 'Restart Career')}</span>
+            <RotateCcw className="w-3 h-3 text-slate-400 shrink-0" />
+            <span className="truncate">{bi('Sıfırdan Başla', 'Restart Career')}</span>
           </button>
 
           <button
             type="button"
             onClick={onTitle}
-            className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-[#131B26] px-3 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 transition-colors whitespace-nowrap cursor-pointer"
+            className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-[#131B26] px-2 py-1.5 text-[10px] font-semibold text-slate-300 hover:text-slate-100 transition-colors whitespace-nowrap cursor-pointer truncate"
           >
             {bi('Ana Menü', 'Title Screen')}
           </button>
@@ -264,28 +264,28 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2">
-      <div className="w-full max-w-4xl max-h-[96dvh] flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#171F2A] p-3 shadow-2xl">
+      <div className="w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#171F2A] p-2.5 shadow-2xl">
         {/* Compact Header */}
-        <div className="shrink-0 flex items-center justify-between gap-2 pb-2 border-b border-white/8">
+        <div className="shrink-0 flex items-center justify-between gap-2 pb-1.5 border-b border-white/8">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-400">
-              <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+            <div className="flex items-center gap-1 text-[9px] font-semibold text-amber-400">
+              <TrendingUp className="w-3 h-3 shrink-0" />
               <span className="truncate">
                 {bi('GÜN SONU RAPORU', 'END-OF-DAY REPORT')} · {rank}
               </span>
             </div>
-            <h2 className="font-display text-base sm:text-xl font-extrabold text-slate-50 leading-tight">
+            <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 leading-tight">
               {bi(`Gün ${stats.day} Kapanış Özeti`, `Day ${stats.day} Closing Summary`)}
             </h2>
           </div>
 
-          <div className="flex items-center gap-3 text-right tabular-nums shrink-0">
+          <div className="flex items-center gap-2.5 text-right tabular-nums shrink-0">
             <div>
-              <div className="text-[9.5px] text-slate-400">
+              <div className="text-[9px] text-slate-400">
                 {bi('Günlük Net', 'Daily Net')}
               </div>
               <div
-                className={`font-mono text-sm sm:text-base font-extrabold ${
+                className={`font-mono text-xs font-extrabold ${
                   netToday >= 0 ? 'text-emerald-400' : 'text-rose-400'
                 }`}
               >
@@ -293,13 +293,13 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
                 {formatTRY(netToday)}
               </div>
             </div>
-            <div className="h-6 w-px bg-white/10" />
+            <div className="h-5 w-px bg-white/10" />
             <div>
-              <div className="text-[9.5px] text-slate-400">
+              <div className="text-[9px] text-slate-400">
                 {bi('İtibar', 'Reputation')}
               </div>
               <div
-                className={`font-mono text-xs sm:text-sm font-bold ${
+                className={`font-mono text-[11px] font-bold ${
                   stats.reputationDelta >= 0 ? 'text-amber-400' : 'text-rose-400'
                 }`}
               >
@@ -310,15 +310,15 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
           </div>
         </div>
 
-        {/* 2-Column Compact Body (Zero-Scroll on Mobile Landscape) */}
-        <div className="flex-1 min-h-0 grid grid-cols-12 gap-2 py-2 overflow-hidden">
+        {/* 2-Column Compact Body (Stacks Cleanly on Portrait Mobile) */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-12 gap-1.5 py-1.5 overflow-y-auto sm:overflow-hidden pasaj-scroll overscroll-contain touch-pan-y">
           {/* Left: Ledger */}
-          <div className="col-span-7 rounded-xl border border-white/8 bg-[#121822] p-2.5 flex flex-col justify-between overflow-hidden">
+          <div className="sm:col-span-7 rounded-lg border border-white/8 bg-[#121822] p-2 flex flex-col justify-between sm:overflow-hidden">
             <div>
-              <div className="text-[10.5px] font-bold text-slate-300 mb-1.5">
+              <div className="text-[10px] font-bold text-slate-300 mb-1">
                 {bi('Günlük Kasa Defteri', 'Daily Cash Ledger')}
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10.5px] tabular-nums">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2.5 gap-y-0.5 text-[9.5px] sm:text-[10px] tabular-nums">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-slate-400 truncate">
                     {bi(`Satış (${stats.phonesSold})`, `Sales (${stats.phonesSold})`)}
@@ -466,16 +466,16 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
           </div>
 
           {/* Right: Career Records + Mini Chart on taller screens */}
-          <div className="col-span-5 rounded-xl border border-white/8 bg-[#121822] p-2.5 flex flex-col justify-between overflow-hidden">
+          <div className="sm:col-span-5 rounded-lg border border-white/8 bg-[#121822] p-2 flex flex-col justify-between sm:overflow-hidden">
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10.5px] font-bold text-slate-300">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold text-slate-300">
                   {bi('Esnaf Karnesi', 'Shop Scorecard')}
                 </span>
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <Trophy className="w-3 h-3 text-amber-400" />
               </div>
 
-              <div className="space-y-1 text-[10.5px] tabular-nums">
+              <div className="space-y-0.5 text-[9.5px] sm:text-[10px] tabular-nums">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">{bi('Güncel Kasa', 'Cash Balance')}</span>
                   <span className="font-mono font-bold text-emerald-400">
@@ -540,7 +540,7 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
           const adBonusCash = isPassiveDouble ? passiveMatchBonus : revenueBonus;
           const showAdBonusBtn = Boolean(onClaimAdBonus && (totalRevenue > 0 || passiveIncomeToday > 0));
           return (
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 pt-1.5 border-t border-white/8">
               {showAdBonusBtn && (
                 <button
                   type="button"
@@ -570,7 +570,7 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
                       onClaimAdBonus(adBonusCash);
                     }
                   }}
-                  className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-extrabold transition-colors whitespace-nowrap tabular-nums ${
+                  className={`inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[10.5px] font-extrabold transition-colors whitespace-nowrap tabular-nums ${
                     adBonusClaimed
                       ? 'border border-emerald-400/40 bg-emerald-500/15 text-emerald-300 cursor-default'
                       : 'border border-emerald-400/50 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 cursor-pointer'
@@ -578,12 +578,12 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
                 >
                   {adBonusClaimed ? (
                     <>
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>+{formatTRY(adBonusCash)} {bi('Alındı', 'Claimed')}</span>
                     </>
                   ) : (
                     <>
-                      <PlayCircle className="w-4 h-4 shrink-0" />
+                      <PlayCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         {watchingAd
                           ? bi('Reklam...', 'Loading...')
@@ -600,13 +600,13 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
                 type="button"
                 disabled={watchingAd}
                 onClick={onNextDay}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors whitespace-nowrap cursor-pointer"
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-[10.5px] sm:text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors cursor-pointer"
               >
-                <Newspaper className="w-4 h-4" />
-                <span>
+                <Newspaper className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
                   {bi(
-                    `Gün ${stats.day + 1} Sabah Gazetesini Aç & Kepenk Kaldır`,
-                    `Open Day ${stats.day + 1} Morning Paper & Raise Shutter`
+                    `Gün ${stats.day + 1} Sabah Gazetesini Aç`,
+                    `Open Day ${stats.day + 1} Morning Paper`
                   )}
                 </span>
               </button>
@@ -653,43 +653,43 @@ export const EndModal: React.FC<EndModalProps> = ({
 
   if (!isCelebration) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2.5">
-        <div className="w-full max-w-md max-h-[95dvh] overflow-hidden rounded-2xl border border-rose-500/30 bg-[#171F2A] p-4 sm:p-5 text-center shadow-2xl">
-          <div className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/35">
-            <AlertTriangle className="w-6 h-6 text-rose-400" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2">
+        <div className="w-full max-w-[340px] max-h-[90dvh] overflow-hidden rounded-xl border border-rose-500/30 bg-[#171F2A] p-3 text-center shadow-2xl">
+          <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 border border-rose-500/35">
+            <AlertTriangle className="w-5 h-5 text-rose-400" />
           </div>
-          <div className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-rose-300 mb-0.5">
+          <div className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-rose-300 mb-0.5">
             {rank}
           </div>
-          <h2 className="font-display text-2xl font-extrabold text-slate-50 mb-1.5">
+          <h2 className="font-display text-sm sm:text-base font-extrabold text-slate-50 mb-1">
             {bi('Kepenk İndirildi', 'Shutters Closed')}
           </h2>
-          <p className="text-xs text-slate-300 leading-snug mb-3.5">
+          <p className="text-[10.5px] text-slate-300 leading-snug mb-2.5">
             {bi(
               'Günlük kira ve maaşları karşılayacak nakit ve stok kalmadı. Yeni bir stratejiyle tekrar dükkan açabilirsin.',
               'You ran out of cash and stock to cover rent and wages. Open a fresh shop with a sharper strategy!'
             )}
           </p>
-          <div className="grid grid-cols-3 gap-2 border-y border-white/10 py-2.5 mb-3.5 tabular-nums">
+          <div className="grid grid-cols-3 gap-1.5 border-y border-white/10 py-2 mb-2.5 tabular-nums">
             <div>
-              <div className="text-[10.5px] text-slate-400">
+              <div className="text-[9.5px] text-slate-400">
                 {bi('Toplam Gün', 'Total Days')}
               </div>
-              <div className="font-mono text-base font-bold text-slate-100">{state.day}</div>
+              <div className="font-mono text-xs sm:text-sm font-bold text-slate-100">{state.day}</div>
             </div>
             <div>
-              <div className="text-[10.5px] text-slate-400">
+              <div className="text-[9.5px] text-slate-400">
                 {bi('Satılan Cihaz', 'Phones Sold')}
               </div>
-              <div className="font-mono text-base font-bold text-emerald-400">
+              <div className="font-mono text-xs sm:text-sm font-bold text-emerald-400">
                 {state.totalPhonesSold}
               </div>
             </div>
             <div>
-              <div className="text-[10.5px] text-slate-400">
+              <div className="text-[9.5px] text-slate-400">
                 {bi('Toplam Kazanç', 'Total Profit')}
               </div>
-              <div className="font-mono text-base font-bold text-amber-400">
+              <div className="font-mono text-xs sm:text-sm font-bold text-amber-400">
                 {formatTRY(state.totalProfitEarned)}
               </div>
             </div>
@@ -697,7 +697,7 @@ export const EndModal: React.FC<EndModalProps> = ({
           <button
             type="button"
             onClick={onRestart}
-            className="w-full rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
+            className="w-full rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
           >
             {bi('Yeni Dükkan Aç', 'Open Fresh Shop')}
           </button>
@@ -708,24 +708,24 @@ export const EndModal: React.FC<EndModalProps> = ({
 
   // PASAJ HATIRALARI (SHOP LEGACY) — Celebrates the Shop's Legendary Era & Infinite Career!
   return (
-    <div className="fixed inset-0 z-[74] flex items-center justify-center bg-black/84 backdrop-blur-sm p-2 sm:p-3">
-      <div className="w-full max-w-2xl max-h-[94dvh] flex flex-col overflow-hidden rounded-2xl border border-amber-400/45 bg-gradient-to-b from-[#17202D] via-[#121924] to-[#0D131C] shadow-[0_30px_90px_rgba(0,0,0,0.88)]">
+    <div className="fixed inset-0 z-[74] flex items-center justify-center bg-black/84 backdrop-blur-sm p-2">
+      <div className="w-full max-w-xl max-h-[90dvh] flex flex-col overflow-hidden rounded-xl border border-amber-400/45 bg-gradient-to-b from-[#17202D] via-[#121924] to-[#0D131C] shadow-[0_30px_90px_rgba(0,0,0,0.88)]">
         {/* Golden Legacy Header */}
-        <div className="shrink-0 relative border-b border-amber-400/20 bg-gradient-to-r from-amber-500/16 via-amber-400/8 to-emerald-500/12 px-4 py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-400/55 bg-amber-500/20 shadow-[0_0_24px_rgba(251,191,36,0.32)]">
-              <Crown className="w-6 h-6 text-amber-300" />
+        <div className="shrink-0 relative border-b border-amber-400/20 bg-gradient-to-r from-amber-500/16 via-amber-400/8 to-emerald-500/12 px-3 py-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-400/55 bg-amber-500/20">
+              <Crown className="w-4 h-4 text-amber-300" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="rounded bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold uppercase tracking-wider text-amber-300">
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="rounded bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold uppercase tracking-wider text-amber-300">
                   {bi('PASAJ HATIRALARI · DÖNEM EFSANESİ', 'SHOP LEGACY · ERA CHRONICLE')}
                 </span>
-                <span className="rounded bg-emerald-500/15 border border-emerald-400/35 px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-emerald-300">
+                <span className="rounded bg-emerald-500/15 border border-emerald-400/35 px-1.5 py-0.5 font-mono text-[8.5px] font-bold text-emerald-300">
                   {bi(`Sv.${state.level} · Dönem P${prestigeEra}`, `Lv.${state.level} · Era P${prestigeEra}`)}
                 </span>
               </div>
-              <h2 className="font-display text-lg sm:text-xl font-extrabold text-slate-50 leading-tight truncate mt-0.5">
+              <h2 className="font-display text-xs sm:text-sm font-extrabold text-slate-50 leading-tight truncate mt-0.5">
                 {rank} — {shopTierName}
               </h2>
             </div>
@@ -736,19 +736,19 @@ export const EndModal: React.FC<EndModalProps> = ({
               type="button"
               onClick={onCloseLegacy}
               aria-label={bi('Kapat', 'Close')}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-[#1B2534] text-slate-300 hover:text-white cursor-pointer"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-[#1B2534] text-slate-300 hover:text-white cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
         {/* Scrollable Commemorative Legacy Showcase */}
-        <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll p-3.5 sm:p-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto pasaj-scroll p-2.5 space-y-2">
           {/* Endless Era Celebration Banner */}
-          <div className="rounded-xl border border-amber-400/25 bg-amber-500/8 px-3.5 py-2.5 flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-200 leading-relaxed">
+          <div className="rounded-lg border border-amber-400/25 bg-amber-500/8 px-2.5 py-1.5 flex items-start gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0 mt-0.5" />
+            <p className="text-[10.5px] text-slate-200 leading-snug">
               {mode === 'VICTORY'
                 ? bi(
                     `Tebrikler Usta! ${state.day}. günde ${formatTRY(VICTORY_CASH_GOAL)} kasa ve ${VICTORY_REPUTATION_GOAL}★ itibar barajını aşarak dükkanını Pasaj’ın efsanesi yaptın. Bu bir son değil — seviye sınırı olmadan sonsuza dek büyüyebilir veya Prestij ile yeni bir çağ başlatabilirsin!`,
@@ -762,67 +762,67 @@ export const EndModal: React.FC<EndModalProps> = ({
           </div>
 
           {/* 4 Key Performance Pillars */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 tabular-nums">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 tabular-nums">
             {/* 1. Toplam Kazanç */}
-            <div className="rounded-xl border border-emerald-400/30 bg-[#101A22] p-2.5 space-y-1">
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300">
-                <TrendingUp className="w-3.5 h-3.5" />
+            <div className="rounded-lg border border-emerald-400/30 bg-[#101A22] p-2 space-y-0.5">
+              <div className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-300">
+                <TrendingUp className="w-3 h-3" />
                 <span>{bi('Toplam Kazanç', 'Total Earnings')}</span>
               </div>
-              <div className="font-mono text-sm sm:text-base font-black text-emerald-400 leading-tight truncate">
+              <div className="font-mono text-xs font-black text-emerald-400 leading-tight truncate">
                 {formatTRY(state.totalProfitEarned)}
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
+              <div className="text-[9px] text-slate-400 truncate">
                 {bi('Kasa:', 'Cash:')} {formatTRY(state.cash)}
               </div>
             </div>
 
             {/* 2. Toplam Satış */}
-            <div className="rounded-xl border border-sky-400/30 bg-[#101824] p-2.5 space-y-1">
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-300">
-                <Trophy className="w-3.5 h-3.5" />
+            <div className="rounded-lg border border-sky-400/30 bg-[#101824] p-2 space-y-0.5">
+              <div className="inline-flex items-center gap-1 text-[9.5px] font-bold text-sky-300">
+                <Trophy className="w-3 h-3" />
                 <span>{bi('Toplam Satış', 'Total Sales')}</span>
               </div>
-              <div className="font-mono text-sm sm:text-base font-black text-slate-50 leading-tight">
+              <div className="font-mono text-xs font-black text-slate-50 leading-tight">
                 {state.totalPhonesSold}{' '}
-                <span className="text-[10px] font-bold text-sky-300">
+                <span className="text-[9px] font-bold text-sky-300">
                   {bi('Cihaz', 'Phones')}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
+              <div className="text-[9px] text-slate-400 truncate">
                 {state.totalPhonesRepaired} {bi('tamir', 'repairs')} · {state.totalAccessoriesSold}{' '}
                 {bi('aksesuar', 'acc.')}
               </div>
             </div>
 
             {/* 3. Dükkan Prestiji */}
-            <div className="rounded-xl border border-amber-400/35 bg-[#1A1812] p-2.5 space-y-1">
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <div className="rounded-lg border border-amber-400/35 bg-[#1A1812] p-2 space-y-0.5">
+              <div className="inline-flex items-center gap-1 text-[9.5px] font-bold text-amber-300">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                 <span>{bi('Dükkan Prestiji', 'Shop Prestige')}</span>
               </div>
-              <div className="font-mono text-sm sm:text-base font-black text-amber-300 leading-tight">
+              <div className="font-mono text-xs font-black text-amber-300 leading-tight">
                 {prestigeScore}{' '}
-                <span className="text-[10px] font-bold text-amber-200/80">
+                <span className="text-[9px] font-bold text-amber-200/80">
                   {bi('Puan', 'Pts')}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
+              <div className="text-[9px] text-slate-400 truncate">
                 {state.reputation.toFixed(1)}★ · {bi(`Kademe ${state.shopTier}/6`, `Tier ${state.shopTier}/6`)}
               </div>
             </div>
 
             {/* 4. En İyi Pazarlık Başarısı */}
-            <div className="rounded-xl border border-rose-400/30 bg-[#1C141A] p-2.5 space-y-1">
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-300">
-                <Gavel className="w-3.5 h-3.5" />
+            <div className="rounded-lg border border-rose-400/30 bg-[#1C141A] p-2 space-y-0.5">
+              <div className="inline-flex items-center gap-1 text-[9.5px] font-bold text-rose-300">
+                <Gavel className="w-3 h-3" />
                 <span>{bi('En İyi Pazarlık', 'Best Bargain')}</span>
               </div>
-              <div className="font-mono text-sm sm:text-base font-black text-rose-300 leading-tight truncate">
+              <div className="font-mono text-xs font-black text-rose-300 leading-tight truncate">
                 +{formatTRY(state.bestSingleDealProfit)}
               </div>
-              <div className="inline-flex items-center gap-1 text-[10px] text-slate-400">
-                <Flame className="w-3 h-3 text-amber-400" />
+              <div className="inline-flex items-center gap-1 text-[9px] text-slate-400">
+                <Flame className="w-2.5 h-2.5 text-amber-400" />
                 <span>
                   {bi(`En uzun seri: ${state.bestDealStreak}x`, `Best streak: ${state.bestDealStreak}x`)}
                 </span>
@@ -893,14 +893,14 @@ export const EndModal: React.FC<EndModalProps> = ({
         </div>
 
         {/* Action Footer — Endless Play First! */}
-        <div className="shrink-0 border-t border-white/10 bg-[#0D131D] p-3 flex flex-wrap items-center gap-2">
+        <div className="shrink-0 border-t border-white/10 bg-[#0D131D] p-2 flex flex-wrap items-center gap-1.5">
           {isLegacyView && onCloseLegacy ? (
             <button
               type="button"
               onClick={onCloseLegacy}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
             >
-              <InfinityIcon className="w-4 h-4" />
+              <InfinityIcon className="w-3.5 h-3.5" />
               <span>{bi('Dükkanına Dön & Büyümeye Devam Et', 'Return & Keep Growing')}</span>
             </button>
           ) : (
@@ -909,9 +909,9 @@ export const EndModal: React.FC<EndModalProps> = ({
                 <button
                   type="button"
                   onClick={onContinueEndless}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  <InfinityIcon className="w-4 h-4" />
+                  <InfinityIcon className="w-3.5 h-3.5" />
                   <span>{bi('Sonsuz Esnaflığa Devam Et →', 'Continue Endless Career →')}</span>
                 </button>
               )}
@@ -919,9 +919,9 @@ export const EndModal: React.FC<EndModalProps> = ({
                 <button
                   type="button"
                   onClick={onTriggerPrestige}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs sm:text-sm font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  <Award className="w-4 h-4" />
+                  <Award className="w-3.5 h-3.5" />
                   <span>
                     {bi(
                       `Yeni Prestij Dönemi (+${prestigePointsPreview} PP)`,

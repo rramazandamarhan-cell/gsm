@@ -20,7 +20,6 @@ import {
   ACCESSORY_CATALOG,
   DEFECT_CATALOG,
   SHOWCASE_UPGRADE_MAX_LEVEL,
-  SPARE_PARTS_CATALOG,
 } from '../game/catalog';
 import {
   calculateMarketValue,
@@ -32,7 +31,6 @@ import {
   getMultiRepairCost,
   getQuickRepairExpressFee,
   getRepairCostWithStock,
-  getRequiredSpareParts,
   getScrapSaleValue,
   getShowcaseCapacity,
   getStockAgingInfo,
@@ -199,23 +197,23 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
 
   if (!selected) {
     return (
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 text-center bg-[#0F141B]">
-        <Wrench className="w-10 h-10 text-slate-600 mb-2" />
-        <h2 className="font-display text-base font-bold text-slate-100">
+      <div className="flex-1 h-full min-h-0 flex flex-col items-center justify-center p-4 text-center bg-[#0F141B] overflow-hidden">
+        <Wrench className="w-8 h-8 text-slate-600 mb-2" />
+        <h2 className="font-display text-sm font-bold text-slate-100">
           {bi('Atölye & Vitrin Boş', 'Workshop & Showcase Empty')}
         </h2>
-        <p className="text-xs text-slate-400 mt-1 max-w-sm">
+        <p className="text-[10.5px] text-slate-400 mt-1 max-w-sm">
           {bi(
             'Tezgahta müşterilerden 2. el telefon satın al; burada tamir edip aksesuar kombiniyle vitrine koy.',
             'Buy 2nd-hand phones from customers at the counter, repair them here, and list them on your showcase.'
           )}
         </p>
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-2">
           {onOpenComplaintArchive && (
             <button
               type="button"
               onClick={onOpenComplaintArchive}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/15 px-3.5 py-2 text-xs font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/35 bg-rose-500/15 px-3 py-1.5 text-[10.5px] font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
             >
               <FolderOpen className="w-3.5 h-3.5" />
               {bi('Şikayet & Garanti Dosyası', 'Complaints & Warranties')}
@@ -225,7 +223,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           <button
             type="button"
             onClick={onBackToCounter}
-            className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+            className="rounded-lg bg-amber-500 px-3.5 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
           >
             ← {bi('Tezgaha Dön', 'Back to Counter')}
           </button>
@@ -246,7 +244,6 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   const repairableDefects = selected.defects.filter(
     (d) => DEFECT_CATALOG[d].repairable
   );
-  const requiredParts = getRequiredSpareParts(repairableDefects);
   const stockCalc = getRepairCostWithStock(
     repairableDefects,
     spareParts,
@@ -291,15 +288,15 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
   const canListMore = selected.listedForSale || listedCount < maxShowcase;
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 p-1.5 [@media(min-height:560px)]:p-2.5 overflow-hidden bg-[#0F141B]">
-      {/* LEFT INVENTORY PANEL WITH VISUAL PHONE THUMBNAILS */}
-      <aside className="col-span-4 lg:col-span-3 flex flex-col min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-2 overflow-hidden">
-        <div className="shrink-0 flex items-center justify-between gap-1 pb-1.5 border-b border-white/8">
+    <div className="flex-1 h-full min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 p-1.5 [@media(min-height:560px)]:p-2 overflow-hidden bg-[#0F141B]">
+      {/* LEFT INVENTORY PANEL — STRICT ZERO-SCROLL 4-SLOT PAGINATED LIST */}
+      <aside className="col-span-4 lg:col-span-3 flex flex-col h-full min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 overflow-hidden">
+        <div className="shrink-0 flex items-center justify-between gap-1 pb-1 border-b border-white/8">
           <div className="min-w-0">
-            <div className="text-[11px] font-bold text-slate-100 truncate">
+            <div className="text-responsive font-bold text-slate-100 truncate">
               {bi('Stok & Vitrin', 'Stock & Shelf')} ({inventory.length})
             </div>
-            <div className="text-[9.5px] font-mono text-slate-400">
+            <div className="text-responsive-sm font-mono text-slate-400">
               {bi('Vitrin', 'Shelf')}:{' '}
               <strong className="text-amber-300">
                 {listedCount}/{maxShowcase}
@@ -312,9 +309,9 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 type="button"
                 onClick={onOpenComplaintArchive}
                 title={bi('Müşteri Şikayet Dosyası & Garanti Arşivi', 'Customer Complaint File & Warranties')}
-                className="inline-flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/15 px-1.5 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-500/25 whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/15 px-1.5 py-0.5 text-responsive-sm font-bold text-rose-200 hover:bg-rose-500/25 whitespace-nowrap cursor-pointer"
               >
-                <FolderOpen className="w-3 h-3 shrink-0" />
+                <FolderOpen className="w-2.5 h-2.5 shrink-0" />
                 <span>{bi('Dosya', 'File')}</span>
                 {complaintCount > 0 && (
                   <span className="font-mono text-amber-300">{complaintCount}</span>
@@ -325,7 +322,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
               <button
                 type="button"
                 onClick={onGoToUpgrades}
-                className="rounded-md border border-amber-400/35 bg-amber-500/15 px-1.5 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 whitespace-nowrap cursor-pointer"
+                className="rounded-md border border-amber-400/35 bg-amber-500/15 px-1.5 py-0.5 text-responsive-sm font-bold text-amber-300 hover:bg-amber-500/25 whitespace-nowrap cursor-pointer"
               >
                 {bi('Raf +', 'Rack +')}
               </button>
@@ -333,14 +330,14 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             <button
               type="button"
               onClick={onBackToCounter}
-              className="rounded-md border border-white/15 bg-[#1E2836] px-2 py-1 text-[10px] font-bold text-slate-100 hover:bg-[#28364A] whitespace-nowrap cursor-pointer"
+              className="rounded-md border border-white/15 bg-[#1E2836] px-1.5 py-0.5 text-responsive-sm font-bold text-slate-100 hover:bg-[#28364A] whitespace-nowrap cursor-pointer"
             >
               ← {bi('Tezgah', 'Counter')}
             </button>
           </div>
         </div>
 
-        {/* Quick Stock Filter Pills */}
+        {/* Quick Stock Filter Pills (Pinned) */}
         <div className="shrink-0 grid grid-cols-3 gap-1 pt-1">
           {(
             [
@@ -356,7 +353,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 setListFilter(f.id);
                 setInvPage(0);
               }}
-              className={`rounded-md py-0.5 [@media(min-height:540px)]:py-1 text-[9.5px] font-extrabold transition-colors cursor-pointer touch-manipulation truncate px-1 ${
+              className={`rounded-md py-0.5 [@media(min-height:540px)]:py-1 text-responsive-sm font-extrabold transition-colors cursor-pointer touch-manipulation truncate px-1 ${
                 listFilter === f.id
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-400/45'
                   : 'bg-[#0E141D] text-slate-400 border border-white/6 hover:text-slate-200'
@@ -367,10 +364,10 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
           ))}
         </div>
 
-        {/* Zero-Scroll Paginated 4-Row Phone List */}
-        <div className="flex-1 min-h-0 grid grid-rows-4 gap-1 py-1 overflow-hidden">
+        {/* Paginated 4-Row Zero-Scroll Phone List */}
+        <div className="flex-1 min-h-0 overflow-hidden grid grid-rows-4 gap-1 py-1">
           {filteredInventory.length === 0 ? (
-            <div className="row-span-4 my-auto rounded-lg border border-white/6 bg-[#0E141D] px-3 py-4 text-center text-[10.5px] text-slate-400">
+            <div className="row-span-4 my-auto rounded-lg border border-white/6 bg-[#0E141D] px-2 py-3 text-center text-responsive-sm text-slate-400">
               {listFilter === 'LISTED'
                 ? bi('Vitrinde sergilenen cihaz yok.', 'No devices currently listed.')
                 : bi('Tamir bekleyen arızalı cihaz yok.', 'No devices needing repair.')}
@@ -391,7 +388,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   key={phone.uid}
                   type="button"
                   onClick={() => setSelectedUid(phone.uid)}
-                  className={`w-full h-full min-h-0 overflow-hidden rounded-lg border px-1.5 py-1 flex items-center gap-1.5 text-left transition-colors cursor-pointer touch-manipulation ${
+                  className={`min-h-0 h-full w-full rounded-lg border px-1.5 py-0.5 flex items-center gap-1.5 text-left transition-colors cursor-pointer touch-manipulation overflow-hidden ${
                     isSel
                       ? 'border-amber-400 bg-amber-500/15 shadow-[0_0_12px_rgba(251,191,36,0.12)]'
                       : 'border-white/8 bg-[#0E141D] hover:bg-[#182231]'
@@ -400,11 +397,11 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   <PhoneModelThumb
                     device={phone}
                     showBack
-                    className="h-full max-h-10 w-auto shrink-0"
+                    className="h-7 [@media(min-height:540px)]:h-9 w-auto shrink-0"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10.5px] font-bold text-slate-100 truncate">
+                      <span className="text-responsive font-bold text-slate-100 truncate">
                         {phone.brand} {phone.model}
                       </span>
                       <span
@@ -423,7 +420,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                           : bi('Atölye', 'Bench')}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[9px] text-slate-400 mt-0.5 tabular-nums">
+                    <div className="flex items-center justify-between text-responsive-sm text-slate-400 mt-0.5 tabular-nums">
                       <span className="truncate">
                         {cond.label} · {phone.defects.length}{' '}
                         {bi('kusur', 'flaw')}
@@ -440,7 +437,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
         </div>
 
         {/* Pinned Inventory Valuation + Pagination Footer */}
-        <div className="shrink-0 flex items-center justify-between gap-1 pt-1 border-t border-white/8 text-[9.5px] tabular-nums">
+        <div className="shrink-0 flex items-center justify-between gap-1 pt-1 border-t border-white/8 text-responsive-sm tabular-nums">
           <div className="min-w-0 truncate">
             <span className="text-slate-400">{bi('Stok', 'Stock')}: </span>
             <span className="font-mono font-extrabold text-emerald-300">
@@ -458,7 +455,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
               >
                 <ChevronLeft className="w-3 h-3" />
               </button>
-              <span className="font-mono text-[9px] text-slate-300">
+              <span className="font-mono text-responsive-sm text-slate-300">
                 {safeInvPage + 1}/{totalInvPages}
               </span>
               <button
@@ -475,333 +472,307 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
         </div>
       </aside>
 
-      {/* RIGHT WORKBENCH — 2 BALANCED ZERO-SCROLL OVERFLOW-HIDDEN COLUMNS */}
-      <section className="col-span-8 lg:col-span-9 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
-        {/* CENTER-LEFT: PROMINENT LIVE PHONE MODEL + TIGHT REPAIR BENCH */}
-        <div className="col-span-6 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
-          {/* HERO DEVICE SHOWCASE STAGE */}
-          <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2.5 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 overflow-hidden">
-            {/* Full-Height Interactive Phone Model (Front / Back Flip) */}
-            <div className="col-span-5 sm:col-span-6 min-h-0 h-full overflow-hidden">
-              <PhoneInspectSVG device={selected} revealAll fluid />
+      {/* RIGHT WORKBENCH — 2 STRICT ZERO-SCROLL BALANCED COLUMNS */}
+      <section className="col-span-8 lg:col-span-9 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 h-full min-h-0 overflow-hidden">
+        {/* CENTER-LEFT: DEVICE HERO + SINGLE-SESSION REPAIR BENCH + UTILITY FOOTER (ZERO SCROLL) */}
+        <div className="col-span-6 flex flex-col h-full min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+          {/* Pinned Device Header */}
+          <div className="shrink-0 flex items-center justify-between gap-1.5 border-b border-white/8 pb-1">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-responsive-sm font-bold text-amber-300 uppercase">
+                  {selected.brand}
+                </span>
+                <span className="font-mono text-responsive-sm text-slate-400">
+                  {selected.storage}
+                </span>
+              </div>
+              <h3 className="font-display text-responsive font-extrabold text-slate-50 leading-tight truncate">
+                {selected.model}
+              </h3>
             </div>
-
-            {/* Live Device Tech Specs beside the phone */}
-            <div className="col-span-7 sm:col-span-6 min-h-0 flex flex-col justify-between gap-1 overflow-hidden tabular-nums">
-              <div>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-mono text-[9.5px] font-bold text-amber-300 uppercase">
-                    {selected.brand}
-                  </span>
-                  <span className="font-mono text-[10px] text-slate-400">
-                    {selected.storage}
-                  </span>
-                </div>
-                <h3 className="font-display text-sm font-extrabold text-slate-50 leading-tight truncate">
-                  {selected.model}
-                </h3>
-
-                <div className="flex flex-wrap items-center gap-1 mt-1 text-[9.5px]">
-                  <span
-                    className={`rounded px-1.5 py-0.5 font-bold ${
-                      condition.tone === 'positive'
-                        ? 'bg-emerald-500/15 text-emerald-300'
-                        : condition.tone === 'warning'
-                        ? 'bg-amber-500/15 text-amber-300'
-                        : condition.tone === 'danger'
-                        ? 'bg-rose-500/15 text-rose-300'
-                        : 'bg-white/10 text-slate-200'
-                    }`}
-                  >
-                    {condition.label} ({condition.score})
-                  </span>
-                  {aging.label && (
-                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-bold text-amber-300">
-                      {aging.label}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-0.5 [@media(min-height:560px)]:space-y-1 text-[9.5px] [@media(min-height:560px)]:text-[10.5px]">
-                <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1 flex items-center justify-between gap-1">
-                  <span className="text-slate-400 truncate">{bi('Maliyet', 'Cost')}</span>
-                  <span className="font-mono font-bold text-slate-100 whitespace-nowrap shrink-0">
-                    {formatTRY(totalInvested)}
-                  </span>
-                </div>
-                <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1 flex items-center justify-between gap-1">
-                  <span className="text-slate-400 truncate">{bi('Piyasa', 'Market')}</span>
-                  <span className="font-mono font-extrabold text-amber-300 whitespace-nowrap shrink-0">
-                    {formatTRY(fairValue)}
-                  </span>
-                </div>
-                <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 [@media(min-height:560px)]:px-2 [@media(min-height:560px)]:py-1 flex items-center justify-between gap-1">
-                  <span className="text-slate-400 truncate">{bi('Pil', 'Battery')}</span>
-                  <span
-                    className={`font-mono font-bold whitespace-nowrap shrink-0 ${
-                      selected.batteryHealth < 80
-                        ? 'text-rose-400'
-                        : 'text-emerald-300'
-                    }`}
-                  >
-                    %{selected.batteryHealth}
-                  </span>
-                </div>
-              </div>
-
-              {/* Quick Defect Status */}
-              <div className="flex flex-wrap gap-0.5 [@media(min-height:560px)]:gap-1 overflow-hidden max-h-[34px] [@media(min-height:560px)]:max-h-none">
-                {selected.defects.length === 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-400/25 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
-                    <Check className="w-2.5 h-2.5" />
-                    {bi('Kusursuz', 'Spotless')}
-                  </span>
-                ) : (
-                  selected.defects.map((d) => (
-                    <span
-                      key={d}
-                      className="rounded-md border border-rose-400/30 bg-rose-500/12 px-1 py-0.2 text-[8.5px] [@media(min-height:560px)]:text-[9.5px] font-bold text-rose-200 truncate"
-                    >
-                      {getLocalizedDefect(d, lang).shortLabel}
-                    </span>
-                  ))
-                )}
-              </div>
+            <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 text-responsive-sm">
+              <span
+                className={`rounded px-1.5 py-0.2 font-bold ${
+                  condition.tone === 'positive'
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : condition.tone === 'warning'
+                    ? 'bg-amber-500/15 text-amber-300'
+                    : condition.tone === 'danger'
+                    ? 'bg-rose-500/15 text-rose-300'
+                    : 'bg-white/10 text-slate-200'
+                }`}
+              >
+                {condition.label} ({condition.score})
+              </span>
+              {aging.label && (
+                <span className="rounded bg-amber-500/15 px-1.5 py-0.2 font-bold text-amber-300">
+                  {aging.label}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* TIGHT SINGLE-SESSION REPAIR BENCH & UTILITY ACTIONS */}
-          <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 space-y-1 [@media(min-height:560px)]:space-y-1.5 overflow-hidden">
-            <div className="flex items-center justify-between gap-1">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-100">
-                <Wrench className="w-3.5 h-3.5 text-amber-400" />
-                {bi('Tek Seferde Tamir Masası', 'Single-Session Repair')}
+          {/* Zero-Scroll Main Card Body: Adaptive Phone Showcase + Always-Visible Repair Bench */}
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-1 [@media(min-height:560px)]:gap-1.5">
+            {/* HERO DEVICE SHOWCASE STAGE (Auto-shrinks smoothly so Repair Bench never clips or scrolls) */}
+            <div className="flex-1 min-h-0 rounded-xl border border-white/8 bg-[#101722] p-1.5 grid grid-cols-12 gap-1.5 overflow-hidden">
+              {/* Interactive Phone Model (Front / Back Flip) */}
+              <div className="col-span-5 h-full min-h-0 overflow-hidden flex items-center justify-center">
+                <PhoneInspectSVG device={selected} revealAll fluid />
               </div>
-              <span className="font-mono text-[10px] text-slate-400">
-                {stockCalc.usedStockCount > 0 ? (
-                  <span className="text-emerald-300 font-bold">
-                    {bi(`Stoktan ${stockCalc.usedStockCount} parça ✓`, `${stockCalc.usedStockCount} from stock ✓`)}
-                  </span>
-                ) : (
-                  `${repairableDefects.length} ${bi('onarılabilir', 'fixable')}`
-                )}
-              </span>
-            </div>
 
-            {/* Compact Spare Parts Stock Strip (Screen / Battery / Kit) */}
-            {spareParts && (
-              <div className="grid grid-cols-3 gap-1 tabular-nums">
-                {SPARE_PARTS_CATALOG.map((part) => {
-                  const qty = spareParts[part.id] ?? 0;
-                  const needed = requiredParts[part.id] ?? 0;
-                  return (
-                    <div
-                      key={part.id}
-                      className={`rounded-md border px-1.5 py-0.5 flex items-center justify-between gap-1 text-[9px] ${
-                        needed > 0 && qty === 0
-                          ? 'border-amber-400/50 bg-amber-500/12 text-amber-200'
-                          : needed > 0 && qty > 0
-                          ? 'border-emerald-400/45 bg-emerald-500/12 text-emerald-200'
-                          : 'border-white/8 bg-[#0E141D] text-slate-300'
+              {/* Live Device Tech Specs beside the phone */}
+              <div className="col-span-7 h-full min-h-0 flex flex-col justify-between gap-1 tabular-nums overflow-hidden">
+                <div className="space-y-0.5 text-responsive-sm">
+                  <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 flex items-center justify-between gap-1">
+                    <span className="text-slate-400 truncate">{bi('Maliyet', 'Cost')}</span>
+                    <span className="font-mono font-bold text-slate-100 whitespace-nowrap shrink-0">
+                      {formatTRY(totalInvested)}
+                    </span>
+                  </div>
+                  <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 flex items-center justify-between gap-1">
+                    <span className="text-slate-400 truncate">{bi('Piyasa', 'Market')}</span>
+                    <span className="font-mono font-extrabold text-amber-300 whitespace-nowrap shrink-0">
+                      {formatTRY(fairValue)}
+                    </span>
+                  </div>
+                  <div className="rounded-md bg-[#0E141D] border border-white/6 px-1.5 py-0.5 flex items-center justify-between gap-1">
+                    <span className="text-slate-400 truncate">{bi('Pil', 'Battery')}</span>
+                    <span
+                      className={`font-mono font-bold whitespace-nowrap shrink-0 ${
+                        selected.batteryHealth < 80
+                          ? 'text-rose-400'
+                          : 'text-emerald-300'
                       }`}
                     >
-                      <span className="truncate font-semibold">
-                        {lang === 'en' ? part.shortEn : part.shortTr}{' '}
-                        <strong className="font-mono">×{qty}</strong>
-                      </span>
-                      {onBuySparePart && (
-                        <button
-                          type="button"
-                          disabled={cash < part.unitCost}
-                          onClick={() => onBuySparePart(part.id, 1)}
-                          title={`${lang === 'en' ? part.nameEn : part.nameTr} (+1 · ${formatTRY(part.unitCost)})`}
-                          className="rounded bg-amber-500/20 border border-amber-400/40 px-1 py-0.2 font-mono text-[8.5px] font-extrabold text-amber-200 hover:bg-amber-500 hover:text-slate-950 disabled:opacity-30 cursor-pointer shrink-0"
-                        >
-                          +1
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      %{selected.batteryHealth}
+                    </span>
+                  </div>
+                </div>
 
-            {staffJob ? (
-              <div className="flex items-center justify-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-[10.5px] text-sky-200 font-semibold">
-                <Clock className="w-4 h-4 text-sky-300 shrink-0" />
-                <span>
-                  {bi(
-                    `Hasan Usta Onarıyor · ${staffJob.turnsRemaining} tur kaldı`,
-                    `Master Hasan Repairing · ${staffJob.turnsRemaining} turns left`
+                {/* Quick Defect Status */}
+                <div className="flex flex-wrap gap-1 overflow-hidden max-h-[34px]">
+                  {selected.defects.length === 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-400/25 px-1.5 py-0.2 text-[9px] font-bold text-emerald-300">
+                      <Check className="w-2.5 h-2.5" />
+                      {bi('Kusursuz', 'Spotless')}
+                    </span>
+                  ) : (
+                    selected.defects.map((d) => (
+                      <span
+                        key={d}
+                        className="rounded-md border border-rose-400/30 bg-rose-500/12 px-1 py-0.2 text-[9px] font-bold text-rose-200 truncate"
+                      >
+                        {getLocalizedDefect(d, lang).shortLabel}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SINGLE-SESSION REPAIR BENCH — ALWAYS 100% VISIBLE, ZERO SCROLL */}
+            <div className="shrink-0 rounded-xl border border-white/8 bg-[#101722] p-1.5 space-y-1">
+              <div className="flex items-center justify-between gap-1">
+                <div className="inline-flex items-center gap-1 text-responsive-sm font-bold text-slate-100">
+                  <Wrench className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span className="truncate">{bi('Tek Seferde Tamir Masası', 'Single-Session Repair')}</span>
+                </div>
+                <span className="font-mono text-responsive-sm text-slate-400 shrink-0">
+                  {stockCalc.usedStockCount > 0 ? (
+                    <span className="text-emerald-300 font-bold">
+                      {bi(`Stoktan ${stockCalc.usedStockCount} parça ✓`, `${stockCalc.usedStockCount} from stock ✓`)}
+                    </span>
+                  ) : (
+                    `${repairableDefects.length} ${bi('onarılabilir', 'fixable')}`
                   )}
                 </span>
               </div>
-            ) : repairableDefects.length === 0 ? (
-              <div className="flex items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1.5 text-[10.5px] text-emerald-300 font-semibold text-center">
-                <Check className="w-3.5 h-3.5 mr-1 shrink-0" />
-                {selected.defects.includes('imei_unregistered')
-                  ? bi(
-                      'Donanım temiz (IMEI kayıtsız — tamir edilemez)',
-                      'Hardware clean (Unregistered IMEI — permanent)'
-                    )
-                  : bi(
-                      'Cihaz kusursuz! Vitrine koymaya hazır.',
-                      'Device spotless! Ready for showcase.'
-                    )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5 tabular-nums">
-                {hasRepairBench ? (
-                  (() => {
-                    const expressFee = getQuickRepairExpressFee(
-                      stockCalc.cashCost > 0 ? stockCalc.cashCost : stockCalc.baseCost
-                    );
-                    const quickTotalCost = inHouseCost + expressFee;
-                    return (
-                      <>
-                        <button
-                          type="button"
-                          disabled={cash < inHouseCost}
-                          onClick={() =>
-                            onStartMiniRepair(
-                              selected,
-                              repairableDefects,
-                              inHouseCost
-                            )
-                          }
-                          className="inline-flex flex-col items-center justify-center rounded-lg bg-amber-500 py-1 px-1.5 text-[10px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap leading-tight"
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            <Zap className="w-3 h-3" />
-                            {bi('Mini Tamir', 'Mini Fix')} (
-                            {inHouseCost === 0 ? bi('Stoktan', 'Stock') : formatTRY(inHouseCost)})
-                          </span>
-                          <span className="hidden [@media(min-height:540px)]:inline text-[8.5px] font-bold opacity-80">
-                            {stockCalc.usedStockCount > 0
-                              ? bi('Stok Parçası Kullanır · Usta İşi', 'Uses Stock Part · Master Chance')
-                              : bi('Sadece Parça · Usta İşi Şansı', 'Parts Only · Master Bonus')}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={cash < quickTotalCost}
-                          onClick={() =>
-                            onQuickRepairDefects(
-                              selected.uid,
-                              repairableDefects,
-                              false
-                            )
-                          }
-                          className="inline-flex flex-col items-center justify-center rounded-lg border border-white/15 bg-[#1D2736] py-1 px-1.5 text-[10px] font-bold text-slate-100 hover:bg-[#273447] disabled:opacity-35 cursor-pointer whitespace-nowrap leading-tight"
-                        >
-                          <span>
-                            {bi('Hızlı Onar', 'Quick Fix')} ({formatTRY(quickTotalCost)})
-                          </span>
-                          <span className="hidden [@media(min-height:540px)]:inline text-[8.5px] text-amber-300 font-semibold">
-                            +{formatTRY(expressFee)} {bi('Erken Teslimat', 'Express Fee')}
-                          </span>
-                        </button>
-                      </>
-                    );
-                  })()
-                ) : (
-                  <button
-                    type="button"
-                    disabled={cash < outsourceCost}
-                    onClick={() =>
-                      onQuickRepairDefects(
-                        selected.uid,
-                        repairableDefects,
-                        true
-                      )
-                    }
-                    className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 py-1.5 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                  >
-                    <Wrench className="w-3 h-3" />
+
+              {staffJob ? (
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-responsive text-sky-200 font-semibold">
+                  <Clock className="w-4 h-4 text-sky-300 shrink-0" />
+                  <span>
                     {bi(
-                      `Dış Servise Gönder (${formatTRY(outsourceCost)})`,
-                      `Outsource Repair (${formatTRY(outsourceCost)})`
+                      `Hasan Usta Onarıyor · ${staffJob.turnsRemaining} tur kaldı`,
+                      `Master Hasan Repairing · ${staffJob.turnsRemaining} turns left`
                     )}
-                  </button>
-                )}
-
-                {hasMasterTech && (
-                  <button
-                    type="button"
-                    disabled={cash < masterCost}
-                    onClick={() =>
-                      onDelegateRepairToMaster(
-                        selected.uid,
-                        repairableDefects
+                  </span>
+                </div>
+              ) : repairableDefects.length === 0 ? (
+                <div className="flex items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1.5 text-responsive text-emerald-300 font-semibold text-center">
+                  <Check className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  {selected.defects.includes('imei_unregistered')
+                    ? bi(
+                        'Donanım temiz (IMEI kayıtsız — tamir edilemez)',
+                        'Hardware clean (Unregistered IMEI — permanent)'
                       )
-                    }
-                    className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/35 bg-sky-500/15 py-1 text-[10px] font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-                  >
-                    <UserCog className="w-3 h-3" />
-                    {bi(
-                      `Hasan Usta (${masterSpecs.turnsPerJob} tur · ${formatTRY(masterCost)})`,
-                      `Master Hasan (${masterSpecs.turnsPerJob} turns · ${formatTRY(masterCost)})`
-                    )}
-                  </button>
-                )}
-              </div>
-            )}
+                    : bi(
+                        'Cihaz kusursuz! Vitrine koymaya hazır.',
+                        'Device spotless! Ready for showcase.'
+                      )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 tabular-nums">
+                  {hasRepairBench ? (
+                    (() => {
+                      const expressFee = getQuickRepairExpressFee(
+                        stockCalc.cashCost > 0 ? stockCalc.cashCost : stockCalc.baseCost
+                      );
+                      const quickTotalCost = inHouseCost + expressFee;
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            disabled={cash < inHouseCost}
+                            onClick={() =>
+                              onStartMiniRepair(
+                                selected,
+                                repairableDefects,
+                                inHouseCost
+                              )
+                            }
+                            className="inline-flex flex-col items-center justify-center rounded-lg bg-amber-500 py-1 px-1 text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer leading-tight min-w-0"
+                          >
+                            <span className="inline-flex items-center gap-0.5 text-[9.5px] sm:text-[10px] font-extrabold whitespace-nowrap">
+                              <Zap className="w-2.5 h-2.5 shrink-0" />
+                              {bi('Mini Tamir', 'Mini Fix')}
+                            </span>
+                            <span className="font-mono text-[9.5px] font-extrabold opacity-90 whitespace-nowrap">
+                              {inHouseCost === 0 ? bi('Stoktan', 'Stock') : formatTRY(inHouseCost)}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={cash < quickTotalCost}
+                            onClick={() =>
+                              onQuickRepairDefects(
+                                selected.uid,
+                                repairableDefects,
+                                false
+                              )
+                            }
+                            className="inline-flex flex-col items-center justify-center rounded-lg border border-white/15 bg-[#1D2736] py-1 px-1 text-slate-100 hover:bg-[#273447] disabled:opacity-35 cursor-pointer leading-tight min-w-0"
+                          >
+                            <span className="text-[9.5px] sm:text-[10px] font-bold whitespace-nowrap">
+                              {bi('Hızlı Onar', 'Quick Fix')}
+                            </span>
+                            <span className="font-mono text-[9.5px] font-extrabold text-amber-300 whitespace-nowrap">
+                              {formatTRY(quickTotalCost)}
+                            </span>
+                          </button>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={cash < outsourceCost}
+                      onClick={() =>
+                        onQuickRepairDefects(
+                          selected.uid,
+                          repairableDefects,
+                          true
+                        )
+                      }
+                      className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 py-1.5 text-responsive font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      {bi(
+                        `Dış Servise Gönder (${formatTRY(outsourceCost)})`,
+                        `Outsource Repair (${formatTRY(outsourceCost)})`
+                      )}
+                    </button>
+                  )}
 
-            {/* Bottom Utility Row: Box Kit & Scrap */}
-            <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-white/8 tabular-nums">
-              <button
-                type="button"
-                disabled={
-                  selected.hasBoxAndCharger ||
-                  selected.isBrandNew ||
-                  cash < BOX_KIT_COST ||
-                  Boolean(staffJob)
-                }
-                onClick={() => onAddBoxKit(selected.uid)}
-                className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-[#0E141D] py-1 text-[10px] font-bold text-slate-200 hover:bg-[#192332] disabled:opacity-35 cursor-pointer whitespace-nowrap"
-              >
-                <PackagePlus className="w-3 h-3 text-emerald-400" />
-                {selected.hasBoxAndCharger
-                  ? bi('Kutu Tam ✓', 'Box Ready ✓')
-                  : bi(`Kutu + Şarj (${formatTRY(BOX_KIT_COST)})`, `Add Box (${formatTRY(BOX_KIT_COST)})`)}
-              </button>
-
-              <button
-                type="button"
-                disabled={Boolean(staffJob)}
-                onClick={() => onScrapSellPhone(selected.uid)}
-                className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-500/20 disabled:opacity-35 cursor-pointer whitespace-nowrap"
-              >
-                <Banknote className="w-3 h-3" />
-                {bi(`Parçaya Sat (${formatTRY(scrapValue)})`, `Scrap (${formatTRY(scrapValue)})`)}
-              </button>
+                  {hasMasterTech && (
+                    <button
+                      type="button"
+                      disabled={cash < masterCost}
+                      onClick={() =>
+                        onDelegateRepairToMaster(
+                          selected.uid,
+                          repairableDefects
+                        )
+                      }
+                      className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/35 bg-sky-500/15 py-1 text-responsive-sm font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                    >
+                      <UserCog className="w-3 h-3" />
+                      {bi(
+                        `Hasan Usta (${masterSpecs.turnsPerJob} tur · ${formatTRY(masterCost)})`,
+                        `Master Hasan (${masterSpecs.turnsPerJob} turns · ${formatTRY(masterCost)})`
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Pinned Bottom Utility Row: Box Kit & Scrap (2-line stacked so amounts never clip) */}
+          <div className="shrink-0 grid grid-cols-2 gap-1.5 pt-1 border-t border-white/8 tabular-nums">
+            <button
+              type="button"
+              disabled={
+                selected.hasBoxAndCharger ||
+                selected.isBrandNew ||
+                cash < BOX_KIT_COST ||
+                Boolean(staffJob)
+              }
+              onClick={() => onAddBoxKit(selected.uid)}
+              className="inline-flex flex-col items-center justify-center rounded-lg border border-white/10 bg-[#0E141D] py-1 px-1 text-slate-200 hover:bg-[#192332] disabled:opacity-35 cursor-pointer leading-tight min-w-0"
+            >
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-bold whitespace-nowrap">
+                <PackagePlus className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                <span>{selected.hasBoxAndCharger ? bi('Kutu Tam ✓', 'Box Ready ✓') : bi('Kutu + Şarj', 'Box + Charger')}</span>
+              </span>
+              {!selected.hasBoxAndCharger && (
+                <span className="font-mono text-[9.5px] font-extrabold text-emerald-300 whitespace-nowrap">
+                  {formatTRY(BOX_KIT_COST)}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={Boolean(staffJob)}
+              onClick={() => onScrapSellPhone(selected.uid)}
+              className="inline-flex flex-col items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 py-1 px-1 text-rose-200 hover:bg-rose-500/20 disabled:opacity-35 cursor-pointer leading-tight min-w-0"
+            >
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-bold whitespace-nowrap">
+                <Banknote className="w-2.5 h-2.5 shrink-0" />
+                <span>{bi('Parçaya Sat', 'Sell Parts')}</span>
+              </span>
+              <span className="font-mono text-[9.5px] font-extrabold text-rose-300 whitespace-nowrap">
+                +{formatTRY(scrapValue)}
+              </span>
+            </button>
           </div>
         </div>
 
-        {/* CENTER-RIGHT: RICH 3x2 ACCESSORY VISUAL TILES + SHOWCASE PRICING (ZERO SCROLL) */}
-        <div className="col-span-6 flex flex-col gap-1 [@media(min-height:560px)]:gap-2 min-h-0 overflow-hidden">
+        {/* CENTER-RIGHT: STRICT ZERO-SCROLL 3x2 ACCESSORY TILES + PINNED SHOWCASE PRICING FOOTER */}
+        <div className="col-span-6 flex flex-col gap-1.5 [@media(min-height:560px)]:gap-2 h-full min-h-0 overflow-hidden">
           <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 flex flex-col overflow-hidden">
             <div className="shrink-0 flex items-center justify-between gap-1 mb-1">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-100 truncate">
-                <ShoppingBag className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <div className="inline-flex items-center gap-1 text-responsive-sm font-bold text-slate-100 truncate">
+                <ShoppingBag className="w-3 h-3 text-sky-400 shrink-0" />
                 <span className="truncate">
                   {bi('Vitrin Aksesuar Kombini', 'Showcase Accessory Bundle')}
                 </span>
               </div>
-              <span className="font-mono text-[10px] text-amber-300 shrink-0">
+              <span className="font-mono text-responsive-sm text-amber-300 shrink-0">
                 {bundledList.length}/6
               </span>
             </div>
 
             {!hasAccessoryLicense(upgrades) ? (
-              <div className="flex-1 min-h-0 rounded-xl border border-dashed border-amber-400/30 bg-[#0E141D] flex flex-col items-center justify-center text-center p-3 gap-1.5">
-                <Lock className="w-6 h-6 text-amber-400" />
-                <div className="text-[11px] font-extrabold text-slate-100">
+              <div className="flex-1 min-h-0 overflow-hidden rounded-xl border border-dashed border-amber-400/30 bg-[#0E141D] flex flex-col items-center justify-center text-center p-2 gap-1">
+                <Lock className="w-5 h-5 text-amber-400 shrink-0" />
+                <div className="text-responsive font-extrabold text-slate-100 leading-tight">
                   {bi('Aksesuar Reyonu Lisansı Gerekli', 'Accessory Rack License Required')}
                 </div>
-                <p className="text-[10px] text-slate-400 max-w-xs leading-snug">
+                <p className="text-[9.5px] text-slate-400 max-w-xs leading-tight line-clamp-2">
                   {bi(
                     'Telefon yanına kılıf, kırılmaz cam ve şarj kombini takmak için Büyüt veya Toptan sekmesinden Aksesuar Lisansını (45.000 ₺) aç.',
                     'Unlock the Accessory License (45,000 ₺) in Upgrades or Supply to bundle cases, glass & chargers.'
@@ -810,13 +781,13 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 <button
                   type="button"
                   onClick={onGoToUpgrades}
-                  className="mt-0.5 rounded-lg bg-amber-500 px-3 py-1 text-[10.5px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
+                  className="mt-0.5 rounded-lg bg-amber-500 px-2.5 py-1 text-responsive-sm font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer"
                 >
                   {bi('Büyüt Sekmesine Git', 'Go to Upgrades')}
                 </button>
               </div>
             ) : (
-            <div className="flex-1 min-h-0 grid grid-cols-3 grid-rows-2 gap-1.5 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden grid grid-cols-3 grid-rows-2 gap-1">
               {ACCESSORY_CATALOG.map((acc) => {
                 const loc = getLocalizedAccessory(acc.id, lang);
                 const stock = accessories[acc.id]?.quantity ?? 0;
@@ -837,7 +808,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                         ? onDetachAccessoryBundle(selected.uid, acc.id)
                         : onAttachAccessoryBundle(selected.uid, acc.id)
                     }
-                    className={`relative rounded-xl border p-1.5 flex flex-col justify-between text-center transition-colors min-h-0 overflow-hidden ${
+                    className={`relative rounded-lg border p-1 flex flex-col justify-between text-center transition-colors min-h-0 h-full overflow-hidden ${
                       attached
                         ? 'border-emerald-400/55 bg-emerald-500/15 hover:border-rose-400/70 hover:bg-rose-500/15 cursor-pointer group'
                         : !unlocked
@@ -872,11 +843,11 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                       )}
                     </div>
 
-                    {/* Large Centered Product Illustration */}
+                    {/* Centered Product Illustration */}
                     <div className="flex-1 min-h-0 flex items-center justify-center py-0.5 overflow-hidden">
                       <AccessoryProductArt
                         id={acc.id}
-                        className={`h-full max-h-7 [@media(min-height:520px)]:max-h-14 lg:max-h-16 w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] ${
+                        className={`h-full max-h-9 [@media(min-height:520px)]:max-h-14 lg:max-h-16 w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)] ${
                           !unlocked ? 'opacity-50' : ''
                         }`}
                       />
@@ -884,7 +855,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
 
                     {/* Product Name & Value Boost */}
                     <div className="shrink-0 w-full">
-                      <div className="text-[9px] [@media(min-height:560px)]:text-[9.5px] font-bold text-slate-100 truncate leading-tight">
+                      <div className="text-responsive-sm font-bold text-slate-100 truncate leading-tight">
                         {loc.name}
                       </div>
                       <div className="font-mono text-[8.5px] [@media(min-height:560px)]:text-[9px] font-bold text-emerald-400 leading-tight">
@@ -898,15 +869,15 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             )}
           </div>
 
-          {/* Showcase Listing & Price Slider */}
+          {/* Pinned Footer: Showcase Listing & Price Slider */}
           <div className="shrink-0 rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 space-y-1 [@media(min-height:560px)]:space-y-1.5 overflow-hidden tabular-nums">
             <div className="flex items-center justify-between gap-1">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-100">
-                <Store className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="inline-flex items-center gap-1 text-responsive font-bold text-slate-100">
+                <Store className="w-3 h-3 text-emerald-400" />
                 {bi('Vitrin Etiketi', 'Showcase Tag')}
               </div>
               <span
-                className={`rounded px-1.5 py-0.5 text-[9.5px] font-bold ${
+                className={`rounded px-1.5 py-0.5 text-responsive-sm font-bold ${
                   demand.tone === 'positive'
                     ? 'bg-emerald-500/15 text-emerald-300'
                     : demand.tone === 'warning'
@@ -928,12 +899,12 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                 onChange={(e) => setPriceDraft(Number(e.target.value))}
                 className="pasaj-slider flex-1"
               />
-              <span className="font-mono text-sm font-extrabold text-amber-300 shrink-0">
+              <span className="font-mono text-responsive font-extrabold text-amber-300 shrink-0">
                 {formatTRY(priceDraft)}
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 text-[10px]">
+            <div className="grid grid-cols-3 gap-1 text-responsive-sm">
               <button
                 type="button"
                 onClick={() => setPriceDraft(roundPrice(fairValue * 1.02))}
@@ -958,7 +929,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
             </div>
 
             <div className="flex items-center justify-between gap-2 pt-0.5">
-              <div className="text-[10px] text-slate-400">
+              <div className="text-responsive-sm text-slate-400">
                 {bi('Tahmini Kâr', 'Est. Profit')}:{' '}
                 <strong
                   className={`font-mono ${
@@ -977,7 +948,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                     onClick={() =>
                       onUpdateListing(selected.uid, false, priceDraft)
                     }
-                    className="rounded-lg border border-white/15 bg-[#1B2432] px-2 py-1 text-[10.5px] font-bold text-slate-300 hover:text-white cursor-pointer whitespace-nowrap"
+                    className="rounded-lg border border-white/15 bg-[#1B2432] px-2 py-0.5 text-responsive-sm font-bold text-slate-300 hover:text-white cursor-pointer whitespace-nowrap"
                   >
                     {bi('Çek', 'Unlist')}
                   </button>
@@ -988,9 +959,9 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({
                   onClick={() =>
                     onUpdateListing(selected.uid, true, priceDraft)
                   }
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1 text-[11px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-responsive font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
                 >
-                  <Layers className="w-3.5 h-3.5" />
+                  <Layers className="w-3 h-3" />
                   {selected.listedForSale
                     ? bi('Etiketi Güncelle', 'Update Tag')
                     : canListMore

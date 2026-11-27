@@ -556,10 +556,10 @@ export const PhoneInspectSVG: React.FC<PhoneInspectSVGProps> = ({
           <button
             type="button"
             onClick={() => setSide((s) => (s === 'front' ? 'back' : 'front'))}
-            className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg border border-white/15 bg-[#1B2534]/95 px-2 py-1 text-[10px] font-bold text-slate-100 hover:bg-[#27354A] transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-md"
+            className="absolute bottom-1 right-1 inline-flex items-center gap-0.5 rounded-md border border-white/15 bg-[#1B2534]/95 px-1.5 py-0.5 text-[9px] font-bold text-slate-100 hover:bg-[#27354A] transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-md"
             title={bi('Cihazı çevir', 'Flip phone')}
           >
-            <RotateCw className="w-3 h-3 text-amber-400" />
+            <RotateCw className="w-2.5 h-2.5 text-amber-400" />
             <span>
               {side === 'front'
                 ? bi('Arka Yüz', 'Back')

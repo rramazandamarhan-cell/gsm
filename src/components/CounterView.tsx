@@ -584,7 +584,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
 
   if (!encounter) {
     return (
-      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center p-4 text-center overflow-hidden">
+      <div className="relative flex-1 h-full min-h-0 flex flex-col items-center justify-center p-4 text-center overflow-hidden">
         <ShopDecorLayer
           shopTier={shopTier}
           activeDecorations={activeDecorations}
@@ -599,11 +599,11 @@ export const CounterView: React.FC<CounterViewProps> = ({
           teaBoilerFreshActive={teaBoilerFreshActive}
           shopSpirit={selectedTone}
         />
-        <div className="relative z-10 rounded-2xl border border-white/12 bg-[#141C27]/95 p-5 max-w-md shadow-2xl">
-          <h2 className="font-display text-lg font-extrabold text-slate-100">
+        <div className="relative z-10 rounded-2xl border border-white/12 bg-[#141C27]/95 p-4 max-w-md shadow-2xl">
+          <h2 className="font-display text-sm [@media(min-height:560px)]:text-base font-extrabold text-slate-100">
             {bi('Bugünkü Müşteriler Tamamlandı', 'All Customers Served Today')}
           </h2>
-          <p className="text-xs text-slate-300 mt-1.5 mb-4">
+          <p className="text-[10.5px] [@media(min-height:560px)]:text-[11px] text-slate-300 mt-1 mb-3">
             {bi(
               'Kepenkleri indirmeden önce atölyeye uğrayıp cihazlarını tamir edip vitrine koyabilirsin.',
               'Before closing shutters, visit your workshop to repair and list phones on your showcase.'
@@ -613,14 +613,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
             <button
               type="button"
               onClick={onGoToWorkshop}
-              className="rounded-xl border border-white/15 bg-[#1D2634] px-4 py-2 text-xs font-bold text-slate-200 hover:bg-[#273345] cursor-pointer whitespace-nowrap"
+              className="rounded-lg border border-white/15 bg-[#1D2634] px-3.5 py-1.5 text-[10.5px] [@media(min-height:560px)]:text-[11px] font-bold text-slate-200 hover:bg-[#273345] cursor-pointer whitespace-nowrap"
             >
               {bi('Atölyeye Göz At', 'Visit Workshop')}
             </button>
             <button
               type="button"
               onClick={onNextCustomer}
-              className="rounded-xl bg-amber-500 px-5 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
+              className="rounded-lg bg-amber-500 px-4 py-1.5 text-[10.5px] [@media(min-height:560px)]:text-[11px] font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
             >
               {bi('Günü Bitir & Rapor', 'End Day & Report')}
             </button>
@@ -724,7 +724,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
   const moodMarkerLeft = Math.max(4, Math.min(96, Math.round(encounter.moodScore)));
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-[#0F141B]">
+    <div className="relative flex-1 h-full min-h-0 flex flex-col overflow-hidden bg-[#0F141B]">
       <ShopDecorLayer
         shopTier={shopTier}
         activeDecorations={activeDecorations}
@@ -740,10 +740,10 @@ export const CounterView: React.FC<CounterViewProps> = ({
         shopSpirit={selectedTone}
       />
 
-      {/* FLOATING ESNAF VECİZELERİ SPEECH BUBBLES (NON-BLOCKING) */}
+      {/* FLOATING ESNAF VECİZELERİ SPEECH BUBBLES (NON-BLOCKING, COMPACT) */}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed top-14 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5 w-full max-w-md px-3"
+        className="pointer-events-none fixed top-10 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 w-full max-w-[260px] sm:max-w-xs px-2"
       >
         <AnimatePresence>
           {proverbBubbles.map((bubble) => {
@@ -751,21 +751,21 @@ export const CounterView: React.FC<CounterViewProps> = ({
             return (
               <motion.div
                 key={bubble.id}
-                initial={{ opacity: 0, y: 14, scale: 0.92 }}
+                initial={{ opacity: 0, y: 10, scale: 0.94 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -12, scale: 0.94 }}
-                transition={{ duration: 0.22 }}
-                className={`relative rounded-2xl border px-3.5 py-2 shadow-2xl backdrop-blur-md text-center ${meta.bubbleCls}`}
+                exit={{ opacity: 0, y: -10, scale: 0.94 }}
+                transition={{ duration: 0.2 }}
+                className={`relative rounded-xl border px-2.5 py-1 shadow-xl backdrop-blur-md text-center ${meta.bubbleCls}`}
               >
-                <div className={`text-[9px] font-extrabold tracking-wide uppercase ${meta.textCls}`}>
+                <div className={`text-[8px] font-extrabold tracking-wide uppercase ${meta.textCls}`}>
                   {bubble.spiritLabel}
                 </div>
-                <div className="text-xs font-bold leading-snug mt-0.5 italic">
+                <div className="text-[10px] font-bold leading-tight mt-0.5 italic">
                   “{bubble.text}”
                 </div>
                 {/* Small Speech Bubble Tail */}
                 <div
-                  className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 border-r border-b ${meta.bubbleCls}`}
+                  className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 border-r border-b ${meta.bubbleCls}`}
                 />
               </motion.div>
             );
@@ -774,17 +774,17 @@ export const CounterView: React.FC<CounterViewProps> = ({
       </div>
 
       {/* SLIM SINGLE-LINE TOP BAR: NEWS + RADIO + QUEUE + ACTIVE QUEST */}
-      <div className="relative z-10 shrink-0 flex items-center justify-between gap-2 border-b border-white/10 bg-[#131A24]/95 px-2.5 py-1 text-[10.5px]">
+      <div className="relative z-10 shrink-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 sm:gap-2 border-b border-white/10 bg-[#131A24]/95 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px]">
         <button
           type="button"
           onClick={onOpenNewspaper}
-          className="inline-flex items-center gap-1.5 text-amber-200 hover:text-amber-100 min-w-0 cursor-pointer"
+          className="inline-flex items-center gap-1 text-amber-200 hover:text-amber-100 min-w-0 flex-1 sm:flex-initial cursor-pointer"
         >
-          <Newspaper className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <Newspaper className="w-3 h-3 text-amber-400 shrink-0" />
           <span className="truncate font-semibold">{locNews.headline}</span>
         </button>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 max-w-full overflow-x-auto no-scrollbar">
           {/* Interactive Eski Pasaj Radyosu Switcher */}
           {onCycleRadio && activeDecorations.includes('vintage_radio') && (() => {
             const stMeta = RADIO_STATIONS_META[radioStation];
@@ -1050,12 +1050,12 @@ export const CounterView: React.FC<CounterViewProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className="relative z-10 flex-1 min-h-0 flex items-center justify-center p-2.5 overflow-hidden"
+            className="relative z-10 flex-1 h-full min-h-0 flex items-center justify-center px-2.5 pt-1.5 pb-14 sm:pb-16 overflow-hidden"
           >
-            <div className="w-full max-w-3xl rounded-2xl border border-white/12 bg-[#141C27]/95 shadow-2xl overflow-hidden flex flex-col">
-              <div className="border-b border-white/8 bg-[#101720] px-3 py-1.5 flex items-center justify-between text-[11px]">
+            <div className="w-full max-w-[440px] sm:max-w-[480px] max-h-full rounded-xl border border-white/12 bg-[#141C27]/95 shadow-2xl overflow-hidden flex flex-col">
+              <div className="shrink-0 border-b border-white/8 bg-[#101720] px-2.5 py-1 flex items-center justify-between text-responsive-sm">
                 <span className="inline-flex items-center gap-1.5 text-amber-300 font-bold truncate">
-                  <DoorOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <DoorOpen className="w-3 h-3 text-amber-400 shrink-0" />
                   {bi(
                     'Kapı zili çaldı · Müşteri tezgaha geldi',
                     'Doorbell chimed · Customer approached counter'
@@ -1066,7 +1066,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                 </span>
               </div>
 
-              <div className="p-3.5 flex items-center gap-4">
+              <div className="flex-1 min-h-0 overflow-hidden p-2 [@media(min-height:560px)]:p-2.5 flex flex-row items-center gap-2 sm:gap-2.5">
                 <CustomerAvatar
                   name={encounter.customerName}
                   title={archetype.title}
@@ -1081,8 +1081,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   onPortraitError={() => setPortraitFailed(true)}
                 />
 
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-responsive-sm">
                     <span className="font-bold text-emerald-300">{roleText}</span>
                     <span className="text-white/25">·</span>
                     <span className="text-slate-400">{archetype.title}</span>
@@ -1093,18 +1093,18 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     )}
                   </div>
 
-                  <h2 className="font-display text-base sm:text-lg font-extrabold text-slate-50 leading-tight">
+                  <h2 className="font-display text-responsive-title font-extrabold text-slate-50 leading-tight">
                     {bi(
                       `${encounter.customerName} içeri girdi`,
                       `${encounter.customerName} walked in`
                     )}
                   </h2>
 
-                  <div className="rounded-xl border border-amber-400/20 bg-[#1C2634] px-3 py-2 text-xs text-slate-100 leading-snug break-words">
+                  <div className="rounded-lg border border-amber-400/20 bg-[#1C2634] px-2 py-1 text-responsive text-slate-100 leading-snug break-words">
                     “{localizeDynamicLine(encounter.messages[0]?.text ?? '', lang)}”
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400 tabular-nums">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-responsive-sm text-slate-400 tabular-nums">
                     <span>
                       {bi('Konu', 'Item')}:{' '}
                       <strong className="text-slate-100">
@@ -1127,28 +1127,16 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       </strong>
                     </span>
                   </div>
-
-                  {waitingCustomers.length > 0 && (
-                    <div className="flex items-center gap-2 pt-0.5 text-[10px] text-amber-200/85">
-                      <Coffee className="w-3 h-3 text-amber-400 shrink-0" />
-                      <span className="truncate">
-                        {bi('Bekleme koltuğunda çay yudumlayanlar:', 'Sipping tea in waiting seats:')}{' '}
-                        <strong className="text-slate-100">
-                          {waitingCustomers.map((w) => w.name.split(' ')[0]).join(' · ')}
-                        </strong>
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Visual Preview of Incoming Phone / Accessory */}
-                <div className="hidden sm:flex shrink-0 rounded-xl border border-white/10 bg-[#0E141D] p-2.5 items-center justify-center gap-1.5">
+                <div className="hidden sm:flex shrink-0 rounded-xl border border-white/10 bg-[#0E141D] p-1.5 items-center justify-center gap-1">
                   {encounter.type === 'ACCESSORY_BUYER' &&
                   encounter.accessoryOrder &&
                   encounter.accessoryOrder[0] ? (
                     <AccessoryProductArt
                       id={encounter.accessoryOrder[0].id}
-                      className="w-16 h-16"
+                      className="w-10 h-10"
                     />
                   ) : encounter.type === 'BULK_AUCTION' &&
                     encounter.bundleDevices ? (
@@ -1159,7 +1147,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           device={d}
                           showBack
                           silhouette
-                          className="w-11 h-16"
+                          className="w-8 h-12"
                         />
                       ))}
                     </div>
@@ -1168,27 +1156,27 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       <PhoneModelThumb
                         device={encounter.tradeInDevice}
                         showBack
-                        className="w-10 h-16"
+                        className="w-8 h-12"
                       />
-                      <ArrowLeftRight className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <ArrowLeftRight className="w-3 h-3 text-sky-400 shrink-0" />
                       <PhoneModelThumb
                         device={encounter.device}
                         showBack
-                        className="w-10 h-16"
+                        className="w-8 h-12"
                       />
                     </div>
                   ) : (
                     <PhoneModelThumb
                       device={encounter.device}
                       showBack
-                      className="w-14 h-24"
+                      className="w-9 h-16"
                     />
                   )}
                 </div>
               </div>
 
-              <div className="border-t border-white/10 bg-[#1B1713]/92 px-3.5 py-2 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-amber-200/85 truncate">
+              <div className="shrink-0 border-t border-white/10 bg-[#1B1713]/92 px-2.5 py-1 flex items-center justify-between gap-2">
+                <span className="text-responsive-sm text-amber-200/85 truncate">
                   {bi(
                     'Cihazı tezgaha alıp incele ve pazarlığa başla.',
                     'Place the device on the counter to inspect and negotiate.'
@@ -1197,25 +1185,25 @@ export const CounterView: React.FC<CounterViewProps> = ({
                 <button
                   type="button"
                   onClick={handlePlaceOnDesk}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1 text-responsive font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <ArrowDownToLine className="w-4 h-4" />
+                  <ArrowDownToLine className="w-3.5 h-3.5" />
                   {bi('Tezgaha Al', 'Place on Counter')}
                 </button>
               </div>
             </div>
           </motion.div>
         ) : (
-          /* 3-COLUMN ZERO-SCROLL WORKBENCH */
+          /* 3-COLUMN WORKBENCH (STACKS CLEANLY ON PORTRAIT PHONES, ZERO-SCROLL ON LANDSCAPE/TABLET) */
           <motion.div
             key={`desk_${encounter.id}`}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.16 }}
-            className="relative z-10 flex-1 min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 p-1.5 [@media(min-height:560px)]:p-2 overflow-hidden"
+            className="relative z-10 flex-1 h-full min-h-0 grid grid-cols-12 gap-1.5 [@media(min-height:560px)]:gap-2 p-1.5 [@media(min-height:560px)]:p-2 overflow-hidden"
           >
             {/* COLUMN 1: CUSTOMER, MOOD/PATIENCE & CHAT (4 cols) */}
-            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-1.5 [@media(min-height:560px)]:p-2 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+            <section className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
               {/* Avatar + Name + Patience */}
               <div className="shrink-0 flex items-center gap-2 border-b border-white/8 pb-1 [@media(min-height:560px)]:pb-1.5">
                 <CustomerAvatar
@@ -1234,19 +1222,19 @@ export const CounterView: React.FC<CounterViewProps> = ({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-extrabold text-slate-50 truncate">
+                    <span className="text-responsive font-extrabold text-slate-50 truncate">
                       {encounter.customerName}
                     </span>
-                    <span className="text-[10px] font-bold text-amber-300 shrink-0">
+                    <span className="text-responsive-sm font-bold text-amber-300 shrink-0">
                       {roleText}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-400 truncate">
+                  <div className="text-responsive-sm text-slate-400 truncate">
                     {archetype.title}
                   </div>
                   {/* Patience Mini Bar */}
                   <div className="mt-0.5 [@media(min-height:560px)]:mt-1 space-y-0.5">
-                    <div className="flex justify-between text-[9.5px] tabular-nums">
+                    <div className="flex justify-between text-responsive-sm tabular-nums">
                       <span className="text-slate-400">
                         {bi('Sabır', 'Patience')}
                       </span>
@@ -1282,15 +1270,15 @@ export const CounterView: React.FC<CounterViewProps> = ({
 
               {/* Mood Visual Meter with Gradient Track */}
               <div className="shrink-0 rounded-lg border border-white/8 bg-[#0E141D] px-2 py-0.5 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1 space-y-0.5">
-                <div className="flex items-center justify-between gap-1.5 text-[10px] [@media(min-height:560px)]:text-[10.5px]">
+                <div className="flex items-center justify-between gap-1.5 text-responsive-sm">
                   <span className="inline-flex items-center gap-1 font-bold text-slate-100 truncate">
-                    <span className="text-sm leading-none">{moodInfo.emoji}</span>
+                    <span className="text-xs leading-none">{moodInfo.emoji}</span>
                     <span>{moodInfo.simpleLabel}</span>
                     <span className="text-slate-400 font-normal hidden lg:inline">
                       · {moodInfo.label}
                     </span>
                   </span>
-                  <span className="font-mono text-[10px] text-amber-300 font-bold tabular-nums shrink-0">
+                  <span className="font-mono text-responsive-sm text-amber-300 font-bold tabular-nums shrink-0">
                     {Math.round(encounter.moodScore)}/100
                   </span>
                 </div>
@@ -1311,7 +1299,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   {encounter.messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`shrink-0 rounded-lg px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5 text-[10px] [@media(min-height:560px)]:text-[11px] leading-snug break-words whitespace-pre-wrap ${
+                      className={`shrink-0 rounded-lg px-2 py-1 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1.5 text-responsive leading-snug break-words whitespace-pre-wrap ${
                         msg.speaker === 'player'
                           ? 'ml-3 bg-amber-500/14 border border-amber-400/25 text-amber-100'
                           : msg.tone === 'positive'
@@ -1328,7 +1316,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
               </div>
 
               {/* Archetype Trait Tip */}
-              <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2 py-0.5 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] text-slate-300 truncate">
+              <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2 py-0.5 [@media(min-height:560px)]:px-2.5 [@media(min-height:560px)]:py-1 text-responsive-sm text-slate-300 truncate">
                 <strong className="text-amber-300">{bi('İpucu', 'Tip')}:</strong>{' '}
                 {archetype.traitSummary}
               </div>
@@ -1337,43 +1325,43 @@ export const CounterView: React.FC<CounterViewProps> = ({
             {/* COLUMN 2: INTERACTIVE PHONE MODEL VISUAL & INSPECTION MAT (4 cols) */}
             <section
               data-tour="tour-inspect"
-              className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-1.5 sm:p-2 gap-1.5 overflow-hidden"
+              className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#151D28] p-1.5 sm:p-2 gap-1 overflow-hidden"
             >
               {encounter.type === 'ACCESSORY_BUYER' && encounter.accessoryOrder ? (
-                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
                   <div className="shrink-0 flex items-center justify-between">
-                    <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-300">
+                    <div className="inline-flex items-center gap-1.5 text-responsive font-extrabold text-emerald-300">
                       <ShoppingBag className="w-4 h-4" />
                       {bi('Aksesuar Sepeti', 'Accessory Basket')}
                     </div>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-responsive-sm text-slate-400">
                       {encounter.accessoryOrder.length} {bi('ürün', 'items')}
                     </span>
                   </div>
-                  <div className="flex-1 min-h-0 grid grid-cols-1 auto-rows-fr gap-1.5 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-1">
                     {encounter.accessoryOrder.map((line) => (
                       <div
                         key={line.id}
-                        className="rounded-xl border border-white/10 bg-[#0E141D] px-2.5 py-1.5 flex items-center gap-2.5 min-h-0 overflow-hidden tabular-nums"
+                        className="shrink-0 rounded-xl border border-white/10 bg-[#0E141D] px-2.5 py-1.5 flex items-center gap-2.5 tabular-nums"
                       >
                         <div className="w-10 h-10 rounded-lg bg-[#151F2C] border border-white/8 p-1 flex items-center justify-center shrink-0">
                           <AccessoryProductArt id={line.id} className="w-full h-full" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-slate-100 truncate">
+                          <div className="text-responsive font-bold text-slate-100 truncate">
                             {getLocalizedAccessory(line.id, lang).name}
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-responsive-sm text-slate-400">
                             {line.quantity} × {formatTRY(line.unitPrice)}
                           </div>
                         </div>
-                        <span className="font-mono text-xs text-amber-300 font-extrabold shrink-0">
+                        <span className="font-mono text-responsive text-amber-300 font-extrabold shrink-0">
                           {formatTRY(line.quantity * line.unitPrice)}
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-[10px] text-slate-400 text-center">
+                  <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-responsive-sm text-slate-400 text-center">
                     {bi(
                       'Müşteri reyon etiketinden nakit almaya hazır.',
                       'Customer is ready to pay full shelf tag price.'
@@ -1381,39 +1369,39 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </div>
                 </div>
               ) : encounter.type === 'BULK_AUCTION' && encounter.bundleDevices ? (
-                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
-                  <div className="shrink-0 inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-300">
+                <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
+                  <div className="shrink-0 inline-flex items-center gap-1.5 text-responsive font-extrabold text-amber-300">
                     <Package className="w-4 h-4" />
                     {bi('2’li Kapalı Toptancı Kolisi', '2-Unit Sealed Mystery Box')}
                   </div>
-                  <div className="flex-1 min-h-0 grid grid-cols-2 gap-2 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden grid grid-cols-2 gap-1.5">
                     {encounter.bundleDevices.map((d, idx) => (
                       <div
                         key={d.uid}
-                        className="rounded-xl border border-amber-400/20 bg-[#0E141D] p-2.5 flex flex-col items-center justify-between text-center min-h-0"
+                        className="rounded-xl border border-amber-400/20 bg-[#0E141D] p-1.5 flex flex-col items-center justify-between text-center min-h-0 overflow-hidden"
                       >
-                        <span className="font-mono text-[10px] font-bold text-amber-300">
+                        <span className="font-mono text-responsive-sm font-bold text-amber-300">
                           #{idx + 1} · {bi('Kapalı', 'Sealed')}
                         </span>
                         <div className="flex-1 min-h-0 flex items-center justify-center py-1">
                           <PhoneModelThumb
                             device={d}
                             showBack
-                            className="h-full max-h-28 w-auto"
+                            className="h-full max-h-24 w-auto"
                           />
                         </div>
                         <div className="w-full">
-                          <div className="text-[11px] font-extrabold text-slate-100 truncate">
+                          <div className="text-responsive font-extrabold text-slate-100 truncate">
                             {d.brand} {d.model}
                           </div>
-                          <div className="text-[9.5px] text-slate-400">
+                          <div className="text-responsive-sm text-slate-400">
                             {d.storage}
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-[10px] text-slate-400 text-center">
+                  <div className="shrink-0 rounded-lg bg-[#0E141D] border border-white/6 px-2.5 py-1.5 text-responsive-sm text-slate-400 text-center">
                     {bi(
                       'Koli açılmadan alınır — içeride temiz cihaz da çıkabilir arızalı da!',
                       'Sold sight unseen — may contain clean gems or fixable defects!'
@@ -1421,9 +1409,9 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </div>
                 </div>
               ) : encounter.type === 'WARRANTY_CLAIM' && encounter.warrantyRecord ? (
-                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
                   <div className="shrink-0 flex items-center justify-between gap-1">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-rose-300">
+                    <span className="inline-flex items-center gap-1.5 text-responsive font-extrabold text-rose-300">
                       <ShieldAlert className="w-4 h-4" />
                       {bi('Garanti & İade Talebi', 'Warranty Claim')}
                     </span>
@@ -1435,38 +1423,40 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             soundFX.playClick();
                             onOpenWarrantyCertificate(encounter.warrantyRecord!);
                           }}
-                          className="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[9.5px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap"
+                          className="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-responsive-sm font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap"
                         >
                           <FileCheck2 className="w-3 h-3" />
                           {bi('Garanti Belgesi', 'Certificate')}
                         </button>
                       )}
-                      <span className="font-mono text-xs font-extrabold text-amber-300 tabular-nums">
+                      <span className="font-mono text-responsive font-extrabold text-amber-300 tabular-nums">
                         {formatTRY(encounter.warrantyRecord.salePrice)}
                       </span>
                     </div>
                   </div>
-                  <div className="shrink-0 rounded-lg border border-rose-400/40 bg-rose-500/12 px-2.5 py-1.5 space-y-0.5">
-                    <div className="flex items-center justify-between gap-1 text-[10px]">
-                      <span className="font-bold uppercase tracking-wide text-rose-300">
-                        {bi('Bildirilen Arıza', 'Reported Fault')}
-                      </span>
-                      <span className="font-extrabold text-rose-100 truncate">
-                        {encounter.warrantyDefectId
-                          ? getLocalizedDefect(encounter.warrantyDefectId, lang).name
-                          : bi('Donanım Arızası', 'Hardware Fault')}
-                      </span>
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-1">
+                    <div className="shrink-0 rounded-lg border border-rose-400/40 bg-rose-500/12 px-2 py-1 space-y-0.5">
+                      <div className="flex items-center justify-between gap-1 text-responsive-sm">
+                        <span className="font-bold uppercase tracking-wide text-rose-300">
+                          {bi('Bildirilen Arıza', 'Reported Fault')}
+                        </span>
+                        <span className="font-extrabold text-rose-100 truncate">
+                          {encounter.warrantyDefectId
+                            ? getLocalizedDefect(encounter.warrantyDefectId, lang).name
+                            : bi('Donanım Arızası', 'Hardware Fault')}
+                        </span>
+                      </div>
+                      {encounter.warrantyFaultDetail && (
+                        <p className="text-responsive-sm text-slate-200 leading-tight line-clamp-1">
+                          {encounter.warrantyFaultDetail}
+                        </p>
+                      )}
                     </div>
-                    {encounter.warrantyFaultDetail && (
-                      <p className="text-[10px] text-slate-200 leading-snug line-clamp-2">
-                        {encounter.warrantyFaultDetail}
-                      </p>
-                    )}
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                      <PhoneInspectSVG device={encounter.device} revealAll fluid />
+                    </div>
                   </div>
-                  <div className="flex-1 min-h-0">
-                    <PhoneInspectSVG device={encounter.device} revealAll fluid />
-                  </div>
-                  <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2.5 py-1 text-[10px] text-slate-300 text-center">
+                  <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2.5 py-1 text-responsive-sm text-slate-300 text-center">
                     {bi(
                       'Ücretsiz onarım itibar kazandırır; reddetmek puan düşürür.',
                       'Free repair boosts reputation; rejecting harms shop rating.'
@@ -1474,20 +1464,22 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </div>
                 </div>
               ) : encounter.type === 'DATA_RECOVERY' && encounter.dataRecoveryJob ? (
-                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                <div className="flex-1 h-full min-h-0 flex flex-col gap-1.5 overflow-hidden">
                   <div className="shrink-0 flex items-center justify-between gap-1">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-sky-300 truncate">
+                    <span className="inline-flex items-center gap-1.5 text-responsive font-extrabold text-sky-300 truncate">
                       <Database className="w-4 h-4 shrink-0" />
                       <span className="truncate">{encounter.dataRecoveryJob.title}</span>
                     </span>
-                    <span className="font-mono text-xs font-extrabold text-emerald-400 shrink-0 tabular-nums">
+                    <span className="font-mono text-responsive font-extrabold text-emerald-400 shrink-0 tabular-nums">
                       +{formatTRY(encounter.customerPrice)}
                     </span>
                   </div>
-                  <div className="flex-1 min-h-0">
-                    <PhoneInspectSVG device={encounter.device} revealAll fluid />
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                      <PhoneInspectSVG device={encounter.device} revealAll fluid />
+                    </div>
                   </div>
-                  <div className="shrink-0 rounded-lg border border-sky-400/25 bg-sky-500/10 px-2.5 py-1.5 text-[10px] text-slate-200 text-center">
+                  <div className="shrink-0 rounded-lg border border-sky-400/25 bg-sky-500/10 px-2.5 py-1.5 text-responsive-sm text-slate-200 text-center">
                     {bi(
                       'Yazılım lisansı daha ekonomiktir ama risk taşır; Temiz Oda %100 garantilidir.',
                       'Software tool is cheaper but risky; Clean Room Lab guarantees 100% recovery.'
@@ -1497,14 +1489,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
               ) : (
                 /* STANDARD DEVICE INSPECTION & LIVE PHONE MODEL VISUAL */
                 <>
-                  {/* Compact Device Tech Header */}
+                  {/* Compact Device Tech Header (Pinned Top) */}
                   <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2 py-1 space-y-0.5 tabular-nums">
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="min-w-0">
-                        <div className="text-[11px] sm:text-xs font-extrabold text-slate-50 truncate leading-tight">
+                        <div className="text-responsive font-extrabold text-slate-50 truncate leading-tight">
                           {inspectedTarget.brand} {inspectedTarget.model}
                         </div>
-                        <div className="text-[9.5px] text-slate-400 truncate leading-tight">
+                        <div className="text-responsive-sm text-slate-400 truncate leading-tight">
                           {inspectedTarget.storage} · {condition.label} ({condition.score})
                         </div>
                       </div>
@@ -1512,14 +1504,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
                         <div className="text-[8.5px] text-slate-400 leading-tight">
                           {bi('Tahmini Değer', 'Est. Value')}
                         </div>
-                        <div className="font-mono text-[11px] sm:text-xs font-extrabold text-amber-300 leading-tight">
+                        <div className="font-mono text-responsive font-extrabold text-amber-300 leading-tight">
                           {formatTRY(sellerAsIsVal)}
                         </div>
                       </div>
                     </div>
 
                     {encounter.type === 'TRADE_IN' && encounter.tradeInDevice && (
-                      <div className="flex items-center gap-1 rounded bg-sky-500/15 border border-sky-400/25 px-1.5 py-0.5 text-[9px] font-bold text-sky-200 truncate">
+                      <div className="flex items-center gap-1 rounded bg-sky-500/15 border border-sky-400/25 px-1.5 py-0.5 text-responsive-sm font-bold text-sky-200 truncate">
                         <ArrowLeftRight className="w-2.5 h-2.5 shrink-0" />
                         {bi('İstediği', 'Wants')}: {encounter.device.brand}{' '}
                         {encounter.device.model}
@@ -1529,7 +1521,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     {/* Customer Fault Report ("Arıza Bildirim") Note */}
                     {encounter.customerFaultReport && (
                       <div
-                        className={`rounded-md border px-1.5 py-0.5 text-[9px] leading-tight ${
+                        className={`rounded-md border px-1.5 py-0.5 text-responsive-sm leading-tight ${
                           encounter.customerFaultReport.honesty === 'HIDING'
                             ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
                             : 'border-rose-400/35 bg-rose-500/10 text-rose-100'
@@ -1541,26 +1533,238 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             {bi('Bildirim:', 'Report:')} {encounter.customerFaultReport.headline}
                           </span>
                         </div>
-                        <p className="text-[9px] text-slate-200/90 line-clamp-1 italic">
+                        <p className="text-[8.5px] text-slate-200/90 line-clamp-1 italic">
                           {encounter.customerFaultReport.symptomText}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  {/* LIVE INTERACTIVE SMARTPHONE VISUAL MODEL (FLUID, ZERO OVERFLOW) */}
-                  <div className="relative flex-1 min-h-0 overflow-hidden">
-                    <PhoneInspectSVG
-                      device={inspectedTarget}
-                      revealAll={
-                        encounter.type === 'BUYER' ||
-                        encounter.type === 'EXPRESS_REPAIR'
-                      }
-                      fluid
-                    />
+                  {/* ADAPTIVE ZERO-SCROLL MAIN CARD BODY: PHONE VISUAL + DEFECTS / HISTORY / CROSS-SELL */}
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-1">
+                    {/* LIVE INTERACTIVE SMARTPHONE VISUAL MODEL */}
+                    <div className="relative flex-1 min-h-0 overflow-hidden">
+                      <PhoneInspectSVG
+                        device={inspectedTarget}
+                        revealAll={
+                          encounter.type === 'BUYER' ||
+                          encounter.type === 'EXPRESS_REPAIR'
+                        }
+                        fluid
+                      />
+                    </div>
+
+                    {/* SELLER / TRADE-IN: DISCOVERED DEFECTS LEVERAGE GRID */}
+                    {(encounter.type === 'SELLER' ||
+                      (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) &&
+                      discoveredDefects.length > 0 && (
+                        <div className="shrink-0 grid grid-cols-2 gap-1">
+                          {discoveredDefects.map((d) => {
+                            const locDef = getLocalizedDefect(d, lang);
+                            const used = encounter.usedLeverageDefects.includes(d);
+                            return (
+                              <div
+                                key={d}
+                                className="rounded-lg border border-rose-400/40 bg-rose-500/14 px-1.5 py-1 flex items-center justify-between gap-1 min-w-0"
+                              >
+                                <span
+                                  className="text-responsive-sm font-bold text-rose-100 truncate min-w-0"
+                                  title={locDef.name}
+                                >
+                                  ⚠ {locDef.shortLabel}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={used || encounter.outcome !== 'ACTIVE'}
+                                  onClick={() => onUseLeverage(d)}
+                                  className="rounded bg-rose-500 px-1.5 py-0.5 text-[8.5px] sm:text-[9px] font-extrabold text-white hover:bg-rose-400 active:scale-95 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
+                                >
+                                  {used
+                                    ? bi('OK ✓', 'Used ✓')
+                                    : bi('Koz Vur', 'Leverage')}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                    {/* BUYER / TRADE-IN: TRANSPARENT DEVICE HISTORY & HONEST DISCLOSURE */}
+                    {(encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') && (() => {
+                      const outDevice = encounter.device;
+                      const repairedList = outDevice.repairedDefects ?? [];
+                      const isOverseas = outDevice.defects.includes('imei_unregistered');
+                      const otherDefects = outDevice.defects.filter(
+                        (d) => d !== 'imei_unregistered'
+                      );
+                      const needsDisclosure =
+                        repairedList.length > 0 || isOverseas || otherDefects.length > 0;
+
+                      return (
+                        <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2 py-1.5 space-y-1 text-responsive-sm">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold text-slate-200 truncate">
+                              {bi('Cihaz Geçmişi', 'Device History')}
+                            </span>
+                            <span
+                              className={`rounded px-1 py-0.2 font-mono text-[8px] font-extrabold shrink-0 whitespace-nowrap ${
+                                isOverseas
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-400/35'
+                                  : 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/30'
+                              }`}
+                            >
+                              {isOverseas
+                                ? bi('YURTDIŞI', 'OVERSEAS')
+                                : bi('TR KAYITLI', 'TR IMEI')}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1">
+                            {repairedList.length > 0 ? (
+                              <span className="rounded bg-amber-500/15 border border-amber-400/30 px-1.5 py-0.2 text-amber-200 font-semibold truncate max-w-full">
+                                {bi('Değişen:', 'Replaced:')}{' '}
+                                {repairedList
+                                  .map((d) => getLocalizedDefect(d, lang).shortLabel)
+                                  .join(', ')}
+                              </span>
+                            ) : (
+                              <span className="rounded bg-emerald-500/12 px-1.5 py-0.2 text-emerald-300 font-semibold">
+                                {bi('Tamirsiz / Orijinal', 'Untouched / Original')}
+                              </span>
+                            )}
+                            {outDevice.lastRepairQuality === 'ROUGH' && (
+                              <span className="rounded bg-rose-500/20 px-1.5 py-0.2 text-rose-300 font-bold">
+                                {bi('⚠ Kaba İşçilik', '⚠ Rough Repair')}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                soundFX.playClick();
+                                setShowEsnafReportModal(true);
+                              }}
+                              className="flex-1 rounded-md border border-amber-400/45 bg-amber-500/15 px-2 py-1 text-responsive-sm font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
+                            >
+                              <ClipboardCheck className="w-3 h-3 shrink-0" />
+                              {bi('Esnaf Onarım Raporu', 'Merchant Report')}
+                            </button>
+
+                            {needsDisclosure && encounter.outcome === 'ACTIVE' && onDiscloseBuyer && (
+                              encounter.buyerDisclosed ? (
+                                <div className="flex items-center gap-1 text-emerald-300 font-bold shrink-0 px-1">
+                                  <ShieldCheck className="w-3 h-3 shrink-0" />
+                                  <span className="text-responsive-sm whitespace-nowrap">
+                                    {bi('Beyan ✓', 'Disclosed ✓')}
+                                  </span>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={onDiscloseBuyer}
+                                  className="flex-1 rounded-md border border-sky-400/45 bg-sky-500/15 px-2 py-1 text-responsive-sm font-extrabold text-sky-200 hover:bg-sky-500/25 cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
+                                >
+                                  <ShieldCheck className="w-3 h-3 shrink-0" />
+                                  {bi('Dürüst Beyan Et', 'Disclose')}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* BUYER: COMPACT CROSS-SELL ACCESSORY BAR */}
+                    {encounter.type === 'BUYER' && encounter.outcome === 'ACTIVE' && (
+                      <div className="shrink-0 rounded-lg border border-white/8 bg-[#0E141D] p-2 space-y-1.5">
+                        <div className="flex items-center justify-between text-responsive-sm font-bold text-sky-300">
+                          <span className="inline-flex items-center gap-1">
+                            <ShoppingBag className="w-3 h-3" />
+                            {bi('Yanına Aksesuar Öner', 'Cross-Sell Add-Ons')}
+                          </span>
+                          <span className="font-mono text-responsive-sm text-slate-400">
+                            {encounter.crossSellAttachments?.length ?? 0}{' '}
+                            {bi('eklendi', 'added')}
+                          </span>
+                        </div>
+                        {stockedCrossSellOptions.length === 0 ? (
+                          <div className="text-center text-responsive-sm text-slate-400 py-0.5">
+                            {!hasAccessoryLicense(upgrades)
+                              ? bi(
+                                  'Aksesuar satışı için Toptan sekmesinden Aksesuar Lisansı al.',
+                                  'Purchase the Accessory License in Supply to cross-sell.'
+                                )
+                              : bi(
+                                  'Reyonda stok yok — Toptancıdan aksesuar al.',
+                                  'Out of stock — order accessories from Wholesale.'
+                                )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-1">
+                            {stockedCrossSellOptions.slice(0, 4).map((spec) => {
+                              const loc = getLocalizedAccessory(spec.id, lang);
+                              const tried = encounter.crossSellTriedIds?.includes(
+                                spec.id
+                              );
+                              const accepted =
+                                encounter.crossSellAttachments?.some(
+                                  (a) => a.id === spec.id
+                                );
+                              return (
+                                <button
+                                  key={spec.id}
+                                  type="button"
+                                  disabled={tried}
+                                  onClick={() => onPitchCrossSell(spec.id)}
+                                  className={`rounded-md border px-1.5 py-1 flex items-center gap-1.5 text-left text-responsive-sm font-bold transition-colors ${
+                                    accepted
+                                      ? 'border-emerald-400/50 bg-emerald-500/15 text-emerald-200'
+                                      : tried
+                                      ? 'border-white/5 bg-white/5 text-slate-500'
+                                      : 'border-white/10 bg-[#17202D] text-slate-100 hover:border-amber-400/50 cursor-pointer'
+                                  }`}
+                                >
+                                  <AccessoryProductArt
+                                    id={spec.id}
+                                    className="w-5 h-5 shrink-0"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate leading-tight">
+                                      {loc.name}
+                                    </div>
+                                    <div className="font-mono text-[9px] text-amber-300 leading-tight">
+                                      +
+                                      {formatTRY(
+                                        accessories[spec.id]?.retailPrice ??
+                                          spec.recommendedPrice
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* EXPRESS REPAIR INFO STRIP */}
+                    {encounter.type === 'EXPRESS_REPAIR' && encounter.expressDefectId && (
+                      <div className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 flex items-center justify-between gap-2 text-responsive">
+                        <span className="font-bold text-amber-200 truncate">
+                          {bi('Arıza', 'Fault')}:{' '}
+                          {getLocalizedDefect(encounter.expressDefectId, lang).shortLabel}
+                        </span>
+                        <span className="font-mono font-extrabold text-emerald-300 shrink-0">
+                          +{formatTRY(encounter.customerPrice)}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* SELLER / TRADE-IN: SINGLE DIRECT ELLE EKSPERTİZ CTA + ZERO-SCROLL DEFECTS GRID */}
+                  {/* PINNED BOTTOM CTA: ELLE EKSPERTİZ (SELLER / TRADE-IN) */}
                   {(encounter.type === 'SELLER' ||
                     (encounter.type === 'TRADE_IN' && encounter.tradeInDevice)) && (() => {
                     const inspectedCount = INSPECTION_ORDER.filter(
@@ -1570,30 +1774,30 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       (cat) => !inspectedTarget.inspected[cat]
                     );
                     return (
-                      <div className="shrink-0 space-y-1">
+                      <div className="shrink-0">
                         <button
                           type="button"
                           onClick={() => openHandsOnInspect(firstPending)}
-                          className={`w-full h-[32px] sm:h-[34px] rounded-xl border px-2.5 flex items-center justify-between gap-2 text-[11px] font-extrabold transition-colors cursor-pointer touch-manipulation ${
+                          className={`w-full h-[28px] [@media(min-height:560px)]:h-[32px] rounded-xl border px-2 flex items-center justify-between gap-1.5 text-[10px] sm:text-[10.5px] font-extrabold transition-colors cursor-pointer touch-manipulation ${
                             all4Inspected
                               ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-200 hover:bg-emerald-500/20'
                               : 'border-amber-400/60 bg-amber-500/18 text-amber-200 hover:bg-amber-500/28 shadow-sm'
                           }`}
                         >
-                          <span className="inline-flex items-center gap-1.5 min-w-0 truncate">
+                          <span className="inline-flex items-center gap-1 min-w-0">
                             {all4Inspected ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                             ) : (
-                              <Search className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <Search className="w-3 h-3 text-amber-400 shrink-0" />
                             )}
                             <span className="truncate">
                               {all4Inspected
-                                ? bi('Elle Ekspertiz Tamam', 'Inspection Complete')
-                                : bi('Elle Ekspertiz Yap', 'Hands-On Inspection')}
+                                ? bi('Ekspertiz Tamam', 'Inspected')
+                                : bi('Elle Ekspertiz', 'Hands-On Inspect')}
                             </span>
                           </span>
-                          <span className="inline-flex items-center gap-1.5 shrink-0">
-                            <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 shrink-0">
+                            <span className="inline-flex items-center gap-0.5">
                               {INSPECTION_ORDER.map((cat) => {
                                 const done = inspectedTarget.inspected[cat];
                                 const hasFault = inspectedTarget.defects.some(
@@ -1602,7 +1806,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                                 return (
                                   <span
                                     key={cat}
-                                    className={`w-2 h-2 rounded-full ${
+                                    className={`w-1.5 h-1.5 rounded-full ${
                                       !done
                                         ? 'bg-white/20'
                                         : hasFault
@@ -1613,220 +1817,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
                                 );
                               })}
                             </span>
-                            <span className="font-mono text-[10px] opacity-90">
+                            <span className="font-mono text-[9.5px] opacity-90">
                               {inspectedCount}/4
                             </span>
                           </span>
                         </button>
-
-                        {discoveredDefects.length > 0 && (
-                          <div className="grid grid-cols-2 gap-1">
-                            {discoveredDefects.map((d) => {
-                              const locDef = getLocalizedDefect(d, lang);
-                              const used = encounter.usedLeverageDefects.includes(d);
-                              return (
-                                <div
-                                  key={d}
-                                  className="rounded-lg border border-rose-400/40 bg-rose-500/14 px-1.5 py-1 flex items-center justify-between gap-1 min-w-0"
-                                >
-                                  <span
-                                    className="text-[9px] sm:text-[9.5px] font-bold text-rose-100 truncate min-w-0"
-                                    title={locDef.name}
-                                  >
-                                    ⚠ {locDef.shortLabel}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    disabled={used || encounter.outcome !== 'ACTIVE'}
-                                    onClick={() => onUseLeverage(d)}
-                                    className="rounded bg-rose-500 px-1.5 py-0.5 text-[8.5px] sm:text-[9px] font-extrabold text-white hover:bg-rose-400 active:scale-95 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
-                                  >
-                                    {used
-                                      ? bi('OK ✓', 'Used ✓')
-                                      : bi('Koz Vur', 'Leverage')}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     );
                   })()}
-
-                  {/* BUYER / TRADE-IN: TRANSPARENT DEVICE HISTORY & HONEST DISCLOSURE */}
-                  {(encounter.type === 'BUYER' || encounter.type === 'TRADE_IN') && (() => {
-                    const outDevice = encounter.device;
-                    const repairedList = outDevice.repairedDefects ?? [];
-                    const isOverseas = outDevice.defects.includes('imei_unregistered');
-                    const otherDefects = outDevice.defects.filter(
-                      (d) => d !== 'imei_unregistered'
-                    );
-                    const needsDisclosure =
-                      repairedList.length > 0 || isOverseas || otherDefects.length > 0;
-
-                    return (
-                      <div className="shrink-0 rounded-lg border border-white/10 bg-[#0E141D] px-2 py-1.5 space-y-1 text-[9.5px]">
-                        <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-bold text-slate-200 truncate">
-                            {bi('Satılan Cihaz Geçmişi', 'Outgoing Device History')}
-                          </span>
-                          <span
-                            className={`rounded px-1.5 py-0.2 font-mono text-[8.5px] font-extrabold shrink-0 ${
-                              isOverseas
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-400/35'
-                                : 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/30'
-                            }`}
-                          >
-                            {isOverseas
-                              ? bi('YURTDIŞI (KAYITSIZ)', 'OVERSEAS (UNREG)')
-                              : bi('TR KAYITLI IMEI', 'TR REGISTERED')}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-1">
-                          {repairedList.length > 0 ? (
-                            <span className="rounded bg-amber-500/15 border border-amber-400/30 px-1.5 py-0.2 text-amber-200 font-semibold truncate max-w-full">
-                              {bi('Değişen:', 'Replaced:')}{' '}
-                              {repairedList
-                                .map((d) => getLocalizedDefect(d, lang).shortLabel)
-                                .join(', ')}
-                            </span>
-                          ) : (
-                            <span className="rounded bg-emerald-500/12 px-1.5 py-0.2 text-emerald-300 font-semibold">
-                              {bi('Tamirsiz / Orijinal', 'Untouched / Original')}
-                            </span>
-                          )}
-                          {outDevice.lastRepairQuality === 'ROUGH' && (
-                            <span className="rounded bg-rose-500/20 px-1.5 py-0.2 text-rose-300 font-bold">
-                              {bi('⚠ Kaba İşçilik', '⚠ Rough Repair')}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              soundFX.playClick();
-                              setShowEsnafReportModal(true);
-                            }}
-                            className="flex-1 rounded-md border border-amber-400/45 bg-amber-500/15 px-2 py-1 text-[9.5px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
-                          >
-                            <ClipboardCheck className="w-3 h-3 shrink-0" />
-                            {bi('Esnaf Onarım Raporu', 'Merchant Report')}
-                          </button>
-
-                          {needsDisclosure && encounter.outcome === 'ACTIVE' && onDiscloseBuyer && (
-                            encounter.buyerDisclosed ? (
-                              <div className="flex items-center gap-1 text-emerald-300 font-bold shrink-0 px-1">
-                                <ShieldCheck className="w-3 h-3 shrink-0" />
-                                <span className="text-[9px] whitespace-nowrap">
-                                  {bi('Beyan ✓', 'Disclosed ✓')}
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={onDiscloseBuyer}
-                                className="flex-1 rounded-md border border-sky-400/45 bg-sky-500/15 px-2 py-1 text-[9.5px] font-extrabold text-sky-200 hover:bg-sky-500/25 cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
-                              >
-                                <ShieldCheck className="w-3 h-3 shrink-0" />
-                                {bi('Dürüst Beyan Et', 'Disclose')}
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* BUYER: COMPACT CROSS-SELL ACCESSORY BAR */}
-                  {encounter.type === 'BUYER' && encounter.outcome === 'ACTIVE' && (
-                    <div className="shrink-0 rounded-lg border border-white/8 bg-[#0E141D] p-2 space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-sky-300">
-                        <span className="inline-flex items-center gap-1">
-                          <ShoppingBag className="w-3 h-3" />
-                          {bi('Yanına Aksesuar Öner', 'Cross-Sell Add-Ons')}
-                        </span>
-                        <span className="font-mono text-[9.5px] text-slate-400">
-                          {encounter.crossSellAttachments?.length ?? 0}{' '}
-                          {bi('eklendi', 'added')}
-                        </span>
-                      </div>
-                      {stockedCrossSellOptions.length === 0 ? (
-                        <div className="text-center text-[10px] text-slate-400 py-0.5">
-                          {!hasAccessoryLicense(upgrades)
-                            ? bi(
-                                'Aksesuar satışı için Toptan sekmesinden Aksesuar Lisansı al.',
-                                'Purchase the Accessory License in Supply to cross-sell.'
-                              )
-                            : bi(
-                                'Reyonda stok yok — Toptancıdan aksesuar al.',
-                                'Out of stock — order accessories from Wholesale.'
-                              )}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-1">
-                          {stockedCrossSellOptions.slice(0, 4).map((spec) => {
-                            const loc = getLocalizedAccessory(spec.id, lang);
-                            const tried = encounter.crossSellTriedIds?.includes(
-                              spec.id
-                            );
-                            const accepted =
-                              encounter.crossSellAttachments?.some(
-                                (a) => a.id === spec.id
-                              );
-                            return (
-                              <button
-                                key={spec.id}
-                                type="button"
-                                disabled={tried}
-                                onClick={() => onPitchCrossSell(spec.id)}
-                                className={`rounded-md border px-1.5 py-1 flex items-center gap-1.5 text-left text-[9.5px] font-bold transition-colors ${
-                                  accepted
-                                    ? 'border-emerald-400/50 bg-emerald-500/15 text-emerald-200'
-                                    : tried
-                                    ? 'border-white/5 bg-white/5 text-slate-500'
-                                    : 'border-white/10 bg-[#17202D] text-slate-100 hover:border-amber-400/50 cursor-pointer'
-                                }`}
-                              >
-                                <AccessoryProductArt
-                                  id={spec.id}
-                                  className="w-5 h-5 shrink-0"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate leading-tight">
-                                    {loc.name}
-                                  </div>
-                                  <div className="font-mono text-[9px] text-amber-300 leading-tight">
-                                    +
-                                    {formatTRY(
-                                      accessories[spec.id]?.retailPrice ??
-                                        spec.recommendedPrice
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* EXPRESS REPAIR INFO STRIP */}
-                  {encounter.type === 'EXPRESS_REPAIR' && encounter.expressDefectId && (
-                    <div className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 flex items-center justify-between gap-2 text-[10.5px]">
-                      <span className="font-bold text-amber-200 truncate">
-                        {bi('Arıza', 'Fault')}:{' '}
-                        {getLocalizedDefect(encounter.expressDefectId, lang).shortLabel}
-                      </span>
-                      <span className="font-mono font-extrabold text-emerald-300 shrink-0">
-                        +{formatTRY(encounter.customerPrice)}
-                      </span>
-                    </div>
-                  )}
                 </>
               )}
             </section>
@@ -1834,108 +1832,120 @@ export const CounterView: React.FC<CounterViewProps> = ({
             {/* COLUMN 3: STRUCTURED NEGOTIATION / RESOLUTION DECK (4 cols) */}
             <section
               data-tour="tour-negotiate"
-              className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#161E29]/95 p-1.5 [@media(min-height:560px)]:p-2 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden"
+              className="col-span-4 flex flex-col min-h-0 h-full rounded-xl border border-white/10 bg-[#151D28] p-1.5 [@media(min-height:560px)]:p-2 gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden"
             >
               {encounter.outcome !== 'ACTIVE' ? (
                 /* DEAL / WALKED OUT / DISMISSED OUTCOME CARD */
-                <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-2.5 p-2">
-                  <div
-                    className={`animate-stamp-pop rounded-xl border-2 px-4 py-1.5 font-display text-base font-extrabold tracking-wide ${
-                      encounter.outcome === 'DEAL_CLOSED'
-                        ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
-                        : 'border-rose-400 bg-rose-500/15 text-rose-300'
-                    }`}
-                  >
-                    {encounter.outcome === 'DEAL_CLOSED'
-                      ? bi('EL SIKIŞILDI', 'DEAL CLOSED')
-                      : encounter.outcome === 'WALKED_OUT'
-                      ? bi('MASADAN KALKTI', 'WALKED OUT')
-                      : bi('GEÇİLDİ', 'PASSED')}
+                <div className="flex-1 h-full min-h-0 flex flex-col overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col items-center justify-center text-center gap-1.5 p-1.5">
+                    <div
+                      className={`animate-stamp-pop rounded-xl border-2 px-3 py-1 font-display text-responsive-title font-extrabold tracking-wide ${
+                        encounter.outcome === 'DEAL_CLOSED'
+                          ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                          : 'border-rose-400 bg-rose-500/15 text-rose-300'
+                      }`}
+                    >
+                      {encounter.outcome === 'DEAL_CLOSED'
+                        ? bi('EL SIKIŞILDI', 'DEAL CLOSED')
+                        : encounter.outcome === 'WALKED_OUT'
+                        ? bi('MASADAN KALKTI', 'WALKED OUT')
+                        : bi('GEÇİLDİ', 'PASSED')}
+                    </div>
+
+                    {encounter.outcome === 'DEAL_CLOSED' && (
+                      <div className="font-mono text-responsive-title font-extrabold text-slate-50 tabular-nums">
+                        {formatTRY(encounter.finalPrice ?? encounter.customerPrice)}
+                      </div>
+                    )}
+
+                    <p className="text-responsive text-slate-300 max-w-xs">
+                      {encounter.outcome === 'DEAL_CLOSED'
+                        ? encounter.type === 'SELLER' ||
+                          encounter.type === 'TRADE_IN' ||
+                          encounter.type === 'BULK_AUCTION'
+                          ? bi(
+                              'Cihaz atölyene eklendi. Tamir edip vitrine koyabilirsin.',
+                              'Device added to workshop. Repair and list it on your showcase!'
+                            )
+                          : bi(
+                              'Satış kasaya işlendi!',
+                              'Sale booked to your register!'
+                            )
+                        : bi(
+                            'Bu müşteriyle anlaşma olmadı. Sıradaki müşteri seni bekliyor.',
+                            'No deal this time. Next customer is waiting.'
+                          )}
+                    </p>
                   </div>
 
-                  {encounter.outcome === 'DEAL_CLOSED' && (
-                    <div className="font-mono text-xl font-extrabold text-slate-50 tabular-nums">
-                      {formatTRY(encounter.finalPrice ?? encounter.customerPrice)}
-                    </div>
-                  )}
-
-                  <p className="text-[11px] text-slate-300 max-w-xs">
-                    {encounter.outcome === 'DEAL_CLOSED'
-                      ? encounter.type === 'SELLER' ||
+                  <div className="shrink-0 w-full flex flex-col gap-1.5 pt-1">
+                    {((encounter.outcome === 'DEAL_CLOSED' &&
+                      Boolean(encounter.deliveredCertificateId) &&
+                      Boolean(onOpenCertificateById)) ||
+                      ((encounter.type === 'SELLER' ||
                         encounter.type === 'TRADE_IN' ||
-                        encounter.type === 'BULK_AUCTION'
-                        ? bi(
-                            'Cihaz atölyene eklendi. Tamir edip vitrine koyabilirsin.',
-                            'Device added to workshop. Repair and list it on your showcase!'
-                          )
-                        : bi(
-                            'Satış kasaya işlendi!',
-                            'Sale booked to your register!'
-                          )
-                      : bi(
-                          'Bu müşteriyle anlaşma olmadı. Sıradaki müşteri seni bekliyor.',
-                          'No deal this time. Next customer is waiting.'
-                        )}
-                  </p>
-
-                  <div className="w-full flex items-center gap-1.5 mt-1">
-                    {encounter.outcome === 'DEAL_CLOSED' &&
-                      encounter.deliveredCertificateId &&
-                      onOpenCertificateById && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            soundFX.playClick();
-                            onOpenCertificateById(encounter.deliveredCertificateId!);
-                          }}
-                          className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-amber-400/45 bg-amber-500/15 py-2 px-2 text-xs font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap"
-                        >
-                          <FileCheck2 className="w-3.5 h-3.5 shrink-0" />
-                          {bi('Garanti Belgesi', 'Warranty')}
-                        </button>
-                      )}
-                    {(encounter.type === 'SELLER' ||
-                      encounter.type === 'TRADE_IN' ||
-                      encounter.type === 'BULK_AUCTION') &&
-                      encounter.outcome === 'DEAL_CLOSED' && (
-                        <button
-                          type="button"
-                          onClick={onGoToWorkshop}
-                          className="flex-1 rounded-xl border border-white/15 bg-[#1D2634] py-2 text-xs font-bold text-slate-100 hover:bg-[#273345] cursor-pointer whitespace-nowrap"
-                        >
-                          {bi('Atölye', 'Workshop')}
-                        </button>
-                      )}
+                        encounter.type === 'BULK_AUCTION') &&
+                        encounter.outcome === 'DEAL_CLOSED')) && (
+                      <div className="flex items-center gap-1.5 w-full">
+                        {encounter.outcome === 'DEAL_CLOSED' &&
+                          encounter.deliveredCertificateId &&
+                          onOpenCertificateById && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                soundFX.playClick();
+                                onOpenCertificateById(encounter.deliveredCertificateId!);
+                              }}
+                              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/45 bg-amber-500/15 py-1.5 px-1.5 text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/25 cursor-pointer whitespace-nowrap min-w-0"
+                            >
+                              <FileCheck2 className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{bi('Garanti Belgesi', 'Warranty')}</span>
+                            </button>
+                          )}
+                        {(encounter.type === 'SELLER' ||
+                          encounter.type === 'TRADE_IN' ||
+                          encounter.type === 'BULK_AUCTION') &&
+                          encounter.outcome === 'DEAL_CLOSED' && (
+                            <button
+                              type="button"
+                              onClick={onGoToWorkshop}
+                              className="flex-1 rounded-lg border border-white/15 bg-[#1D2634] py-1.5 px-1.5 text-[10px] font-bold text-slate-100 hover:bg-[#273345] cursor-pointer whitespace-nowrap min-w-0"
+                            >
+                              {bi('Atölye', 'Workshop')}
+                            </button>
+                          )}
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={onNextCustomer}
-                      className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
+                      className="w-full rounded-lg bg-amber-500 py-2 px-2 text-responsive font-extrabold text-slate-950 hover:bg-amber-400 cursor-pointer whitespace-nowrap"
                     >
                       {bi('Sıradaki Müşteri →', 'Next Customer →')}
                     </button>
                   </div>
                 </div>
               ) : isNegotiable ? (
-                /* ACTIVE NEGOTIATION DECK — TIGHT, BALANCED, ZERO VOID */
+                /* ACTIVE NEGOTIATION DECK — PINNED HEADER & FOOTER, SCROLLABLE CARD BODY */
                 <>
-                  {/* Block 1: Customer Ask + Resistance Meter */}
+                  {/* Block 1 (Pinned Top): Customer Ask + Resistance Meter */}
                   <div className="shrink-0 rounded-xl border border-white/10 bg-[#0E141D] px-2 py-1 space-y-0.5 tabular-nums">
                     <div className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="text-[10px] font-semibold text-slate-300 truncate">
+                      <span className="text-responsive-sm font-semibold text-slate-300 truncate">
                         {encounter.type === 'SELLER'
                           ? bi('Satıcı İstediği', 'Seller Asks')
                           : encounter.type === 'TRADE_IN'
                           ? bi('Önerdiği Fark', 'Cash Diff')
                           : bi('Alıcı Teklifi', 'Buyer Offers')}
                       </span>
-                      <span className="font-mono text-[13px] [@media(min-height:560px)]:text-sm font-extrabold text-amber-300 whitespace-nowrap shrink-0">
+                      <span className="font-mono text-responsive font-extrabold text-amber-300 whitespace-nowrap shrink-0">
                         {formatTRY(encounter.customerPrice)}
                       </span>
                     </div>
 
                     {resistance && (
                       <div className="space-y-0.5">
-                        <div className="flex items-center justify-between gap-2 text-[9.5px] leading-tight">
+                        <div className="flex items-center justify-between gap-2 text-responsive-sm leading-tight">
                           <span className="text-slate-300 truncate">
                             {resistance.resistanceLabel}
                           </span>
@@ -1961,8 +1971,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     )}
                   </div>
 
-                  {/* Middle Balanced Stack (Height-aware zero-scroll fit on 360px+ landscape screens) */}
-                  <div className="flex-1 min-h-0 flex flex-col justify-between gap-1 [@media(min-height:560px)]:gap-1.5 overflow-hidden">
+                  {/* Zero-Scroll Negotiation Controls Area */}
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-between gap-1 [@media(min-height:560px)]:gap-1.5">
                     {/* Block 2: Esnaf Tactics Row */}
                     <div className="shrink-0 grid grid-cols-3 gap-1">
                       <button
@@ -1972,7 +1982,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           triggerEsnafProverb('friendly', TEA_PROVERBS);
                           onServeTea();
                         }}
-                        className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/14 px-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/24 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate touch-manipulation"
+                        className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400/35 bg-amber-500/14 px-1 text-responsive-sm font-extrabold text-amber-200 hover:bg-amber-500/24 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate touch-manipulation"
                       >
                         <Coffee className="w-3 h-3 shrink-0" />
                         <span className="truncate">
@@ -1995,7 +2005,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           );
                           onBluffOrPitch();
                         }}
-                        className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/35 bg-sky-500/14 px-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-sky-200 hover:bg-sky-500/24 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate touch-manipulation"
+                        className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-sky-400/35 bg-sky-500/14 px-1 text-responsive-sm font-extrabold text-sky-200 hover:bg-sky-500/24 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate touch-manipulation"
                       >
                         <Scale className="w-3 h-3 shrink-0" />
                         <span className="truncate">
@@ -2009,7 +2019,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                         <button
                           type="button"
                           onClick={onAcceptPosInstallment}
-                          className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-400/35 bg-emerald-500/15 px-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap truncate touch-manipulation"
+                          className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-400/35 bg-emerald-500/15 px-1 text-responsive-sm font-extrabold text-emerald-200 hover:bg-emerald-500/25 cursor-pointer whitespace-nowrap truncate touch-manipulation"
                         >
                           <CreditCard className="w-3 h-3 shrink-0" />
                           <span className="truncate">{bi('0% POS', '0% POS')}</span>
@@ -2022,7 +2032,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             triggerEsnafProverb(selectedTone);
                             onUseLegacyDialogue();
                           }}
-                          className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-purple-400/35 bg-purple-500/14 px-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-purple-200 hover:bg-purple-500/24 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate touch-manipulation"
+                          className="h-[26px] [@media(min-height:560px)]:h-[32px] inline-flex items-center justify-center gap-1 rounded-lg border border-purple-400/35 bg-purple-500/14 px-1 text-responsive-sm font-extrabold text-purple-200 hover:bg-purple-500/24 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate touch-manipulation"
                           title={legacyInfo.title}
                         >
                           <Award className="w-3 h-3 shrink-0" />
@@ -2031,17 +2041,17 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       )}
                     </div>
 
-                    {/* Block 3: Slider + Ergonomic Quick Adjust Buttons (Separated to prevent accidental slider drags) */}
+                    {/* Block 3: Slider + Ergonomic Quick Adjust Buttons */}
                     <div className="shrink-0 rounded-xl border border-white/8 bg-[#0E141D] px-2 py-1 [@media(min-height:560px)]:py-1.5 tabular-nums">
                       <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <span className="text-[10px] font-semibold text-slate-400 truncate">
+                        <span className="text-responsive-sm font-semibold text-slate-400 truncate">
                           {bi('Senin Teklifin', 'Your Offer')}
                         </span>
-                        <span className="font-mono text-[12.5px] [@media(min-height:560px)]:text-[13px] font-extrabold text-slate-50 whitespace-nowrap shrink-0">
+                        <span className="font-mono text-responsive font-extrabold text-slate-50 whitespace-nowrap shrink-0">
                           {formatTRY(offerPrice)}
                         </span>
                       </div>
-                      <div className="mb-1.5 pb-1.5 border-b border-white/8">
+                      <div className="mb-1 pb-1 [@media(min-height:560px)]:mb-1.5 [@media(min-height:560px)]:pb-1.5 border-b border-white/8">
                         <input
                           type="range"
                           min={sliderBounds.min}
@@ -2055,7 +2065,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           className="pasaj-slider w-full touch-pan-x"
                         />
                       </div>
-                      <div className="grid grid-cols-4 gap-1 font-mono text-[10px] [@media(min-height:560px)]:text-[10.5px]">
+                      <div className="grid grid-cols-4 gap-1 font-mono text-responsive-sm">
                         {[-1000, -250, 250, 1000].map((d) => (
                           <button
                             key={d}
@@ -2073,8 +2083,8 @@ export const CounterView: React.FC<CounterViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Block 4: Valuation & Profit Strip (Guaranteed single-line crisp alignment) */}
-                    <div className="shrink-0 rounded-xl border border-white/8 bg-[#0E141D] px-2 py-1 text-[9.5px] leading-tight space-y-0.5 tabular-nums">
+                    {/* Block 4: Valuation & Profit Strip */}
+                    <div className="shrink-0 rounded-xl border border-white/8 bg-[#0E141D] px-2 py-1 text-responsive-sm leading-tight space-y-0.5 tabular-nums">
                       {encounter.type === 'SELLER' ? (
                         <>
                           <div className="flex items-center justify-between gap-1.5 min-w-0">
@@ -2156,19 +2166,19 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Block 5: Primary CTA + Accept / Pass */}
-                  <div className="shrink-0 space-y-1 tabular-nums">
+                  {/* Block 5 (Pinned Bottom Footer): Primary CTA + Accept / Pass */}
+                  <div className="shrink-0 space-y-1.5 tabular-nums">
                     <button
                       type="button"
                       disabled={encounter.type === 'SELLER' && offerPrice > cash}
                       onClick={handleOfferClick}
-                      className="w-full h-[28px] [@media(min-height:560px)]:h-[34px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 text-[11px] [@media(min-height:560px)]:text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer whitespace-nowrap"
+                      className="w-full h-[34px] [@media(min-height:560px)]:h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 text-responsive font-extrabold text-slate-950 hover:bg-amber-400 active:scale-[0.99] transition-transform disabled:opacity-35 cursor-pointer whitespace-nowrap touch-manipulation"
                     >
                       <Handshake className="w-3.5 h-3.5 [@media(min-height:560px)]:w-4 [@media(min-height:560px)]:h-4" />
                       {bi('Teklif Ver', 'Send Offer')} ({formatTRY(offerPrice)})
                     </button>
 
-                    <div className="grid grid-cols-2 gap-1">
+                    <div className="grid grid-cols-2 gap-1.5">
                       <button
                         type="button"
                         disabled={
@@ -2176,14 +2186,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           encounter.customerPrice > cash
                         }
                         onClick={onAcceptCurrentPrice}
-                        className="h-[25px] [@media(min-height:560px)]:h-[30px] rounded-lg border border-emerald-400/35 bg-emerald-500/15 text-[10px] [@media(min-height:560px)]:text-[10.5px] font-bold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-35 cursor-pointer whitespace-nowrap truncate px-1"
+                        className="h-[30px] [@media(min-height:560px)]:h-[34px] rounded-lg border border-emerald-400/35 bg-emerald-500/15 text-responsive font-bold text-emerald-200 hover:bg-emerald-500/25 active:scale-[0.98] transition-transform disabled:opacity-35 cursor-pointer whitespace-nowrap truncate px-1.5 touch-manipulation"
                       >
                         ✓ {bi('Kabul', 'Accept')} ({formatTRY(encounter.customerPrice)})
                       </button>
                       <button
                         type="button"
                         onClick={onDismiss}
-                        className="h-[25px] [@media(min-height:560px)]:h-[30px] rounded-lg border border-white/12 bg-[#1D2634] text-[10px] [@media(min-height:560px)]:text-[10.5px] font-bold text-slate-300 hover:text-white cursor-pointer whitespace-nowrap"
+                        className="h-[30px] [@media(min-height:560px)]:h-[34px] rounded-lg border border-white/12 bg-[#1D2634] text-responsive font-bold text-slate-300 hover:text-white active:scale-[0.98] transition-transform cursor-pointer whitespace-nowrap touch-manipulation"
                       >
                         {bi('Kalsın', 'Pass')}
                       </button>
@@ -2191,22 +2201,22 @@ export const CounterView: React.FC<CounterViewProps> = ({
                   </div>
                 </>
               ) : (
-                /* SPECIAL ENCOUNTER ACTION DECKS */
-                <div className="flex-1 flex flex-col justify-center gap-3">
+                /* SPECIAL ENCOUNTER ACTION DECKS (Zero-Scroll Compact Fit) */
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-center gap-1.5">
                   {encounter.type === 'ACCESSORY_BUYER' && (
                     <>
-                      <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-center">
-                        <div className="text-[10.5px] text-emerald-200">
+                      <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-2.5 text-center">
+                        <div className="text-responsive-sm text-emerald-200">
                           {bi('Sepet Toplamı', 'Basket Total')}
                         </div>
-                        <div className="font-mono text-xl font-extrabold text-emerald-300">
+                        <div className="font-mono text-responsive-title font-extrabold text-emerald-300">
                           {formatTRY(encounter.customerPrice)}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={onCompleteAccessoryOrder}
-                        className="w-full rounded-xl bg-emerald-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                        className="w-full rounded-xl bg-emerald-500 py-2 text-responsive font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer"
                       >
                         ✓ {bi('Kasadan Geç & Sat', 'Ring Up & Sell')}
                       </button>
@@ -2219,14 +2229,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
                     const quickTotal = partCost + expressFee;
                     return (
                       <>
-                        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center tabular-nums">
-                          <div className="text-[10.5px] text-amber-200">
+                        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-2.5 text-center tabular-nums">
+                          <div className="text-responsive-sm text-amber-200">
                             {bi('Acil Servis Ücreti', 'Express Payout')}
                           </div>
-                          <div className="font-mono text-xl font-extrabold text-emerald-300">
+                          <div className="font-mono text-responsive-title font-extrabold text-emerald-300">
                             +{formatTRY(encounter.customerPrice)}
                           </div>
-                          <div className="text-[10px] text-slate-300 mt-0.5">
+                          <div className="text-responsive-sm text-slate-300 mt-0.5">
                             {bi('Parça Maliyeti', 'Part Cost')}: {formatTRY(partCost)}
                           </div>
                         </div>
@@ -2238,11 +2248,11 @@ export const CounterView: React.FC<CounterViewProps> = ({
                               onClick={onExpressRepairMini}
                               className="w-full rounded-xl bg-amber-500 py-1.5 px-2 text-center text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
                             >
-                              <div className="inline-flex items-center justify-center gap-1 text-xs font-extrabold">
+                              <div className="inline-flex items-center justify-center gap-1 text-responsive font-extrabold">
                                 <Zap className="w-3.5 h-3.5" />
                                 {bi('Kendin Onar (Mini Tamir)', 'Fix Yourself (Mini Repair)')} · {formatTRY(partCost)}
                               </div>
-                              <div className="text-[9.5px] font-bold text-slate-900/80">
+                              <div className="text-responsive-sm font-bold text-slate-900/80">
                                 {bi('Sadece parça + bahşiş şansı', 'Parts only + tip bonus')}
                               </div>
                             </button>
@@ -2253,11 +2263,11 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             onClick={onExpressRepairQuick}
                             className="w-full rounded-xl bg-emerald-500 py-1.5 px-2 text-center text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
                           >
-                            <div className="inline-flex items-center justify-center gap-1 text-xs font-extrabold">
+                            <div className="inline-flex items-center justify-center gap-1 text-responsive font-extrabold">
                               <Wrench className="w-3.5 h-3.5" />
                               {bi('Hızlı Onar', 'Quick Repair')} · {formatTRY(quickTotal)}
                             </div>
-                            <div className="text-[9.5px] font-bold text-slate-900/80">
+                            <div className="text-responsive-sm font-bold text-slate-900/80">
                               +{formatTRY(expressFee)} {bi('Erken Teslimat Ücreti', 'Express Delivery Fee')}
                             </div>
                           </button>
@@ -2266,7 +2276,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                               type="button"
                               disabled={cash < partCost}
                               onClick={onDelegateExpressRepair}
-                              className="w-full inline-flex items-center justify-center gap-1 rounded-xl border border-sky-400/35 bg-sky-500/15 py-1.5 text-[11px] font-bold text-sky-200 cursor-pointer"
+                              className="w-full inline-flex items-center justify-center gap-1 rounded-xl border border-sky-400/35 bg-sky-500/15 py-1.5 text-responsive font-bold text-sky-200 cursor-pointer"
                             >
                               <UserCog className="w-3.5 h-3.5" />
                               {bi('Hasan Ustaya Devret', 'Delegate to Master Hasan')} ({formatTRY(partCost)})
@@ -2275,7 +2285,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           <button
                             type="button"
                             onClick={onDismiss}
-                            className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
+                            className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-responsive font-bold text-slate-300 cursor-pointer"
                           >
                             {bi('Reddet', 'Decline')}
                           </button>
@@ -2286,11 +2296,11 @@ export const CounterView: React.FC<CounterViewProps> = ({
 
                   {encounter.type === 'BULK_AUCTION' && (
                     <>
-                      <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center">
-                        <div className="text-[10.5px] text-amber-200">
+                      <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-2.5 text-center">
+                        <div className="text-responsive-sm text-amber-200">
                           {bi('Koli Fiyatı', 'Lot Price')}
                         </div>
-                        <div className="font-mono text-xl font-extrabold text-amber-300">
+                        <div className="font-mono text-responsive-title font-extrabold text-amber-300">
                           {formatTRY(encounter.customerPrice)}
                         </div>
                       </div>
@@ -2299,15 +2309,15 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           type="button"
                           disabled={cash < encounter.customerPrice}
                           onClick={onAcceptBulkAuction}
-                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2.5 text-xs font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
+                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-responsive font-extrabold text-slate-950 hover:bg-amber-400 disabled:opacity-35 cursor-pointer"
                         >
-                          <Gavel className="w-4 h-4" />
+                          <Gavel className="w-3.5 h-3.5" />
                           {bi('Koliyi Satın Al', 'Buy Mystery Lot')}
                         </button>
                         <button
                           type="button"
                           onClick={onDismiss}
-                          className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 cursor-pointer"
+                          className="w-full rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-responsive font-bold text-slate-300 cursor-pointer"
                         >
                           {bi('Risk Alma · Geç', 'Skip Lot')}
                         </button>
@@ -2325,7 +2335,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           type="button"
                           disabled={cash < repairCost}
                           onClick={() => onResolveWarranty('REPAIR')}
-                          className="w-full rounded-xl bg-emerald-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
+                          className="w-full rounded-xl bg-emerald-500 py-2 text-responsive font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-35 cursor-pointer"
                         >
                           <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
                           {bi('Ücretsiz Onar', 'Free Repair')} ({formatTRY(repairCost)})
@@ -2334,14 +2344,14 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           type="button"
                           disabled={cash < refundCost}
                           onClick={() => onResolveWarranty('REFUND')}
-                          className="w-full rounded-xl border border-amber-400/35 bg-amber-500/15 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer"
+                          className="w-full rounded-xl border border-amber-400/35 bg-amber-500/15 py-2 text-responsive font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-35 cursor-pointer"
                         >
                           {bi('Kısmi Nakit İade', 'Partial Cash Refund')} ({formatTRY(refundCost)})
                         </button>
                         <button
                           type="button"
                           onClick={() => onResolveWarranty('REJECT')}
-                          className="w-full rounded-xl border border-rose-500/35 bg-rose-500/15 py-1.5 text-xs font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+                          className="w-full rounded-xl border border-rose-500/35 bg-rose-500/15 py-1.5 text-responsive font-bold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
                         >
                           {bi('Reddet (-İtibar)', 'Reject (-Rep)')}
                         </button>
@@ -2363,7 +2373,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                             soundFX.playClick();
                             setShowSoftwareRecoveryModal(true);
                           }}
-                          className="w-full min-h-[34px] rounded-xl bg-sky-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-sky-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
+                          className="w-full min-h-[34px] rounded-xl bg-sky-500 py-2 px-3 text-responsive font-extrabold text-slate-950 hover:bg-sky-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
                         >
                           {bi(
                             `Yazılımla Kurtar — İşlemi Başlat (${formatTRY(swCost)} · %${swPct})`,
@@ -2374,7 +2384,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                           type="button"
                           disabled={cash < encounter.dataRecoveryJob.cleanRoomCost}
                           onClick={() => onResolveDataRecovery('CLEAN_ROOM')}
-                          className="w-full min-h-[34px] rounded-xl bg-emerald-500 py-2 px-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
+                          className="w-full min-h-[34px] rounded-xl bg-emerald-500 py-2 px-3 text-responsive font-extrabold text-slate-950 hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-35 transition-all cursor-pointer touch-manipulation"
                         >
                           {bi(
                             `Temiz Oda Lab (%100 · ${formatTRY(encounter.dataRecoveryJob.cleanRoomCost)})`,
@@ -2384,7 +2394,7 @@ export const CounterView: React.FC<CounterViewProps> = ({
                         <button
                           type="button"
                           onClick={onDismiss}
-                          className="w-full min-h-[32px] rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-[11px] font-bold text-slate-300 hover:bg-[#253244] cursor-pointer touch-manipulation"
+                          className="w-full min-h-[32px] rounded-lg border border-white/10 bg-[#1D2634] py-1.5 text-responsive font-bold text-slate-300 hover:bg-[#253244] cursor-pointer touch-manipulation"
                         >
                           {bi('İade Et · Geç', 'Decline')}
                         </button>
