@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Clock, Coins, PlayCircle } from 'lucide-react';
 import { showRewardedAd } from '../game/adService';
 import { formatTRY } from '../game/engine';
@@ -16,6 +16,8 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
 }) => {
   const { bi } = useLanguage();
   const [watchingAd, setWatchingAd] = useState(false);
+  const claimLockRef = useRef(false);
+  const claimedRef = useRef(false);
 
   const hours = Math.floor(summary.minutesAway / 60);
   const mins = summary.minutesAway % 60;
@@ -24,19 +26,35 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
       ? bi(`${hours} saat ${mins} dk`, `${hours}h ${mins}m`)
       : bi(`${summary.minutesAway} dk`, `${summary.minutesAway}m`);
 
+  const handleNormalClaim = () => {
+    if (claimLockRef.current || claimedRef.current) return;
+    claimedRef.current = true;
+    claimLockRef.current = true;
+    onClaim(summary.baseCash, false);
+  };
+
   const handleRewardedDoubleClaim = async () => {
+    if (claimLockRef.current || claimedRef.current) return;
+    claimLockRef.current = true;
     setWatchingAd(true);
-    const completed = await showRewardedAd({
-      placement: 'OFFLINE_2X_REWARDED',
-      rewardLabelTr: `Çevrimdışı Pasif Gelir 2x (+${formatTRY(summary.baseCash * 2)})`,
-      rewardLabelEn: `Offline Passive Income 2x (+${formatTRY(summary.baseCash * 2)})`,
-      detailTr: `Kısa bir ödüllü reklam izleyerek biriken ${formatTRY(summary.baseCash)} pasif gelirini 2 katına (+${formatTRY(summary.baseCash * 2)}) çıkarmak istiyor musun?`,
-      detailEn: `Watch a short rewarded ad to double your ${formatTRY(summary.baseCash)} offline passive earnings to +${formatTRY(summary.baseCash * 2)}?`,
-      multiplierBadge: '2x PASİF',
-    });
-    setWatchingAd(false);
-    if (completed) {
-      onClaim(summary.baseCash * 2, true);
+    try {
+      const completed = await showRewardedAd({
+        placement: 'OFFLINE_2X_REWARDED',
+        rewardLabelTr: `Çevrimdışı Pasif Gelir 2x (+${formatTRY(summary.baseCash * 2)})`,
+        rewardLabelEn: `Offline Passive Income 2x (+${formatTRY(summary.baseCash * 2)})`,
+        detailTr: `Kısa bir ödüllü reklam izleyerek biriken ${formatTRY(summary.baseCash)} pasif gelirini 2 katına (+${formatTRY(summary.baseCash * 2)}) çıkarmak istiyor musun?`,
+        detailEn: `Watch a short rewarded ad to double your ${formatTRY(summary.baseCash)} offline passive earnings to +${formatTRY(summary.baseCash * 2)}?`,
+        multiplierBadge: '2x PASİF',
+      });
+      if (completed && !claimedRef.current) {
+        claimedRef.current = true;
+        onClaim(summary.baseCash * 2, true);
+      }
+    } finally {
+      setWatchingAd(false);
+      if (!claimedRef.current) {
+        claimLockRef.current = false;
+      }
     }
   };
 
@@ -85,7 +103,7 @@ export const OfflineEarningsModal: React.FC<OfflineEarningsModalProps> = ({
           <button
             type="button"
             disabled={watchingAd}
-            onClick={() => onClaim(summary.baseCash, false)}
+            onClick={handleNormalClaim}
             className="rounded-lg border border-white/15 bg-[#1D2736] px-2.5 py-1.5 text-[10.5px] font-bold text-slate-200 hover:bg-[#273549] cursor-pointer tabular-nums truncate"
           >
             {bi('Kasaya Al', 'Claim')} ({formatTRY(summary.baseCash)})

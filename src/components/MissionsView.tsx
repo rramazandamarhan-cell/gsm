@@ -60,6 +60,7 @@ interface MissionsViewProps {
   onClaimMilestone: (milestoneId: string) => void;
   onClaimStoryChapter: (chapterId: string) => void;
   onClaimDailyStreak: (doubled?: boolean) => void;
+  dailyStreakClaiming?: boolean;
   onTriggerPrestige: () => void;
   onBuyPrestigePerk: (perkId: PrestigePerkId) => void;
   onBackToCounter: () => void;
@@ -83,6 +84,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   onClaimMilestone,
   onClaimStoryChapter,
   onClaimDailyStreak,
+  dailyStreakClaiming = false,
   onTriggerPrestige,
   onBuyPrestigePerk,
   onBackToCounter,
@@ -285,23 +287,27 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             <div className="flex items-center gap-1">
               <button
                 type="button"
+                disabled={dailyStreakClaiming}
                 onClick={() => onClaimDailyStreak(false)}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-slate-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
               >
                 <Gift className="w-3 h-3" />
                 {bi('Günlük', 'Daily')} +{formatTRY(todayStreakReward.cash)}
               </button>
               <button
                 type="button"
+                disabled={dailyStreakClaiming}
                 onClick={() => onClaimDailyStreak(true)}
                 title={bi(
                   'Ödüllü reklam izleyerek günlük ödülü 2x al',
                   'Watch a rewarded ad to claim 2x daily bonus'
                 )}
-                className="inline-flex items-center gap-1 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/30 cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 [@media(min-height:560px)]:py-1 text-[9.5px] [@media(min-height:560px)]:text-[10px] font-extrabold text-amber-200 hover:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
               >
                 <PlayCircle className="w-3 h-3 text-amber-300" />
-                {bi('2x İzle', '2x Ad')} (+{formatTRY(todayStreakReward.cash * 2)})
+                {dailyStreakClaiming
+                  ? bi('Reklam...', 'Loading...')
+                  : `${bi('2x İzle', '2x Ad')} (+${formatTRY(todayStreakReward.cash * 2)})`}
               </button>
             </div>
           )}

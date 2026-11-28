@@ -17,10 +17,10 @@ on:
       - master
 
 env:
-  # Safe default: 'test' uses Google official Test App ID & Test Ad Unit IDs until you explicitly switch to 'production'.
-  ADMOB_MODE: ${{ github.event.inputs.admob_mode || 'test' }}
+  # Debug APK always uses Google official Test App ID & Test Ad Unit IDs (VITE_ADMOB_MODE=test).
+  # Play Store Release AAB ALWAYS enforces strict Production mode (VITE_ADMOB_MODE=production).
   ADMOB_TEST_APP_ID: 'ca-app-pub-3940256099942544~3347511713'
-  # Preserved real production Android App ID (used ONLY when ADMOB_MODE == 'production'):
+  # Preserved real production Android App ID (enforced on Play Store Release AAB):
   ADMOB_PROD_APP_ID: 'ca-app-pub-9402241323787415~3281325258'
 
 jobs:
@@ -304,22 +304,43 @@ jobs:
             echo "has_keystore=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Rebuild Web Assets & Sync AdMob Manifest for Play Store AAB (${{ env.ADMOB_MODE }} mode)
+      - name: Rebuild Web Assets & Sync Production AdMob Manifest for Play Store Release AAB
         if: steps.signing_check.outputs.has_keystore == 'true'
         env:
-          VITE_ADMOB_MODE: ${{ env.ADMOB_MODE }}
-          VITE_ADMOB_TESTING: ${{ env.ADMOB_MODE == 'production' && 'false' || 'true' }}
-          ACTIVE_ADMOB_APP_ID: ${{ env.ADMOB_MODE == 'production' && env.ADMOB_PROD_APP_ID || env.ADMOB_TEST_APP_ID }}
+          # Play Store Release AAB MUST ALWAYS build in strict Production mode (never Test IDs)
+          VITE_ADMOB_MODE: 'production'
+          VITE_ADMOB_TESTING: 'false'
+          VITE_ADMOB_ANDROID_BANNER: ${{ secrets.VITE_ADMOB_ANDROID_BANNER || '' }}
+          ACTIVE_ADMOB_APP_ID: ${{ env.ADMOB_PROD_APP_ID }}
         run: |
-          echo "=== Building Play Store AAB in AdMob mode: ${VITE_ADMOB_MODE} (APPLICATION_ID=${ACTIVE_ADMOB_APP_ID}) ==="
+          if [ "${VITE_ADMOB_MODE}" != "production" ] || [ "${VITE_ADMOB_TESTING}" != "false" ]; then
+            echo "ERROR: Play Store Release AAB must build with VITE_ADMOB_MODE=production and VITE_ADMOB_TESTING=false!"
+            exit 1
+          fi
+          if echo "${ACTIVE_ADMOB_APP_ID}" | grep -q "3940256099942544"; then
+            echo "ERROR: Google Test App ID detected in Release AAB configuration!"
+            exit 1
+          fi
+          if echo "${VITE_ADMOB_ANDROID_BANNER}" | grep -q "3940256099942544"; then
+            echo "ERROR: Google Test Banner Ad Unit ID detected in Release AAB secret!"
+            exit 1
+          fi
+          if [ -z "${VITE_ADMOB_ANDROID_BANNER}" ]; then
+            echo "WARNING: VITE_ADMOB_ANDROID_BANNER is not configured; Title Menu native banner will stay safely disabled in production until set."
+          fi
+          echo "=== Building Play Store Release AAB in STRICT PRODUCTION mode (APPLICATION_ID=${ACTIVE_ADMOB_APP_ID}) ==="
           npm run build
           npx cap sync android
           python3 - << 'PYEOF'
-          import os, re
+          import os, re, sys
           import xml.etree.ElementTree as ET
 
           manifest_path = "android/app/src/main/AndroidManifest.xml"
-          app_id = os.environ["ACTIVE_ADMOB_APP_ID"]
+          app_id = os.environ["ACTIVE_ADMOB_APP_ID"].strip()
+          if "3940256099942544" in app_id or not re.match(r"^ca-app-pub-\d{10,20}~\d{8,14}$", app_id):
+              print(f"ERROR: Invalid or Test AdMob App ID for Release AAB: {app_id}", file=sys.stderr)
+              sys.exit(1)
+
           txt = open(manifest_path, encoding="utf-8").read()
           admob_meta = f'<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="{app_id}"/>'
           pattern = r'<meta-data\s+android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^>]*/>'
@@ -328,8 +349,17 @@ jobs:
           elif '</application>' in txt:
               txt = txt.replace('</application>', f'    {admob_meta}\n    </application>', 1)
           open(manifest_path, "w", encoding="utf-8").write(txt)
+
+          # Hard gate: verify final AndroidManifest.xml has ONLY the live production App ID
+          final_txt = open(manifest_path, encoding="utf-8").read()
           ET.parse(manifest_path)
-          print(f"Verified AndroidManifest.xml APPLICATION_ID={app_id}")
+          if "3940256099942544" in final_txt:
+              print("ERROR: Google Test AdMob App ID still present in AndroidManifest.xml!", file=sys.stderr)
+              sys.exit(1)
+          if f'android:value="{app_id}"' not in final_txt:
+              print("ERROR: Production AdMob APPLICATION_ID missing from AndroidManifest.xml!", file=sys.stderr)
+              sys.exit(1)
+          print(f"Verified AndroidManifest.xml STRICT PRODUCTION APPLICATION_ID={app_id}")
           PYEOF
           grep -i "APPLICATION_ID" android/app/src/main/AndroidManifest.xml
           grep -i "AdMob" android/app/src/main/assets/capacitor.plugins.json

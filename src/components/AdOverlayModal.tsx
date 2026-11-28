@@ -216,7 +216,7 @@ export const AdOverlayModal: React.FC<AdOverlayModalProps> = ({ session }) => {
         <div className="flex items-center justify-between text-[9.5px] text-slate-400">
           <span className="inline-flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            {bi('Düşük frekans · 5-7 günde bir ara', 'Low frequency · 5-7 day pacing')}
+            {bi('Düşük frekans · 4-5 günde bir ara', 'Low frequency · 4-5 day pacing')}
           </span>
           <span className="font-mono text-amber-300 font-bold">
             {completed ? bi('Hazır ✓', 'Ready ✓') : `${secondsLeft}s`}

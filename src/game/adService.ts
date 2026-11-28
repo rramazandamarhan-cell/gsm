@@ -1,10 +1,12 @@
 // Production-Ready AdMob Monetization Bridge (Banner + Rewarded Video + Low-Frequency Interstitial)
 // - Native Android/iOS: routes directly to @capacitor-community/admob v7 native bridge
 // - Web/PWA preview: triggers the in-app AdOverlayModal simulator so players & QA can test full flows
-// - Safe Test vs. Production separation: defaults to Google official test IDs until production is explicitly enabled
-// - Event-driven native lifecycle (Loaded, FailedToLoad, Showed, FailedToShow, Dismissed, Rewarded, SizeChanged)
-//   so early-dismissed Rewarded ads never hang, Interstitial audio stays muted until dismissed,
-//   and Banner ads never leave empty layout space on failure.
+// - Safe Test vs. Production separation:
+//     * Production: 4-5 in-game days, zero ads during first 4 game days, >= 4 real minutes cooldown
+//     * Test:       1-2 in-game days, >= 45 seconds cooldown (isolated timer & schedule, never leaks into production)
+// - Persistent mode-isolated localStorage timer survives app restarts, device reboots, and offline sessions
+// - Strict Rewarded callback verification (`onUserEarnedReward` with valid non-empty type & positive amount)
+// - Global single-ad lock prevents overlapping Banner, Confirmation, Interstitial, and Rewarded flows
 
 import {
   AdMob,
@@ -16,7 +18,7 @@ import {
   RewardAdPluginEvents,
 } from '@capacitor-community/admob';
 import { soundFX } from './sound';
-import { getRuntimePlatform } from './storeBridge';
+import { getCapacitor, getRuntimePlatform } from './storeBridge';
 import { AdMonetizationState } from './types';
 
 export type AdMobEnvironmentMode = 'test' | 'production';
@@ -49,6 +51,13 @@ export interface AdStatusNotice {
   messageEn: string;
 }
 
+export interface PersistedAdTimerState {
+  lastInterstitialShownAt: number;
+  lastInterstitialDay: number;
+  nextInterstitialDay?: number;
+  updatedAt: number;
+}
+
 export interface AdDiagnosticsSnapshot {
   mode: AdMobEnvironmentMode;
   platform: string;
@@ -60,6 +69,12 @@ export interface AdDiagnosticsSnapshot {
     rewarded: string;
   };
   testingDevices: string[];
+  pacing: {
+    interstitialMinDays: number;
+    interstitialMaxDays: number;
+    interstitialMinCooldownMs: number;
+  };
+  timer: PersistedAdTimerState;
   banner: {
     mounted: boolean;
     visible: boolean;
@@ -80,10 +95,15 @@ export interface AdDiagnosticsSnapshot {
     lastError: string | null;
   };
   inFlight: boolean;
+  adFlowLocked: boolean;
 }
 
-const env =
-  (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+const metaEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+const nodeEnv =
+  typeof process !== 'undefined' && process.env
+    ? (process.env as Record<string, string | undefined>)
+    : undefined;
+const env: Record<string, string | undefined> = metaEnv ?? nodeEnv ?? {};
 
 // Official Google AdMob Test IDs & Preserved Real Production IDs
 // NEVER delete the real production IDs; switch mode via VITE_ADMOB_MODE ('test' | 'production')
@@ -166,32 +186,73 @@ export const ADMOB_CONFIG = {
   },
 } as const;
 
-// Low-Frequency, Player-Friendly Ad Pacing Rules (preserved 100% for production)
+// Production Player-Friendly Ad Pacing Rules (strictly enforced in production mode)
 export const AD_PACING_RULES = {
-  /** Minimum in-game days between end-of-day interstitial ads (5 days; zero ads Days 1-4) */
-  interstitialMinDays: 5,
-  /** Maximum in-game days between end-of-day interstitial ads (7 days) */
-  interstitialMaxDays: 7,
-  /** Minimum 4 minutes real-world cooldown between interstitials */
+  /** Minimum in-game days between end-of-day interstitial ads (4 days; zero ads Days 1-3, first after Day 4) */
+  interstitialMinDays: 4,
+  /** Maximum in-game days between end-of-day interstitial ads (5 days) */
+  interstitialMaxDays: 5,
+  /** Minimum 4 real minutes cooldown between interstitials */
   interstitialMinCooldownMs: 4 * 60 * 1000,
-  /** In test mode only, shorter cooldown so QA can verify interstitials cleanly */
-  testInterstitialCooldownMs: 45 * 1000,
   /** Number of consecutive sales/services covered by a 2x Cash Rewarded Ad boost */
   cashMultiplierDealsGrant: 3,
 } as const;
+
+// Development/Test-ONLY Pacing Rules (NEVER used when ADMOB_CONFIG.mode === 'production')
+export const TEST_AD_PACING_RULES = {
+  /** Test-only day interval (1-2 game days) for fast QA verification */
+  interstitialMinDays: 1,
+  interstitialMaxDays: 2,
+  /** Test-only real-world cooldown (45 seconds) */
+  interstitialMinCooldownMs: 45 * 1000,
+} as const;
+
+/**
+ * Returns the strictly active pacing rules for the compiled environment mode.
+ * Production builds can NEVER access or fall back to test pacing values.
+ */
+export function getActivePacingRules() {
+  if (ADMOB_CONFIG.mode === 'production') {
+    return {
+      interstitialMinDays: AD_PACING_RULES.interstitialMinDays,
+      interstitialMaxDays: AD_PACING_RULES.interstitialMaxDays,
+      interstitialMinCooldownMs: AD_PACING_RULES.interstitialMinCooldownMs,
+    };
+  }
+  return {
+    interstitialMinDays: TEST_AD_PACING_RULES.interstitialMinDays,
+    interstitialMaxDays: TEST_AD_PACING_RULES.interstitialMaxDays,
+    interstitialMinCooldownMs: TEST_AD_PACING_RULES.interstitialMinCooldownMs,
+  };
+}
+
+// Mode-isolated persistent timer keys so Test & Production timers never interfere
+// and ShopState save schema stays 100% unchanged.
+const AD_TIMER_STORAGE_KEYS: Record<AdMobEnvironmentMode, string> = {
+  production: 'pasaj_gsm_ad_timer_v1_production',
+  test: 'pasaj_gsm_ad_timer_v1_test',
+};
 
 const RETRY_DELAYS_MS = [3000, 8000, 20000];
 const INITIAL_PRELOAD_SETTLE_MS = 350;
 const PREPARE_TIMEOUT_MS = 18000;
 const FULLSCREEN_SAFETY_TIMEOUT_MS = 120000;
+const AD_PRELOAD_MAX_AGE_MS = 50 * 60 * 1000; // AdMob preloaded ads expire after ~60 min
+const LONG_BACKGROUND_REFRESH_MS = 15 * 60 * 1000;
+const DEFAULT_NATIVE_BANNER_HEIGHT_PX = 50;
 
 let adMobInitialized = false;
 let adMobInitPromise: Promise<boolean> | null = null;
 let listenersAttached = false;
 let onlineListenerAttached = false;
+let appLifecycleListenersAttached = false;
+
+// Global single-ad lock: prevents overlapping Banner, Confirmation, Interstitial, and Rewarded flows
+let adFlowLocked = false;
 let nativeAdInFlight = false;
 
 let rewardedPrepared = false;
+let rewardedPreparedAtMonoMs: number | null = null;
 let rewardedLoadPromise: Promise<boolean> | null = null;
 let rewardedRetryCount = 0;
 let rewardedRetryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -199,6 +260,7 @@ let rewardedLastEvent = 'idle';
 let rewardedLastError: string | null = null;
 
 let interstitialPrepared = false;
+let interstitialPreparedAtMonoMs: number | null = null;
 let interstitialLoadPromise: Promise<boolean> | null = null;
 let interstitialRetryCount = 0;
 let interstitialRetryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -210,13 +272,17 @@ let bannerVisible = false;
 let bannerWanted = false;
 let bannerLoading = false;
 let bannerHeightPx = 0;
+let lastKnownBannerHeightPx = 0;
 let bannerRetryCount = 0;
 let bannerRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let bannerLastEvent = 'idle';
 let bannerLastError: string | null = null;
 
 let lastInterstitialShownAt = 0;
+let lastInterstitialShownMonoMs: number | null = null;
 let lastInterstitialDayRuntime = 0;
+let testNextInterstitialDayRuntime: number | undefined = undefined;
+let lastBackgroundedMonoMs: number | null = null;
 
 let webAdListener: ((session: ActiveWebAdSession | null) => void) | null = null;
 let adStatusListener: ((notice: AdStatusNotice) => void) | null = null;
@@ -229,10 +295,109 @@ let activeRewardedFlow: {
 } | null = null;
 
 let activeInterstitialFlow: {
+  markShowed: () => void;
   finish: (shown: boolean) => void;
 } | null = null;
 
+/**
+ * Monotonic clock for in-session elapsed-time checks immune to device wall-clock jumps.
+ * Falls back safely if `performance.now` is unavailable.
+ */
+function getMonotonicNowMs(): number {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    const val = performance.now();
+    if (Number.isFinite(val) && val >= 0) return val;
+  }
+  return Date.now();
+}
+
+function getActiveTimerStorageKey(): string {
+  return AD_TIMER_STORAGE_KEYS[ADMOB_CONFIG.mode];
+}
+
+function readPersistedAdTimer(): PersistedAdTimerState {
+  const fallback: PersistedAdTimerState = {
+    lastInterstitialShownAt,
+    lastInterstitialDay: lastInterstitialDayRuntime,
+    nextInterstitialDay:
+      ADMOB_CONFIG.mode === 'test' ? testNextInterstitialDayRuntime : undefined,
+    updatedAt: 0,
+  };
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(getActiveTimerStorageKey());
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<PersistedAdTimerState> | null;
+    if (!parsed || typeof parsed !== 'object') return fallback;
+
+    const storedShownAt =
+      typeof parsed.lastInterstitialShownAt === 'number' &&
+      Number.isFinite(parsed.lastInterstitialShownAt) &&
+      parsed.lastInterstitialShownAt > 0
+        ? parsed.lastInterstitialShownAt
+        : 0;
+    const storedDay =
+      typeof parsed.lastInterstitialDay === 'number' &&
+      Number.isFinite(parsed.lastInterstitialDay) &&
+      parsed.lastInterstitialDay >= 0
+        ? Math.floor(parsed.lastInterstitialDay)
+        : 0;
+    const storedNext =
+      typeof parsed.nextInterstitialDay === 'number' &&
+      Number.isFinite(parsed.nextInterstitialDay) &&
+      parsed.nextInterstitialDay >= 1
+        ? Math.floor(parsed.nextInterstitialDay)
+        : undefined;
+    const storedUpdatedAt =
+      typeof parsed.updatedAt === 'number' && Number.isFinite(parsed.updatedAt)
+        ? parsed.updatedAt
+        : 0;
+
+    return {
+      lastInterstitialShownAt: Math.max(lastInterstitialShownAt, storedShownAt),
+      lastInterstitialDay: Math.max(lastInterstitialDayRuntime, storedDay),
+      nextInterstitialDay:
+        ADMOB_CONFIG.mode === 'test'
+          ? (testNextInterstitialDayRuntime ?? storedNext)
+          : undefined,
+      updatedAt: storedUpdatedAt,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writePersistedAdTimer(next: PersistedAdTimerState): void {
+  lastInterstitialShownAt = next.lastInterstitialShownAt;
+  lastInterstitialDayRuntime = next.lastInterstitialDay;
+  if (ADMOB_CONFIG.mode === 'test') {
+    testNextInterstitialDayRuntime = next.nextInterstitialDay;
+  }
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(getActiveTimerStorageKey(), JSON.stringify(next));
+  } catch {
+    // Ignore storage quota or privacy-mode restrictions without breaking gameplay
+  }
+}
+
+// Hydrate active mode's persisted timer on startup so restarts & reboots never reset cooldown
+(function hydrateAdTimerOnLoad() {
+  const persisted = readPersistedAdTimer();
+  lastInterstitialShownAt = persisted.lastInterstitialShownAt;
+  lastInterstitialDayRuntime = persisted.lastInterstitialDay;
+  if (ADMOB_CONFIG.mode === 'test') {
+    testNextInterstitialDayRuntime = persisted.nextInterstitialDay;
+  }
+})();
+
+export function isAdFlowBusy(): boolean {
+  return adFlowLocked || nativeAdInFlight;
+}
+
 function logAdInfo(event: string, detail?: Record<string, unknown>): void {
+  // Never spam console with AdMob IDs or verbose telemetry in production builds
+  if (ADMOB_CONFIG.mode === 'production') return;
   try {
     if (detail) {
       console.info(`[AdMob:${ADMOB_CONFIG.mode}] ${event}`, detail);
@@ -245,6 +410,7 @@ function logAdInfo(event: string, detail?: Record<string, unknown>): void {
 }
 
 function logAdWarn(event: string, detail?: unknown): void {
+  if (ADMOB_CONFIG.mode === 'production') return;
   try {
     console.warn(`[AdMob:${ADMOB_CONFIG.mode}] ${event}`, detail ?? '');
   } catch {
@@ -284,6 +450,22 @@ export function isValidAppId(id: string | undefined | null): id is string {
   return /^ca-app-pub-\d{10,20}~\d{8,14}$/.test(trimmed);
 }
 
+/**
+ * Strictly validates an AdMob RewardItem returned by onUserEarnedReward.
+ * Prevents granting in-game rewards for empty, zero, negative, or malformed payloads.
+ */
+export function isValidRewardItem(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const candidate = item as { type?: unknown; amount?: unknown };
+  const hasValidType =
+    typeof candidate.type === 'string' && candidate.type.trim().length > 0;
+  const hasValidAmount =
+    typeof candidate.amount === 'number' &&
+    Number.isFinite(candidate.amount) &&
+    candidate.amount > 0;
+  return hasValidType && hasValidAmount;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label}_timeout_${ms}ms`)), ms);
@@ -300,8 +482,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+function getRestoredBannerHeightPx(): number {
+  return lastKnownBannerHeightPx > 0
+    ? lastKnownBannerHeightPx
+    : DEFAULT_NATIVE_BANNER_HEIGHT_PX;
+}
+
 function notifyBannerHeight(height: number): void {
   const safeHeight = Number.isFinite(height) && height > 0 ? Math.round(height) : 0;
+  if (safeHeight > 0) {
+    lastKnownBannerHeightPx = safeHeight;
+  }
   if (bannerHeightPx === safeHeight) return;
   bannerHeightPx = safeHeight;
   for (const cb of bannerHeightSubscribers) {
@@ -335,6 +526,8 @@ export function getAdDiagnosticsSnapshot(): AdDiagnosticsSnapshot {
       rewarded: cfg.rewardedId,
     },
     testingDevices: [...ADMOB_CONFIG.testingDevices],
+    pacing: getActivePacingRules(),
+    timer: readPersistedAdTimer(),
     banner: {
       mounted: bannerMounted,
       visible: bannerVisible,
@@ -355,17 +548,27 @@ export function getAdDiagnosticsSnapshot(): AdDiagnosticsSnapshot {
       lastError: rewardedLastError,
     },
     inFlight: nativeAdInFlight,
+    adFlowLocked,
   };
 }
 
 /**
- * Picks the next low-frequency interstitial target day, 5 to 7 in-game days after `fromDay`.
+ * Picks the next low-frequency production interstitial target day (4 to 5 in-game days after `fromDay`).
+ * Always uses production pacing rules so ShopState.adState is never polluted by test pacing.
  */
 export function pickNextInterstitialDay(fromDay: number): number {
   const span =
     AD_PACING_RULES.interstitialMaxDays - AD_PACING_RULES.interstitialMinDays + 1;
   const offset = AD_PACING_RULES.interstitialMinDays + Math.floor(Math.random() * span);
   return Math.max(AD_PACING_RULES.interstitialMinDays, fromDay + offset);
+}
+
+function pickNextTestInterstitialDay(fromDay: number): number {
+  const span =
+    TEST_AD_PACING_RULES.interstitialMaxDays - TEST_AD_PACING_RULES.interstitialMinDays + 1;
+  const offset =
+    TEST_AD_PACING_RULES.interstitialMinDays + Math.floor(Math.random() * span);
+  return Math.max(TEST_AD_PACING_RULES.interstitialMinDays, fromDay + offset);
 }
 
 /**
@@ -450,6 +653,30 @@ export function registerAdStatusListener(
 }
 
 /**
+ * Temporarily hides an active native banner while a fullscreen ad or confirmation modal runs,
+ * without forgetting `bannerWanted` so returning to the Title Menu restores cleanly.
+ */
+async function suspendBannerForFullscreenFlow(): Promise<void> {
+  if (bannerRetryTimer) {
+    clearTimeout(bannerRetryTimer);
+    bannerRetryTimer = null;
+  }
+  notifyBannerHeight(0);
+  if (!isNativeAdPlatform() || !bannerMounted || !bannerVisible) {
+    bannerVisible = false;
+    return;
+  }
+  try {
+    await AdMob.hideBanner();
+    bannerVisible = false;
+    bannerLastEvent = 'suspended_for_fullscreen';
+  } catch (err) {
+    bannerVisible = false;
+    logAdWarn('banner:suspend_failed', err);
+  }
+}
+
+/**
  * Registers all native @capacitor-community/admob lifecycle listeners once.
  * Drives state transitions for Banner, Interstitial, and Rewarded ads so promises
  * never hang when ads are closed early or fail to load/show.
@@ -466,10 +693,15 @@ async function attachNativeAdListeners(): Promise<void> {
       bannerRetryCount = 0;
       bannerLoading = false;
       bannerMounted = true;
-      bannerVisible = bannerWanted;
       logAdInfo('banner:onAdLoaded');
-      if (!bannerWanted) {
-        void hideBannerAd();
+      if (!bannerWanted || isAdFlowBusy()) {
+        bannerVisible = true; // allow hide call to execute cleanly
+        void suspendBannerForFullscreenFlow();
+      } else {
+        bannerVisible = true;
+        if (bannerHeightPx === 0) {
+          notifyBannerHeight(getRestoredBannerHeightPx());
+        }
       }
     });
 
@@ -486,8 +718,11 @@ async function attachNativeAdListeners(): Promise<void> {
 
     await AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info) => {
       const h = typeof info?.height === 'number' ? info.height : 0;
+      if (Number.isFinite(h) && h > 0) {
+        lastKnownBannerHeightPx = Math.round(h);
+      }
       bannerLastEvent = `size_changed:${h}`;
-      notifyBannerHeight(bannerWanted ? h : 0);
+      notifyBannerHeight(bannerWanted && !isAdFlowBusy() ? h : 0);
       logAdInfo('banner:onSizeChanged', { width: info?.width, height: h });
     });
 
@@ -509,6 +744,7 @@ async function attachNativeAdListeners(): Promise<void> {
     // --- INTERSTITIAL EVENTS ---
     await AdMob.addListener(InterstitialAdPluginEvents.Loaded, (info) => {
       interstitialPrepared = true;
+      interstitialPreparedAtMonoMs = getMonotonicNowMs();
       interstitialRetryCount = 0;
       interstitialLastEvent = 'loaded';
       interstitialLastError = null;
@@ -517,6 +753,7 @@ async function attachNativeAdListeners(): Promise<void> {
 
     await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, (error) => {
       interstitialPrepared = false;
+      interstitialPreparedAtMonoMs = null;
       interstitialLastEvent = 'failed_to_load';
       interstitialLastError = formatErrorDetail(error);
       logAdWarn('interstitial:onAdFailedToLoad', error);
@@ -524,12 +761,15 @@ async function attachNativeAdListeners(): Promise<void> {
 
     await AdMob.addListener(InterstitialAdPluginEvents.Showed, () => {
       interstitialPrepared = false;
+      interstitialPreparedAtMonoMs = null;
       interstitialLastEvent = 'showed';
       logAdInfo('interstitial:onAdShowed');
+      activeInterstitialFlow?.markShowed();
     });
 
     await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, (error) => {
       interstitialPrepared = false;
+      interstitialPreparedAtMonoMs = null;
       interstitialLastEvent = 'failed_to_show';
       interstitialLastError = formatErrorDetail(error);
       logAdWarn('interstitial:onAdFailedToShow', error);
@@ -542,6 +782,7 @@ async function attachNativeAdListeners(): Promise<void> {
 
     await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
       interstitialPrepared = false;
+      interstitialPreparedAtMonoMs = null;
       interstitialLastEvent = 'dismissed';
       logAdInfo('interstitial:onAdDismissed');
       if (activeInterstitialFlow) {
@@ -554,6 +795,7 @@ async function attachNativeAdListeners(): Promise<void> {
     // --- REWARDED VIDEO EVENTS ---
     await AdMob.addListener(RewardAdPluginEvents.Loaded, (info) => {
       rewardedPrepared = true;
+      rewardedPreparedAtMonoMs = getMonotonicNowMs();
       rewardedRetryCount = 0;
       rewardedLastEvent = 'loaded';
       rewardedLastError = null;
@@ -562,6 +804,7 @@ async function attachNativeAdListeners(): Promise<void> {
 
     await AdMob.addListener(RewardAdPluginEvents.FailedToLoad, (error) => {
       rewardedPrepared = false;
+      rewardedPreparedAtMonoMs = null;
       rewardedLastEvent = 'failed_to_load';
       rewardedLastError = formatErrorDetail(error);
       logAdWarn('rewarded:onAdFailedToLoad', error);
@@ -586,12 +829,14 @@ async function attachNativeAdListeners(): Promise<void> {
     });
 
     await AdMob.addListener(RewardAdPluginEvents.Rewarded, (rewardItem) => {
-      rewardedLastEvent = 'rewarded';
+      const valid = isValidRewardItem(rewardItem);
+      rewardedLastEvent = valid ? 'rewarded' : 'reward_invalid_payload';
       logAdInfo('rewarded:onUserEarnedReward', {
         type: rewardItem?.type,
         amount: rewardItem?.amount,
+        valid,
       });
-      if (activeRewardedFlow) {
+      if (valid && activeRewardedFlow) {
         activeRewardedFlow.earned = true;
       }
     });
@@ -612,6 +857,118 @@ async function attachNativeAdListeners(): Promise<void> {
   }
 }
 
+function isPreloadExpired(preparedAtMonoMs: number | null): boolean {
+  if (preparedAtMonoMs === null) return false;
+  const ageMs = getMonotonicNowMs() - preparedAtMonoMs;
+  return !Number.isFinite(ageMs) || ageMs < 0 || ageMs >= AD_PRELOAD_MAX_AGE_MS;
+}
+
+function recordAppBackgrounded(): void {
+  lastBackgroundedMonoMs = getMonotonicNowMs();
+  logAdInfo('lifecycle:backgrounded');
+}
+
+function handleAppForegroundResume(): void {
+  const monoNow = getMonotonicNowMs();
+  const awayMs =
+    lastBackgroundedMonoMs !== null ? Math.max(0, monoNow - lastBackgroundedMonoMs) : 0;
+  lastBackgroundedMonoMs = null;
+
+  if (!isNativeAdPlatform()) return;
+  // Never interrupt or launch a second ad while a fullscreen/confirmation flow is active
+  if (isAdFlowBusy()) {
+    logAdInfo('lifecycle:foreground_skipped_busy');
+    return;
+  }
+
+  const longBackground = awayMs >= LONG_BACKGROUND_REFRESH_MS;
+  if (rewardedPrepared && (longBackground || isPreloadExpired(rewardedPreparedAtMonoMs))) {
+    rewardedPrepared = false;
+    rewardedPreparedAtMonoMs = null;
+    rewardedLastEvent = 'expired_refreshed';
+  }
+  if (
+    interstitialPrepared &&
+    (longBackground || isPreloadExpired(interstitialPreparedAtMonoMs))
+  ) {
+    interstitialPrepared = false;
+    interstitialPreparedAtMonoMs = null;
+    interstitialLastEvent = 'expired_refreshed';
+  }
+
+  if (!isDeviceOnline()) {
+    logAdInfo('lifecycle:foreground_offline');
+    return;
+  }
+
+  logAdInfo('lifecycle:foreground_resume', {
+    awaySec: Math.round(awayMs / 1000),
+    longBackground,
+  });
+
+  rewardedRetryCount = 0;
+  interstitialRetryCount = 0;
+  bannerRetryCount = 0;
+
+  void initializeAdService().then((ready) => {
+    if (!ready || isAdFlowBusy() || !isDeviceOnline()) return;
+    if (!rewardedPrepared) void preloadRewardedAd();
+    if (!interstitialPrepared) void preloadInterstitialAd();
+    if (bannerWanted) {
+      if (!bannerMounted || !bannerVisible) {
+        void showBannerAd();
+      } else if (bannerHeightPx === 0) {
+        notifyBannerHeight(getRestoredBannerHeightPx());
+      }
+    }
+  });
+}
+
+function attachAppLifecycleListeners(): void {
+  if (appLifecycleListenersAttached) return;
+  appLifecycleListenersAttached = true;
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        recordAppBackgrounded();
+      } else {
+        handleAppForegroundResume();
+      }
+    });
+  }
+
+  // Optional Capacitor App plugin support (`appStateChange`) when present in native build
+  try {
+    const capPlugins = getCapacitor()?.Plugins as
+      | {
+          App?: {
+            addListener?: (
+              eventName: 'appStateChange',
+              cb: (state: { isActive: boolean }) => void
+            ) => Promise<{ remove?: () => Promise<void> }> | { remove?: () => Promise<void> };
+          };
+        }
+      | undefined;
+    const appPlugin = capPlugins?.App;
+    if (appPlugin && typeof appPlugin.addListener === 'function') {
+      void Promise.resolve(
+        appPlugin.addListener('appStateChange', (state) => {
+          if (state?.isActive) {
+            handleAppForegroundResume();
+          } else {
+            recordAppBackgrounded();
+          }
+        })
+      ).catch(() => {
+        // Ignore if native App plugin is not installed; visibilitychange handles lifecycle
+      });
+    }
+  } catch {
+    // Safe fallback to document.visibilitychange
+  }
+}
+
 function attachOnlineRecoveryListener(): void {
   if (onlineListenerAttached || typeof window === 'undefined') return;
   onlineListenerAttached = true;
@@ -623,10 +980,10 @@ function attachOnlineRecoveryListener(): void {
     interstitialRetryCount = 0;
     bannerRetryCount = 0;
     void initializeAdService().then((ready) => {
-      if (!ready) return;
+      if (!ready || isAdFlowBusy()) return;
       if (!rewardedPrepared) void preloadRewardedAd();
       if (!interstitialPrepared) void preloadInterstitialAd();
-      if (bannerWanted && !bannerMounted) void showBannerAd();
+      if (bannerWanted && (!bannerMounted || !bannerVisible)) void showBannerAd();
     });
   });
 }
@@ -656,14 +1013,19 @@ function scheduleInterstitialRetry(): void {
 }
 
 function scheduleBannerRetry(): void {
-  if (!bannerWanted || bannerRetryTimer || bannerRetryCount >= RETRY_DELAYS_MS.length) {
+  if (
+    !bannerWanted ||
+    isAdFlowBusy() ||
+    bannerRetryTimer ||
+    bannerRetryCount >= RETRY_DELAYS_MS.length
+  ) {
     return;
   }
   const delay = RETRY_DELAYS_MS[bannerRetryCount];
   bannerRetryCount += 1;
   bannerRetryTimer = setTimeout(() => {
     bannerRetryTimer = null;
-    if (bannerWanted && adMobInitialized && isDeviceOnline() && !bannerMounted) {
+    if (bannerWanted && !isAdFlowBusy() && adMobInitialized && isDeviceOnline() && !bannerMounted) {
       void showBannerAd();
     }
   }, delay);
@@ -671,7 +1033,11 @@ function scheduleBannerRetry(): void {
 
 export async function preloadRewardedAd(): Promise<boolean> {
   if (!adMobInitialized || !isNativeAdPlatform() || !isDeviceOnline()) return false;
-  if (rewardedPrepared) return true;
+  if (rewardedPrepared && !isPreloadExpired(rewardedPreparedAtMonoMs)) return true;
+  if (rewardedPrepared && isPreloadExpired(rewardedPreparedAtMonoMs)) {
+    rewardedPrepared = false;
+    rewardedPreparedAtMonoMs = null;
+  }
   if (rewardedLoadPromise) return rewardedLoadPromise;
 
   const adId = getRewardedAdUnitId();
@@ -696,11 +1062,13 @@ export async function preloadRewardedAd(): Promise<boolean> {
         'prepareRewardVideoAd'
       );
       rewardedPrepared = true;
+      rewardedPreparedAtMonoMs = getMonotonicNowMs();
       rewardedRetryCount = 0;
       rewardedLastError = null;
       return true;
     } catch (err) {
       rewardedPrepared = false;
+      rewardedPreparedAtMonoMs = null;
       rewardedLastEvent = 'failed_to_load';
       rewardedLastError = formatErrorDetail(err);
       logAdWarn('rewarded:prepare_failed', err);
@@ -716,7 +1084,11 @@ export async function preloadRewardedAd(): Promise<boolean> {
 
 export async function preloadInterstitialAd(): Promise<boolean> {
   if (!adMobInitialized || !isNativeAdPlatform() || !isDeviceOnline()) return false;
-  if (interstitialPrepared) return true;
+  if (interstitialPrepared && !isPreloadExpired(interstitialPreparedAtMonoMs)) return true;
+  if (interstitialPrepared && isPreloadExpired(interstitialPreparedAtMonoMs)) {
+    interstitialPrepared = false;
+    interstitialPreparedAtMonoMs = null;
+  }
   if (interstitialLoadPromise) return interstitialLoadPromise;
 
   const adId = getInterstitialAdUnitId();
@@ -741,11 +1113,13 @@ export async function preloadInterstitialAd(): Promise<boolean> {
         'prepareInterstitial'
       );
       interstitialPrepared = true;
+      interstitialPreparedAtMonoMs = getMonotonicNowMs();
       interstitialRetryCount = 0;
       interstitialLastError = null;
       return true;
     } catch (err) {
       interstitialPrepared = false;
+      interstitialPreparedAtMonoMs = null;
       interstitialLastEvent = 'failed_to_load';
       interstitialLastError = formatErrorDetail(err);
       logAdWarn('interstitial:prepare_failed', err);
@@ -761,6 +1135,7 @@ export async function preloadInterstitialAd(): Promise<boolean> {
 
 /**
  * Displays a native Banner Ad safely without leaving empty space when ads fail to load.
+ * Strictly blocked while any fullscreen ad or confirmation modal is active (`isAdFlowBusy()`).
  * Prevents the @capacitor-community/admob BannerExecutor double-showBanner() promise hang
  * by tracking mounted state and calling resumeBanner() when already created.
  */
@@ -768,10 +1143,10 @@ export async function showBannerAd(
   position: BannerAdPosition = BannerAdPosition.BOTTOM_CENTER
 ): Promise<boolean> {
   bannerWanted = true;
-  if (!isNativeAdPlatform() || !isDeviceOnline()) return false;
+  if (!isNativeAdPlatform() || !isDeviceOnline() || isAdFlowBusy()) return false;
 
   const ready = await initializeAdService();
-  if (!ready || !bannerWanted) return false;
+  if (!ready || !bannerWanted || isAdFlowBusy()) return false;
 
   const adId = getBannerAdUnitId();
   if (!isValidAdUnitId(adId)) {
@@ -781,17 +1156,32 @@ export async function showBannerAd(
   }
 
   if (bannerMounted) {
-    if (bannerVisible) return true;
+    if (bannerVisible) {
+      if (bannerHeightPx === 0) {
+        notifyBannerHeight(getRestoredBannerHeightPx());
+      }
+      return true;
+    }
     try {
       await AdMob.resumeBanner();
+      if (!bannerWanted || isAdFlowBusy()) {
+        bannerVisible = true;
+        await suspendBannerForFullscreenFlow();
+        return false;
+      }
       bannerVisible = true;
+      bannerLoading = false;
       bannerLastEvent = 'resumed';
+      // Android resumeBanner() restores View.VISIBLE without always re-emitting SizeChanged;
+      // restore lastKnownBannerHeightPx immediately so menu controls are never overlapped.
+      notifyBannerHeight(getRestoredBannerHeightPx());
       logAdInfo('banner:resumed');
       return true;
     } catch (err) {
       logAdWarn('banner:resume_failed', err);
       bannerMounted = false;
       bannerVisible = false;
+      bannerLoading = false;
       notifyBannerHeight(0);
     }
   }
@@ -809,11 +1199,19 @@ export async function showBannerAd(
       margin: 0,
       isTesting: ADMOB_CONFIG.isTesting,
     });
+    if (!bannerWanted || isAdFlowBusy()) {
+      bannerMounted = true;
+      bannerVisible = true;
+      await suspendBannerForFullscreenFlow();
+      return false;
+    }
     bannerMounted = true;
     bannerVisible = true;
+    if (bannerHeightPx === 0) {
+      notifyBannerHeight(getRestoredBannerHeightPx());
+    }
     return true;
   } catch (err) {
-    bannerLoading = false;
     bannerMounted = false;
     bannerVisible = false;
     bannerLastEvent = 'failed_to_load';
@@ -822,6 +1220,8 @@ export async function showBannerAd(
     logAdWarn('banner:show_failed', err);
     scheduleBannerRetry();
     return false;
+  } finally {
+    bannerLoading = false;
   }
 }
 
@@ -878,6 +1278,7 @@ export async function removeBannerAd(): Promise<void> {
  */
 export async function initializeAdService(): Promise<boolean> {
   attachOnlineRecoveryListener();
+  attachAppLifecycleListeners();
   if (!isNativeAdPlatform()) return false;
   if (adMobInitialized) return true;
   if (adMobInitPromise) return adMobInitPromise;
@@ -925,7 +1326,7 @@ export async function initializeAdService(): Promise<boolean> {
         if (!adMobInitialized || !isDeviceOnline()) return;
         void preloadRewardedAd();
         void preloadInterstitialAd();
-        if (bannerWanted && !bannerMounted) {
+        if (bannerWanted && !bannerMounted && !isAdFlowBusy()) {
           void showBannerAd();
         }
       }, INITIAL_PRELOAD_SETTLE_MS);
@@ -955,7 +1356,10 @@ function confirmRewardedAdOptIn(opts: {
   detailEn?: string;
   multiplierBadge?: string;
 }): Promise<boolean> {
-  if (!webAdListener) return Promise.resolve(true);
+  if (!webAdListener) {
+    // On Web without an overlay listener, never silently auto-confirm/grant rewards
+    return Promise.resolve(isNativeAdPlatform());
+  }
   return new Promise<boolean>((resolve) => {
     webAdListener?.({
       id: `ad_confirm_${Date.now()}`,
@@ -978,9 +1382,60 @@ function confirmRewardedAdOptIn(opts: {
 }
 
 /**
- * Checks whether an end-of-day interstitial ad is eligible.
- * - Production: low-frequency 5–7 day pacing & >= 4 min cooldown.
- * - Test mode: eligible from Day 1 (with 45s cooldown) so QA can verify interstitial ads immediately.
+ * Evaluates interstitial cooldown using BOTH:
+ *  1. In-session monotonic clock (`performance.now()`) so wall-clock jumps while the app is open
+ *     cannot bypass the cooldown in either direction, AND
+ *  2. Persisted wall-clock timestamp across app restarts/reboots.
+ *
+ * If a backward clock jump is detected (`lastShownAt > now`, e.g., user jumped +23h ahead,
+ * triggered an ad, and returned to real time), we clamp the stored timestamp to `now` and anchor
+ * the monotonic clock so exactly one normal cooldown window is enforced — preventing both
+ * 23-hour ad suppression and instant bypass.
+ */
+function isCooldownSatisfied(
+  persisted: PersistedAdTimerState,
+  minCooldownMs: number,
+  now: number
+): boolean {
+  const monoNow = getMonotonicNowMs();
+
+  // 1. In-session monotonic enforcement (immune to device clock forward/backward changes)
+  if (lastInterstitialShownMonoMs !== null) {
+    const monoElapsed = monoNow - lastInterstitialShownMonoMs;
+    if (Number.isFinite(monoElapsed) && monoElapsed >= 0 && monoElapsed < minCooldownMs) {
+      return false;
+    }
+  }
+
+  // 2. Cross-restart persisted timestamp enforcement
+  const lastShownAt = persisted.lastInterstitialShownAt;
+  if (lastShownAt <= 0) return true;
+
+  if (lastShownAt > now) {
+    // Device clock jumped backward relative to persisted timestamp:
+    // Clamp stored timestamp to `now` and start one fresh monotonic cooldown window
+    // (prevents 23h ad suppression AND prevents instant >24h bypass).
+    lastInterstitialShownMonoMs = monoNow;
+    writePersistedAdTimer({
+      ...persisted,
+      lastInterstitialShownAt: now,
+      updatedAt: now,
+    });
+    return false;
+  }
+
+  return now - lastShownAt >= minCooldownMs;
+}
+
+/**
+ * Checks whether an end-of-day interstitial ad is eligible under strict mode-isolated rules:
+ * - Production (`mode === 'production'`):
+ *     * Zero interstitials during first 4 game days (`completedDay < 4` is always false)
+ *     * 4-5 in-game day interval after Day 4 completes
+ *     * Minimum 4 real minutes cooldown enforced via in-session monotonic clock + persisted storage
+ * - Test (`mode === 'test'`):
+ *     * 1-2 in-game day interval & 45-second persisted cooldown isolated in its own timer key
+ *     * Never alters or reads production timers/schedules
  */
 export function shouldShowEndOfDayInterstitial(
   completedDay: number,
@@ -988,27 +1443,45 @@ export function shouldShowEndOfDayInterstitial(
   adsRemoved = false
 ): boolean {
   if (adsRemoved) return false;
-  if (completedDay < 1) return false;
-
-  const lastDay = Math.max(
-    lastInterstitialDayRuntime,
-    adState?.lastInterstitialDay ?? 0
-  );
-  if (completedDay === lastDay) return false;
+  const rules = getActivePacingRules();
+  if (completedDay < rules.interstitialMinDays) return false;
 
   const now = Date.now();
+  const persisted = readPersistedAdTimer();
 
-  if (ADMOB_CONFIG.isTesting) {
-    if (
-      lastInterstitialShownAt > 0 &&
-      now - lastInterstitialShownAt < AD_PACING_RULES.testInterstitialCooldownMs
-    ) {
-      return false;
-    }
-    return true;
+  // Enforce monotonic + persisted real-time cooldown
+  if (!isCooldownSatisfied(persisted, rules.interstitialMinCooldownMs, now)) {
+    return false;
   }
 
-  if (completedDay < AD_PACING_RULES.interstitialMinDays) return false;
+  // Test mode uses its own isolated day schedule inside `pasaj_gsm_ad_timer_v1_test`
+  if (ADMOB_CONFIG.mode === 'test') {
+    const testLastDay =
+      persisted.lastInterstitialDay <= completedDay ? persisted.lastInterstitialDay : 0;
+    if (completedDay === testLastDay) return false;
+    if (testLastDay > 0 && completedDay - testLastDay < TEST_AD_PACING_RULES.interstitialMinDays) {
+      return false;
+    }
+    const testScheduledDay =
+      typeof persisted.nextInterstitialDay === 'number' &&
+      persisted.nextInterstitialDay >= TEST_AD_PACING_RULES.interstitialMinDays &&
+      (testLastDay === 0 || persisted.nextInterstitialDay > testLastDay)
+        ? persisted.nextInterstitialDay
+        : TEST_AD_PACING_RULES.interstitialMinDays;
+
+    return completedDay >= testScheduledDay;
+  }
+
+  // Production mode: strict 4-5 in-game day cadence, zero ads before Day 4 completes
+  const savedLastDay = adState?.lastInterstitialDay ?? 0;
+  const persistedLastDayForSave =
+    persisted.lastInterstitialDay <= completedDay ? persisted.lastInterstitialDay : 0;
+  const lastDay = Math.max(savedLastDay, persistedLastDayForSave);
+
+  if (completedDay === lastDay) return false;
+  if (lastDay > 0 && completedDay - lastDay < AD_PACING_RULES.interstitialMinDays) {
+    return false;
+  }
 
   const scheduledDay =
     typeof adState?.nextInterstitialDay === 'number' &&
@@ -1017,22 +1490,13 @@ export function shouldShowEndOfDayInterstitial(
       : AD_PACING_RULES.interstitialMinDays;
 
   if (completedDay < scheduledDay) return false;
-  if (lastDay > 0 && completedDay - lastDay < AD_PACING_RULES.interstitialMinDays) {
-    return false;
-  }
-
-  if (
-    lastInterstitialShownAt > 0 &&
-    now - lastInterstitialShownAt < AD_PACING_RULES.interstitialMinCooldownMs
-  ) {
-    return false;
-  }
   return true;
 }
 
 /**
  * Runs the native Rewarded Video presentation and settles reliably via SDK lifecycle events
  * (`Rewarded`, `Dismissed`, `FailedToShow`) so early-dismissed videos NEVER hang the promise.
+ * Reward is granted ONLY when AdMob's real `onUserEarnedReward` callback delivers a valid RewardItem.
  */
 async function presentNativeRewardedAd(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
@@ -1068,10 +1532,12 @@ async function presentNativeRewardedAd(): Promise<boolean> {
 
     AdMob.showRewardVideoAd()
       .then((rewardItem) => {
-        // Native plugin resolves showRewardVideoAd() inside OnUserEarnedRewardListener.
-        // Mark reward earned and wait briefly for Dismissed so audio stays suspended until closed.
-        if (rewardItem) {
+        // Native plugin resolves showRewardVideoAd() ONLY inside OnUserEarnedRewardListener.
+        // Strictly validate the RewardItem payload before marking earned.
+        if (isValidRewardItem(rewardItem)) {
           earnedReward = true;
+        } else if (rewardItem !== undefined && rewardItem !== null) {
+          logAdWarn('rewarded:invalid_reward_item_rejected', rewardItem);
         }
         if (!settled && earnedReward) {
           postRewardFallbackTimer = setTimeout(() => {
@@ -1095,23 +1561,28 @@ async function presentNativeRewardedAd(): Promise<boolean> {
 async function presentNativeInterstitialAd(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     let settled = false;
+    let showed = false;
 
-    const finalize = (shown: boolean) => {
+    const finalize = (didShow: boolean) => {
       if (settled) return;
       settled = true;
       clearTimeout(safetyTimer);
       if (activeInterstitialFlow?.finish === finalize) {
         activeInterstitialFlow = null;
       }
-      resolve(shown);
+      resolve(didShow);
     };
 
     const safetyTimer = setTimeout(() => {
-      logAdWarn('interstitial:show_safety_timeout');
-      finalize(true);
+      logAdWarn('interstitial:show_safety_timeout', { showed });
+      // Count as shown ONLY if native SDK actually emitted Showed; never count unshown timeouts
+      finalize(showed);
     }, FULLSCREEN_SAFETY_TIMEOUT_MS);
 
     activeInterstitialFlow = {
+      markShowed: () => {
+        showed = true;
+      },
       finish: finalize,
     };
 
@@ -1126,7 +1597,10 @@ async function presentNativeInterstitialAd(): Promise<boolean> {
 
 /**
  * Displays a Rewarded Video Ad with an explicit player confirmation step first.
- * Resolves true ONLY if the player confirmed AND completed watching the ad.
+ * Resolves true ONLY if:
+ *   1. No other ad or confirmation flow is currently active (global single-ad lock),
+ *   2. The player explicitly confirmed opt-in, AND
+ *   3. AdMob's real `onUserEarnedReward` callback delivered a valid reward item.
  * Never crashes, hangs, or displays intrusive error popups when ads fail to load.
  */
 export async function showRewardedAd(opts: {
@@ -1138,76 +1612,87 @@ export async function showRewardedAd(opts: {
   multiplierBadge?: string;
   skipConfirmation?: boolean;
 }): Promise<boolean> {
-  if (!opts.skipConfirmation) {
-    const confirmed = await confirmRewardedAdOptIn(opts);
-    if (!confirmed) return false;
+  if (isAdFlowBusy()) {
+    logAdWarn('rewarded:blocked_by_global_lock');
+    return false;
   }
 
-  if (isNativeAdPlatform()) {
-    webAdListener?.(null);
+  adFlowLocked = true;
+  const shouldRestoreBannerAfter = bannerWanted;
+  try {
+    await suspendBannerForFullscreenFlow();
 
-    if (!isDeviceOnline()) {
-      logAdWarn('rewarded:skipped_offline');
-      adStatusListener?.({
-        code: 'OFFLINE',
-        messageTr: 'Reklam için internet bağlantısı gerekiyor.',
-        messageEn: 'Internet connection is required to load ads.',
-      });
-      return false;
+    if (!opts.skipConfirmation) {
+      const confirmed = await confirmRewardedAdOptIn(opts);
+      if (!confirmed) return false;
     }
 
-    if (nativeAdInFlight) {
-      logAdWarn('rewarded:skipped_busy');
-      return false;
-    }
+    if (isNativeAdPlatform()) {
+      webAdListener?.(null);
 
-    const ready = await initializeAdService();
-    if (!ready) {
-      return false;
-    }
-
-    nativeAdInFlight = true;
-    soundFX.setAdSuspended(true);
-    try {
-      const prepared = rewardedPrepared ? true : await preloadRewardedAd();
-      if (!prepared) {
+      if (!isDeviceOnline()) {
+        logAdWarn('rewarded:skipped_offline');
+        adStatusListener?.({
+          code: 'OFFLINE',
+          messageTr: 'Reklam için internet bağlantısı gerekiyor.',
+          messageEn: 'Internet connection is required to load ads.',
+        });
         return false;
       }
-      rewardedPrepared = false;
-      return await presentNativeRewardedAd();
-    } catch (err) {
-      rewardedPrepared = false;
-      logAdWarn('rewarded:unexpected_error', err);
-      return false;
-    } finally {
-      soundFX.setAdSuspended(false);
-      nativeAdInFlight = false;
-      // Preload next rewarded ad cleanly after fullscreen dismissal
-      setTimeout(() => {
-        void preloadRewardedAd();
-      }, 600);
+
+      const ready = await initializeAdService();
+      if (!ready) {
+        return false;
+      }
+
+      nativeAdInFlight = true;
+      soundFX.setAdSuspended(true);
+      try {
+        const prepared = rewardedPrepared ? true : await preloadRewardedAd();
+        if (!prepared) {
+          return false;
+        }
+        rewardedPrepared = false;
+        return await presentNativeRewardedAd();
+      } catch (err) {
+        rewardedPrepared = false;
+        logAdWarn('rewarded:unexpected_error', err);
+        return false;
+      } finally {
+        soundFX.setAdSuspended(false);
+        nativeAdInFlight = false;
+        setTimeout(() => {
+          void preloadRewardedAd();
+        }, 600);
+      }
+    }
+
+    // Web / PWA interactive rewarded ad preview overlay (5s countdown)
+    // Security: NEVER return true if no Web ad listener is mounted
+    if (!webAdListener) return false;
+    return await new Promise<boolean>((resolve) => {
+      webAdListener?.({
+        id: `ad_${Date.now()}`,
+        mode: 'REWARDED',
+        placement: opts.placement,
+        durationSec: 5,
+        rewardLabelTr: opts.rewardLabelTr,
+        rewardLabelEn: opts.rewardLabelEn,
+        detailTr: opts.detailTr,
+        detailEn: opts.detailEn,
+        multiplierBadge: opts.multiplierBadge,
+        resolve: (completed) => {
+          webAdListener?.(null);
+          resolve(Boolean(completed));
+        },
+      });
+    });
+  } finally {
+    adFlowLocked = false;
+    if (shouldRestoreBannerAfter && bannerWanted) {
+      void showBannerAd();
     }
   }
-
-  // Web / PWA interactive rewarded ad preview overlay (5s countdown)
-  if (!webAdListener) return true;
-  return new Promise<boolean>((resolve) => {
-    webAdListener?.({
-      id: `ad_${Date.now()}`,
-      mode: 'REWARDED',
-      placement: opts.placement,
-      durationSec: 5,
-      rewardLabelTr: opts.rewardLabelTr,
-      rewardLabelEn: opts.rewardLabelEn,
-      detailTr: opts.detailTr,
-      detailEn: opts.detailEn,
-      multiplierBadge: opts.multiplierBadge,
-      resolve: (completed) => {
-        webAdListener?.(null);
-        resolve(completed);
-      },
-    });
-  });
 }
 
 export interface EndOfDayInterstitialResult {
@@ -1217,8 +1702,10 @@ export interface EndOfDayInterstitialResult {
 }
 
 /**
- * Displays an Interstitial Ad at day end under configured pacing rules.
- * Returns updated schedule metadata so App.tsx can persist it inside ShopState.adState.
+ * Displays an Interstitial Ad at day end under strict mode-isolated pacing rules.
+ * - Production: 4-5 game days (none before Day 4 completes) & >= 4 real minutes persisted cooldown.
+ * - Test: 1-2 game days & >= 45 seconds persisted cooldown (isolated from production timer & ShopState schedule).
+ * - Never runs concurrently with Banner, Rewarded, or confirmation modals (global ad lock).
  */
 export async function maybeShowEndOfDayInterstitial(
   completedDay: number,
@@ -1229,7 +1716,7 @@ export async function maybeShowEndOfDayInterstitial(
   const currentNext =
     adState?.nextInterstitialDay ?? pickNextInterstitialDay(Math.max(0, completedDay));
 
-  if (!shouldShowEndOfDayInterstitial(completedDay, adState, adsRemoved)) {
+  if (isAdFlowBusy() || !shouldShowEndOfDayInterstitial(completedDay, adState, adsRemoved)) {
     return {
       shown: false,
       lastInterstitialDay: currentLast,
@@ -1237,98 +1724,131 @@ export async function maybeShowEndOfDayInterstitial(
     };
   }
 
-  const nextScheduled = pickNextInterstitialDay(completedDay);
+  const nextScheduledProd = pickNextInterstitialDay(completedDay);
+  const nextScheduledTest = pickNextTestInterstitialDay(completedDay);
 
-  if (isNativeAdPlatform()) {
-    if (nativeAdInFlight || !isDeviceOnline()) {
-      return {
-        shown: false,
-        lastInterstitialDay: currentLast,
-        nextInterstitialDay: currentNext,
-      };
-    }
-
-    const ready = await initializeAdService();
-    if (!ready) {
-      return {
-        shown: false,
-        lastInterstitialDay: currentLast,
-        nextInterstitialDay: currentNext,
-      };
-    }
-
-    nativeAdInFlight = true;
-    soundFX.setAdSuspended(true);
-    try {
-      const prepared = interstitialPrepared ? true : await preloadInterstitialAd();
-      if (!prepared) {
-        return {
-          shown: false,
-          lastInterstitialDay: currentLast,
-          nextInterstitialDay: currentNext,
-        };
-      }
-      interstitialPrepared = false;
-      const shown = await presentNativeInterstitialAd();
-      if (!shown) {
-        return {
-          shown: false,
-          lastInterstitialDay: currentLast,
-          nextInterstitialDay: currentNext,
-        };
-      }
-      lastInterstitialShownAt = Date.now();
-      lastInterstitialDayRuntime = completedDay;
+  const commitInterstitialTimer = (): EndOfDayInterstitialResult => {
+    const shownAt = Date.now();
+    lastInterstitialShownMonoMs = getMonotonicNowMs();
+    if (ADMOB_CONFIG.mode === 'test') {
+      // Persist exclusively in test storage key; preserve ShopState production schedule untouched
+      writePersistedAdTimer({
+        lastInterstitialShownAt: shownAt,
+        lastInterstitialDay: completedDay,
+        nextInterstitialDay: nextScheduledTest,
+        updatedAt: shownAt,
+      });
       return {
         shown: true,
-        lastInterstitialDay: completedDay,
-        nextInterstitialDay: nextScheduled,
+        lastInterstitialDay: currentLast,
+        nextInterstitialDay: currentNext,
       };
-    } catch (err) {
-      interstitialPrepared = false;
-      logAdWarn('interstitial:unexpected_error', err);
+    }
+
+    writePersistedAdTimer({
+      lastInterstitialShownAt: shownAt,
+      lastInterstitialDay: completedDay,
+      updatedAt: shownAt,
+    });
+    return {
+      shown: true,
+      lastInterstitialDay: completedDay,
+      nextInterstitialDay: nextScheduledProd,
+    };
+  };
+
+  adFlowLocked = true;
+  const shouldRestoreBannerAfter = bannerWanted;
+  try {
+    await suspendBannerForFullscreenFlow();
+
+    if (isNativeAdPlatform()) {
+      if (!isDeviceOnline()) {
+        // Offline: leave persisted timer untouched and never block gameplay
+        return {
+          shown: false,
+          lastInterstitialDay: currentLast,
+          nextInterstitialDay: currentNext,
+        };
+      }
+
+      const ready = await initializeAdService();
+      if (!ready) {
+        return {
+          shown: false,
+          lastInterstitialDay: currentLast,
+          nextInterstitialDay: currentNext,
+        };
+      }
+
+      nativeAdInFlight = true;
+      soundFX.setAdSuspended(true);
+      try {
+        const prepared = interstitialPrepared ? true : await preloadInterstitialAd();
+        if (!prepared) {
+          return {
+            shown: false,
+            lastInterstitialDay: currentLast,
+            nextInterstitialDay: currentNext,
+          };
+        }
+        interstitialPrepared = false;
+        const shown = await presentNativeInterstitialAd();
+        if (!shown) {
+          return {
+            shown: false,
+            lastInterstitialDay: currentLast,
+            nextInterstitialDay: currentNext,
+          };
+        }
+        return commitInterstitialTimer();
+      } catch (err) {
+        interstitialPrepared = false;
+        logAdWarn('interstitial:unexpected_error', err);
+        return {
+          shown: false,
+          lastInterstitialDay: currentLast,
+          nextInterstitialDay: currentNext,
+        };
+      } finally {
+        soundFX.setAdSuspended(false);
+        nativeAdInFlight = false;
+        setTimeout(() => {
+          void preloadInterstitialAd();
+        }, 600);
+      }
+    }
+
+    // Web / PWA fallback brief skippable break (3s) when native AdMob SDK is not present
+    if (!webAdListener) {
       return {
         shown: false,
         lastInterstitialDay: currentLast,
         nextInterstitialDay: currentNext,
       };
-    } finally {
-      soundFX.setAdSuspended(false);
-      nativeAdInFlight = false;
-      setTimeout(() => {
-        void preloadInterstitialAd();
-      }, 600);
+    }
+    const nextLabelDay =
+      ADMOB_CONFIG.mode === 'test' ? nextScheduledTest : nextScheduledProd;
+    return await new Promise<EndOfDayInterstitialResult>((resolve) => {
+      webAdListener?.({
+        id: `ad_${Date.now()}`,
+        mode: 'INTERSTITIAL',
+        placement: 'END_OF_DAY_INTERSTITIAL',
+        durationSec: 3,
+        rewardLabelTr: `Gün ${completedDay} Sonu Kısa Reklam Arası`,
+        rewardLabelEn: `Day ${completedDay} End Short Break`,
+        detailTr: `Teşekkürler! Bir sonraki reklam arası en erken Gün ${nextLabelDay} bitiminde gösterilir.`,
+        detailEn: `Thanks for playing! Next ad break won't appear before Day ${nextLabelDay} ends.`,
+        resolve: () => {
+          webAdListener?.(null);
+          resolve(commitInterstitialTimer());
+        },
+      });
+    });
+  } finally {
+    adFlowLocked = false;
+    if (shouldRestoreBannerAfter && bannerWanted) {
+      void showBannerAd();
     }
   }
-
-  // Web / PWA fallback brief skippable break (3s) when native AdMob SDK is not present
-  if (!webAdListener) {
-    return {
-      shown: false,
-      lastInterstitialDay: currentLast,
-      nextInterstitialDay: currentNext,
-    };
-  }
-  return new Promise<EndOfDayInterstitialResult>((resolve) => {
-    webAdListener?.({
-      id: `ad_${Date.now()}`,
-      mode: 'INTERSTITIAL',
-      placement: 'END_OF_DAY_INTERSTITIAL',
-      durationSec: 3,
-      rewardLabelTr: `Gün ${completedDay} Sonu Kısa Reklam Arası`,
-      rewardLabelEn: `Day ${completedDay} End Short Break`,
-      detailTr: `Teşekkürler! Bir sonraki reklam arası en erken Gün ${nextScheduled} bitiminde gösterilir.`,
-      detailEn: `Thanks for playing! Next ad break won't appear before Day ${nextScheduled} ends.`,
-      resolve: () => {
-        lastInterstitialShownAt = Date.now();
-        lastInterstitialDayRuntime = completedDay;
-        webAdListener?.(null);
-        resolve({
-          shown: true,
-          lastInterstitialDay: completedDay,
-          nextInterstitialDay: nextScheduled,
-        });
-      },
-    });
-  });
 }

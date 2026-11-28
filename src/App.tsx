@@ -349,16 +349,29 @@ export default function App() {
     };
   }, []);
 
+  // Synchronous single-claim & in-flight locks for rewarded ad placements
+  const [dailyStreakClaiming, setDailyStreakClaiming] = useState(false);
+  const dailyStreakClaimLockRef = useRef(false);
+  const dailyStreakClaimedKeyRef = useRef<string | null>(null);
+  const offlineClaimedKeyRef = useRef<string | null>(null);
+  const daySummaryBonusClaimedDayRef = useRef<number | null>(null);
+  const cash2xAdLockRef = useRef(false);
+  const passive2xAdLockRef = useRef(false);
+
   // Native Banner lifecycle: show ONLY on clean Title Menu (never overlapping gameplay HUD or modals)
   useEffect(() => {
     const shouldDisplayBanner =
-      screen === 'TITLE_MENU' && !showSplash && !showComplianceModal && !activeWebAd;
+      screen === 'TITLE_MENU' &&
+      !showSplash &&
+      !showComplianceModal &&
+      !activeWebAd &&
+      !offlineSummary;
     if (shouldDisplayBanner) {
       void showBannerAd();
     } else {
       void hideBannerAd();
     }
-  }, [screen, showSplash, showComplianceModal, activeWebAd]);
+  }, [screen, showSplash, showComplianceModal, activeWebAd, offlineSummary]);
 
   const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(() =>
     typeof window !== 'undefined'
@@ -723,6 +736,11 @@ export default function App() {
     soundFX.playCashRegister();
     clearSavedShopState();
     const fresh = createInitialShopState();
+    dailyStreakClaimLockRef.current = false;
+    dailyStreakClaimedKeyRef.current = null;
+    offlineClaimedKeyRef.current = null;
+    daySummaryBonusClaimedDayRef.current = null;
+    setDailyStreakClaiming(false);
     setShop(fresh);
     setSavedSnapshot(fresh);
     setActiveTab('COUNTER');
@@ -738,6 +756,8 @@ export default function App() {
       return;
     }
     soundFX.playClick();
+    offlineClaimedKeyRef.current = null;
+    daySummaryBonusClaimedDayRef.current = null;
     const idle = computeOfflineEarnings(savedSnapshot);
     setShop(savedSnapshot);
     setActiveTab('COUNTER');
@@ -774,6 +794,7 @@ export default function App() {
   };
 
   const handleActivate2xCashAd = async () => {
+    if (cash2xAdLockRef.current) return;
     const ad = normalizeAdState(shop.adState, shop.day);
     if (ad.cashMultiplier === 2 && ad.cashMultiplierDealsLeft > 0) {
       pushFeedback(
@@ -785,78 +806,105 @@ export default function App() {
       );
       return;
     }
-    soundFX.playClick();
-    const dealsGrant = AD_PACING_RULES.cashMultiplierDealsGrant;
-    const completed = await showRewardedAd({
-      placement: 'CASH_2X_MULTIPLIER_REWARDED',
-      rewardLabelTr: `2x Para Çarpanı (${dealsGrant} İşlem Boyunca)`,
-      rewardLabelEn: `2x Cash Multiplier (Next ${dealsGrant} Deals)`,
-      detailTr: `Kısa bir ödüllü reklam izleyerek sonraki ${dealsGrant} telefon satışı, acil tamir veya aksesuar işleminde kazancını 2x çarpanla artırmak istiyor musun?`,
-      detailEn: `Watch a short rewarded ad to boost your next ${dealsGrant} phone sales, express repairs, or accessory deals with a 2x cash multiplier?`,
-      multiplierBadge: `2x · ${dealsGrant} İŞLEM`,
-    });
-    if (!completed) return;
-    soundFX.playCashRegister();
-    triggerHaptic(shop.hapticsEnabled, 'success');
-    pushFeedback(
-      bi(
-        `⚡ 2x Para Çarpanı Aktif! Sonraki ${dealsGrant} işlemde kazancın katlanacak!`,
-        `⚡ 2x Cash Multiplier Active! Boosted earnings for your next ${dealsGrant} deals!`
-      ),
-      'positive'
-    );
-    setShop((prev) => {
-      const curAd = normalizeAdState(prev.adState, prev.day);
-      return {
-        ...prev,
-        adState: {
-          ...curAd,
-          cashMultiplier: 2,
-          cashMultiplierDealsLeft: dealsGrant,
-          totalRewardedAdsWatched: curAd.totalRewardedAdsWatched + 1,
-        },
-      };
-    });
+    cash2xAdLockRef.current = true;
+    try {
+      soundFX.playClick();
+      const dealsGrant = AD_PACING_RULES.cashMultiplierDealsGrant;
+      const completed = await showRewardedAd({
+        placement: 'CASH_2X_MULTIPLIER_REWARDED',
+        rewardLabelTr: `2x Para Çarpanı (${dealsGrant} İşlem Boyunca)`,
+        rewardLabelEn: `2x Cash Multiplier (Next ${dealsGrant} Deals)`,
+        detailTr: `Kısa bir ödüllü reklam izleyerek sonraki ${dealsGrant} telefon satışı, acil tamir veya aksesuar işleminde kazancını 2x çarpanla artırmak istiyor musun?`,
+        detailEn: `Watch a short rewarded ad to boost your next ${dealsGrant} phone sales, express repairs, or accessory deals with a 2x cash multiplier?`,
+        multiplierBadge: `2x · ${dealsGrant} İŞLEM`,
+      });
+      if (!completed) return;
+      soundFX.playCashRegister();
+      triggerHaptic(shop.hapticsEnabled, 'success');
+      pushFeedback(
+        bi(
+          `⚡ 2x Para Çarpanı Aktif! Sonraki ${dealsGrant} işlemde kazancın katlanacak!`,
+          `⚡ 2x Cash Multiplier Active! Boosted earnings for your next ${dealsGrant} deals!`
+        ),
+        'positive'
+      );
+      setShop((prev) => {
+        const curAd = normalizeAdState(prev.adState, prev.day);
+        if (curAd.cashMultiplier === 2 && curAd.cashMultiplierDealsLeft > 0) {
+          return prev;
+        }
+        return {
+          ...prev,
+          adState: {
+            ...curAd,
+            cashMultiplier: 2,
+            cashMultiplierDealsLeft: dealsGrant,
+            totalRewardedAdsWatched: curAd.totalRewardedAdsWatched + 1,
+          },
+        };
+      });
+    } finally {
+      cash2xAdLockRef.current = false;
+    }
   };
 
   const handleActivatePassive2xAd = async () => {
-    const curAd = normalizeAdState(shop.adState, shop.day);
-    if (curAd.passiveIncome2xDay === shop.day) return;
-    soundFX.playClick();
-    const completed = await showRewardedAd({
-      placement: 'PASSIVE_INCOME_2X_REWARDED',
-      rewardLabelTr: `Gün ${shop.day} Pasif Gelir 2x Çarpanı`,
-      rewardLabelEn: `Day ${shop.day} 2x Daily Passive Income`,
-      detailTr:
-        'Kısa bir ödüllü reklam izleyerek bugünün şube, müze ve pasif gelirini gün sonunda 2 katı olarak kasaya yatırmak istiyor musun?',
-      detailEn:
-        "Watch a short rewarded ad to double today's branch, museum, and passive income at end of day?",
-      multiplierBadge: '2x PASİF',
-    });
-    if (!completed) return;
-    soundFX.playCashRegister();
-    triggerHaptic(shop.hapticsEnabled, 'success');
-    pushFeedback(
-      bi(
-        `⚡ Gün ${shop.day} Pasif Gelir 2x Aktif! Gün sonunda 2 kat gelir yatacak.`,
-        `⚡ Day ${shop.day} 2x Passive Income Active! Double payout at closing.`
-      ),
-      'positive'
-    );
-    setShop((prev) => {
-      const ad = normalizeAdState(prev.adState, prev.day);
-      return {
-        ...prev,
-        adState: {
-          ...ad,
-          passiveIncome2xDay: prev.day,
-          totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1,
-        },
-      };
-    });
+    if (passive2xAdLockRef.current) return;
+    const requestDay = shop.day;
+    const curAd = normalizeAdState(shop.adState, requestDay);
+    if (curAd.passiveIncome2xDay === requestDay) return;
+    passive2xAdLockRef.current = true;
+    try {
+      soundFX.playClick();
+      const completed = await showRewardedAd({
+        placement: 'PASSIVE_INCOME_2X_REWARDED',
+        rewardLabelTr: `Gün ${requestDay} Pasif Gelir 2x Çarpanı`,
+        rewardLabelEn: `Day ${requestDay} 2x Daily Passive Income`,
+        detailTr:
+          'Kısa bir ödüllü reklam izleyerek bugünün şube, müze ve pasif gelirini gün sonunda 2 katı olarak kasaya yatırmak istiyor musun?',
+        detailEn:
+          "Watch a short rewarded ad to double today's branch, museum, and passive income at end of day?",
+        multiplierBadge: '2x PASİF',
+      });
+      if (!completed) return;
+      soundFX.playCashRegister();
+      triggerHaptic(shop.hapticsEnabled, 'success');
+      pushFeedback(
+        bi(
+          `⚡ Gün ${requestDay} Pasif Gelir 2x Aktif! Gün sonunda 2 kat gelir yatacak.`,
+          `⚡ Day ${requestDay} 2x Passive Income Active! Double payout at closing.`
+        ),
+        'positive'
+      );
+      setShop((prev) => {
+        if (prev.day !== requestDay) return prev;
+        const ad = normalizeAdState(prev.adState, prev.day);
+        if (ad.passiveIncome2xDay === prev.day) return prev;
+        return {
+          ...prev,
+          adState: {
+            ...ad,
+            passiveIncome2xDay: prev.day,
+            totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1,
+          },
+        };
+      });
+    } finally {
+      passive2xAdLockRef.current = false;
+    }
   };
 
   const handleClaimOfflineEarnings = (amount: number, doubled: boolean) => {
+    if (!offlineSummary) return;
+    const expectedAmount = doubled
+      ? offlineSummary.baseCash * 2
+      : offlineSummary.baseCash;
+    if (!Number.isFinite(amount) || amount <= 0 || amount !== expectedAmount) return;
+
+    const claimKey = `${offlineSummary.minutesAway}:${offlineSummary.baseCash}:${shop.lastSavedAt}`;
+    if (offlineClaimedKeyRef.current === claimKey) return;
+    offlineClaimedKeyRef.current = claimKey;
+
     soundFX.playCashRegister();
     pushFeedback(
       doubled
@@ -3228,10 +3276,16 @@ export default function App() {
   };
 
   const handleClaimDaySummaryAdBonus = (bonusCash: number) => {
+    if (screen !== 'DAY_SUMMARY' || !Number.isFinite(bonusCash) || bonusCash <= 0) return;
+    const claimDay = shop.day;
+    if (daySummaryBonusClaimedDayRef.current === claimDay) return;
+    daySummaryBonusClaimedDayRef.current = claimDay;
+
     soundFX.playCashRegister();
     triggerHaptic(shop.hapticsEnabled, 'success');
     pushFeedback(`Ödüllü Reklam Primi: +${formatTRY(bonusCash)} Kasaya Eklendi!`, 'positive');
     setShop((prev) => {
+      if (prev.day !== claimDay) return prev;
       const ad = normalizeAdState(prev.adState, prev.day);
       return {
         ...prev,
@@ -3247,6 +3301,7 @@ export default function App() {
 
   const handleStartNextDay = () => {
     soundFX.playClick();
+    daySummaryBonusClaimedDayRef.current = null;
     setShop((prev) => {
       const nextDay = prev.day + 1;
       const nextNews = pickDailyNewspaper(nextDay, prev.dailyNews.id);
@@ -4327,45 +4382,78 @@ export default function App() {
   };
 
   const handleClaimDailyStreak = async (doubled = false) => {
-    if (shop.dailyStreakClaimed) return;
+    const requestDay = shop.day;
+    const requestLoginDate = shop.lastLoginDateStr;
+    const claimKey = `${requestDay}:${requestLoginDate}`;
+
+    if (
+      shop.dailyStreakClaimed ||
+      dailyStreakClaimLockRef.current ||
+      dailyStreakClaimedKeyRef.current === claimKey
+    ) {
+      return;
+    }
+
     const idx = Math.min(DAILY_STREAK_REWARDS.length - 1, Math.max(0, (shop.loginStreak ?? 1) - 1));
     const reward = DAILY_STREAK_REWARDS[idx];
     let finalCash = reward.cash;
-    if (doubled) {
-      const ok = await showRewardedAd({
-        placement: 'DAILY_STREAK_2X_REWARDED',
-        rewardLabelTr: `Günlük Giriş Ödülü 2x (+${formatTRY(reward.cash * 2)})`,
-        rewardLabelEn: `Daily Login Reward 2x (+${formatTRY(reward.cash * 2)})`,
-        detailTr: `Kısa bir ödüllü reklam izleyerek Gün #${reward.day} giriş ödülünü ${formatTRY(reward.cash)} yerine 2 katına (+${formatTRY(reward.cash * 2)}) çıkarmak istiyor musun?`,
-        detailEn: `Watch a short rewarded ad to double your Day #${reward.day} login bonus from ${formatTRY(reward.cash)} to +${formatTRY(reward.cash * 2)}?`,
-        multiplierBadge: '2x GÜNLÜK',
+
+    // Immediately lock both normal & 2x buttons before any async ad confirmation/loading begins
+    dailyStreakClaimLockRef.current = true;
+    setDailyStreakClaiming(true);
+    try {
+      if (doubled) {
+        const ok = await showRewardedAd({
+          placement: 'DAILY_STREAK_2X_REWARDED',
+          rewardLabelTr: `Günlük Giriş Ödülü 2x (+${formatTRY(reward.cash * 2)})`,
+          rewardLabelEn: `Daily Login Reward 2x (+${formatTRY(reward.cash * 2)})`,
+          detailTr: `Kısa bir ödüllü reklam izleyerek Gün #${reward.day} giriş ödülünü ${formatTRY(reward.cash)} yerine 2 katına (+${formatTRY(reward.cash * 2)}) çıkarmak istiyor musun?`,
+          detailEn: `Watch a short rewarded ad to double your Day #${reward.day} login bonus from ${formatTRY(reward.cash)} to +${formatTRY(reward.cash * 2)}?`,
+          multiplierBadge: '2x GÜNLÜK',
+        });
+        if (!ok) return;
+        finalCash = reward.cash * 2;
+      }
+
+      // Re-verify single-claim guard after async rewarded ad resolves
+      if (dailyStreakClaimedKeyRef.current === claimKey) return;
+      dailyStreakClaimedKeyRef.current = claimKey;
+
+      soundFX.playQuestClaim();
+      pushFeedback(
+        doubled
+          ? `⚡ 2x Günlük Giriş Serisi #${reward.day}: +${formatTRY(finalCash)}!`
+          : `Günlük Giriş Serisi #${reward.day}: +${formatTRY(finalCash)}!`,
+        'positive'
+      );
+      setShop((prev) => {
+        // Strict state-level idempotency: never pay twice on the same game day / login date
+        if (
+          prev.dailyStreakClaimed ||
+          prev.day !== requestDay ||
+          prev.lastLoginDateStr !== requestLoginDate
+        ) {
+          return prev;
+        }
+        const ad = normalizeAdState(prev.adState, prev.day);
+        const nextState: ShopState = {
+          ...prev,
+          cash: prev.cash + finalCash,
+          dailyStreakClaimed: true,
+          adState: doubled
+            ? { ...ad, totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1 }
+            : ad,
+          todayStats: {
+            ...prev.todayStats,
+            questRewards: prev.todayStats.questRewards + finalCash,
+          },
+        };
+        return applyXpGain(nextState, reward.xp);
       });
-      if (!ok) return;
-      finalCash = reward.cash * 2;
+    } finally {
+      dailyStreakClaimLockRef.current = false;
+      setDailyStreakClaiming(false);
     }
-    soundFX.playQuestClaim();
-    pushFeedback(
-      doubled
-        ? `⚡ 2x Günlük Giriş Serisi #${reward.day}: +${formatTRY(finalCash)}!`
-        : `Günlük Giriş Serisi #${reward.day}: +${formatTRY(finalCash)}!`,
-      'positive'
-    );
-    setShop((prev) => {
-      const ad = normalizeAdState(prev.adState, prev.day);
-      const nextState: ShopState = {
-        ...prev,
-        cash: prev.cash + finalCash,
-        dailyStreakClaimed: true,
-        adState: doubled
-          ? { ...ad, totalRewardedAdsWatched: ad.totalRewardedAdsWatched + 1 }
-          : ad,
-        todayStats: {
-          ...prev.todayStats,
-          questRewards: prev.todayStats.questRewards + finalCash,
-        },
-      };
-      return applyXpGain(nextState, reward.xp);
-    });
   };
 
   // === PİYASA & İMPARATORLUK (EMPIRE) HANDLERS ===
@@ -5552,6 +5640,7 @@ export default function App() {
             onClaimMilestone={handleClaimMilestone}
             onClaimStoryChapter={handleClaimStoryChapter}
             onClaimDailyStreak={handleClaimDailyStreak}
+            dailyStreakClaiming={dailyStreakClaiming}
             onTriggerPrestige={handleTriggerPrestige}
             onBuyPrestigePerk={handleBuyPrestigePerk}
             onBackToCounter={() => {

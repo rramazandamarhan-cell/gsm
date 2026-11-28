@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Award,
@@ -231,6 +231,8 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
   const { bi } = useLanguage();
   const [adBonusClaimed, setAdBonusClaimed] = useState(false);
   const [watchingAd, setWatchingAd] = useState(false);
+  const adBonusLockRef = useRef(false);
+  const adBonusClaimedRef = useRef(false);
   const totalRevenue =
     stats.salesRevenue +
     stats.accessoryRevenue +
@@ -546,28 +548,43 @@ export const DaySummaryModal: React.FC<DaySummaryModalProps> = ({
                   type="button"
                   disabled={adBonusClaimed || watchingAd}
                   onClick={async () => {
-                    if (!onClaimAdBonus || adBonusClaimed) return;
+                    if (
+                      !onClaimAdBonus ||
+                      adBonusClaimed ||
+                      adBonusClaimedRef.current ||
+                      adBonusLockRef.current
+                    ) {
+                      return;
+                    }
+                    adBonusLockRef.current = true;
                     setWatchingAd(true);
-                    const ok = await showRewardedAd({
-                      placement: isPassiveDouble ? 'PASSIVE_INCOME_2X_REWARDED' : 'DAY_BONUS_REWARDED',
-                      rewardLabelTr: isPassiveDouble
-                        ? `Günlük Pasif Gelir 2x Bonusu (+${formatTRY(adBonusCash)})`
-                        : `Gün Sonu Esnaf Primi (+${formatTRY(adBonusCash)})`,
-                      rewardLabelEn: isPassiveDouble
-                        ? `Daily Passive Income 2x Bonus (+${formatTRY(adBonusCash)})`
-                        : `End-of-Day Merchant Bonus (+${formatTRY(adBonusCash)})`,
-                      detailTr: isPassiveDouble
-                        ? `Kısa bir ödüllü reklam izleyerek bugünkü pasif gelirini 2 katına çıkarıp +${formatTRY(adBonusCash)} ekstra nakit almak istiyor musun?`
-                        : `Kısa bir ödüllü reklam izleyerek gün sonu cirosundan +${formatTRY(adBonusCash)} ek esnaf primi almak istiyor musun?`,
-                      detailEn: isPassiveDouble
-                        ? `Watch a short rewarded ad to double today's passive income with +${formatTRY(adBonusCash)} extra cash?`
-                        : `Watch a short rewarded ad to claim +${formatTRY(adBonusCash)} extra end-of-day cash bonus?`,
-                      multiplierBadge: isPassiveDouble ? '2x PASİF' : '+25% PRİM',
-                    });
-                    setWatchingAd(false);
-                    if (ok) {
-                      setAdBonusClaimed(true);
-                      onClaimAdBonus(adBonusCash);
+                    try {
+                      const ok = await showRewardedAd({
+                        placement: isPassiveDouble ? 'PASSIVE_INCOME_2X_REWARDED' : 'DAY_BONUS_REWARDED',
+                        rewardLabelTr: isPassiveDouble
+                          ? `Günlük Pasif Gelir 2x Bonusu (+${formatTRY(adBonusCash)})`
+                          : `Gün Sonu Esnaf Primi (+${formatTRY(adBonusCash)})`,
+                        rewardLabelEn: isPassiveDouble
+                          ? `Daily Passive Income 2x Bonus (+${formatTRY(adBonusCash)})`
+                          : `End-of-Day Merchant Bonus (+${formatTRY(adBonusCash)})`,
+                        detailTr: isPassiveDouble
+                          ? `Kısa bir ödüllü reklam izleyerek bugünkü pasif gelirini 2 katına çıkarıp +${formatTRY(adBonusCash)} ekstra nakit almak istiyor musun?`
+                          : `Kısa bir ödüllü reklam izleyerek gün sonu cirosundan +${formatTRY(adBonusCash)} ek esnaf primi almak istiyor musun?`,
+                        detailEn: isPassiveDouble
+                          ? `Watch a short rewarded ad to double today's passive income with +${formatTRY(adBonusCash)} extra cash?`
+                          : `Watch a short rewarded ad to claim +${formatTRY(adBonusCash)} extra end-of-day cash bonus?`,
+                        multiplierBadge: isPassiveDouble ? '2x PASİF' : '+25% PRİM',
+                      });
+                      if (ok && !adBonusClaimedRef.current) {
+                        adBonusClaimedRef.current = true;
+                        setAdBonusClaimed(true);
+                        onClaimAdBonus(adBonusCash);
+                      }
+                    } finally {
+                      setWatchingAd(false);
+                      if (!adBonusClaimedRef.current) {
+                        adBonusLockRef.current = false;
+                      }
                     }
                   }}
                   className={`inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[10.5px] font-extrabold transition-colors whitespace-nowrap tabular-nums ${
